@@ -299,6 +299,7 @@
       - blogx_network
 
   blogx_server:
+    container_name: blogx-server
     image: "blogx-server:1"
     restart: unless-stopped
     build:
@@ -469,8 +470,9 @@
     networks:
       - blogx_network
 
-  blog_web:
+  nginx:
     image: nginx:latest
+    container_name: nginx
     restart: unless-stopped
     volumes:
       - ../../docker/nginx/nginx.conf:/etc/nginx/nginx.conf
