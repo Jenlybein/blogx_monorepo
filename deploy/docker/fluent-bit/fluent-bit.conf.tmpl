@@ -1,19 +1,14 @@
 # ==============================================
-# Fluent Bit 主配置文件：日志采集 + 发送到 ClickHouse
+# Fluent Bit 主配置文件模板：日志采集 + 发送到 ClickHouse
+# 说明：启动时会由 render-config.sh 把环境变量渲染进实际配置
 # ==============================================
 
-# --------------------------
-# 全局服务配置（核心启动参数）
-# --------------------------
 [SERVICE]
     Flush         1
     Daemon        Off
     Log_Level     info
     Parsers_File  /fluent-bit/etc/parsers.conf
 
-# --------------------------
-# 输入源1：采集系统运行时日志
-# --------------------------
 [INPUT]
     Name              tail
     Path              /logs/runtime_logs/*/*.log
@@ -25,9 +20,6 @@
     Mem_Buf_Limit     20MB
     Read_from_Head    On
 
-# --------------------------
-# 输入源2：采集用户登录事件日志
-# --------------------------
 [INPUT]
     Name              tail
     Path              /logs/login_event_logs/*/*.log
@@ -39,9 +31,6 @@
     Mem_Buf_Limit     10MB
     Read_from_Head    On
 
-# --------------------------
-# 输入源3：采集操作审计日志
-# --------------------------
 [INPUT]
     Name              tail
     Path              /logs/action_audit_logs/*/*.log
@@ -53,44 +42,35 @@
     Mem_Buf_Limit     10MB
     Read_from_Head    On
 
-# --------------------------
-# 输出1：运行时日志 → 发送到 ClickHouse
-# --------------------------
 [OUTPUT]
     Name          http
     Match         runtime_logs
     Host          clickhouse
     Port          8123
-    URI           /?query=INSERT%20INTO%20blogx_logs.runtime_logs%20FORMAT%20JSONEachRow
+    URI           /?query=INSERT%20INTO%20__BLOGX_CLICKHOUSE_DB__.runtime_logs%20FORMAT%20JSONEachRow
     Format        json_lines
     Json_Date_Key false
-    HTTP_User     default
-    HTTP_Passwd   myblogxAbc12345
+    HTTP_User     __BLOGX_CLICKHOUSE_USERNAME__
+    HTTP_Passwd   __BLOGX_CLICKHOUSE_PASSWORD__
 
-# --------------------------
-# 输出2：登录日志 → 发送到 ClickHouse
-# --------------------------
 [OUTPUT]
     Name          http
     Match         login_event_logs
     Host          clickhouse
     Port          8123
-    URI           /?query=INSERT%20INTO%20blogx_logs.login_event_logs%20FORMAT%20JSONEachRow
+    URI           /?query=INSERT%20INTO%20__BLOGX_CLICKHOUSE_DB__.login_event_logs%20FORMAT%20JSONEachRow
     Format        json_lines
     Json_Date_Key false
-    HTTP_User     default
-    HTTP_Passwd   myblogxAbc12345
+    HTTP_User     __BLOGX_CLICKHOUSE_USERNAME__
+    HTTP_Passwd   __BLOGX_CLICKHOUSE_PASSWORD__
 
-# --------------------------
-# 输出3：审计日志 → 发送到 ClickHouse
-# --------------------------
 [OUTPUT]
     Name          http
     Match         action_audit_logs
     Host          clickhouse
     Port          8123
-    URI           /?query=INSERT%20INTO%20blogx_logs.action_audit_logs%20FORMAT%20JSONEachRow
+    URI           /?query=INSERT%20INTO%20__BLOGX_CLICKHOUSE_DB__.action_audit_logs%20FORMAT%20JSONEachRow
     Format        json_lines
     Json_Date_Key false
-    HTTP_User     default
-    HTTP_Passwd   myblogxAbc12345
+    HTTP_User     __BLOGX_CLICKHOUSE_USERNAME__
+    HTTP_Passwd   __BLOGX_CLICKHOUSE_PASSWORD__
