@@ -1,0 +1,17 @@
+.vscode
+.claude
+
+logs
+test_copy
+uploads
+
+init/deploy/es/data
+init/deploy/redis/data
+init/deploy/redis/data
+init/deploy/nginx/cert
+init/deploy/sql_master/data
+init/deploy/sql_slave/data
+
+*.exe
+
+.envrc
