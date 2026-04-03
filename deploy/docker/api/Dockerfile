@@ -33,18 +33,25 @@ COPY --from=builder /build/apps/api/resources /app/resources
 # 安装运行时依赖：时区、CA 证书、mysql 客户端（包含 mysqldump）
 RUN apk add --no-cache tzdata ca-certificates mysql-client && update-ca-certificates
 
-# 预创建运行时目录，便于卷挂载和 river 位点持久化
+# 预创建运行时目录，便于卷挂载和 river 位点持久化。
+# 另外在 /usr/local/bin 放一个同名 mysqldump wrapper，这样容器内仍可使用配置值 "mysqldump"，
+# 但最终会自动转发到系统真实二进制，并补上兼容参数。
 RUN printf '%s\n' \
 	'#!/bin/sh' \
 	'set -eu' \
 	'' \
-	'if command -v mariadb-dump >/dev/null 2>&1; then' \
-	'	exec "$(command -v mariadb-dump)" --skip-ssl-verify-server-cert "$@"' \
-	'fi' \
+	'for candidate in /usr/bin/mariadb-dump /usr/bin/mysqldump; do' \
+	'	if [ -x "$candidate" ]; then' \
+	'		exec "$candidate" --skip-ssl-verify-server-cert "$@"' \
+	'	fi' \
+	'done' \
 	'' \
-	'exec "$(command -v mysqldump)" --skip-ssl-verify-server-cert "$@"' \
+	'echo "未找到可用的 mysqldump/mariadb-dump 可执行文件" >&2' \
+	'exit 127' \
 	> /usr/local/bin/mariadb-dump-wrapper \
+	&& cp /usr/local/bin/mariadb-dump-wrapper /usr/local/bin/mysqldump \
 	&& chmod +x /usr/local/bin/mariadb-dump-wrapper \
+	&& chmod +x /usr/local/bin/mysqldump \
 	&& mkdir -p /app/logs /app/uploads /app/var
 
 # 容器启动时执行服务进程

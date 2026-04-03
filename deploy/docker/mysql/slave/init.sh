@@ -1,52 +1,58 @@
 #!/bin/bash
-set -euo pipefail
 
-: "${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD 未设置}"
-: "${BLOGX_DB_NAME:?BLOGX_DB_NAME 未设置}"
+main() (
+  set -euo pipefail
 
-BLOGX_DB_REPL_USER="${BLOGX_DB_REPL_USER:-repl}"
-BLOGX_DB_REPL_PASSWORD="${BLOGX_DB_REPL_PASSWORD:-${MYSQL_ROOT_PASSWORD}}"
+  : "${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD 未设置}"
+  : "${BLOGX_DB_NAME:?BLOGX_DB_NAME 未设置}"
 
-sql_escape_string() {
-  local value="$1"
-  value=${value//\\/\\\\}
-  value=${value//\'/\'\'}
-  printf '%s' "$value"
-}
+  BLOGX_DB_REPL_USER="${BLOGX_DB_REPL_USER:-repl}"
+  BLOGX_DB_REPL_PASSWORD="${BLOGX_DB_REPL_PASSWORD:-${MYSQL_ROOT_PASSWORD}}"
 
-sql_escape_identifier() {
-  local value="$1"
-  value=${value//\`/\`\`}
-  printf '%s' "$value"
-}
+  sql_escape_string() {
+    local value="$1"
+    value=${value//\\/\\\\}
+    value=${value//\'/\'\'}
+    printf '%s' "$value"
+  }
 
-run_local_mysql() {
-  if mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "SELECT 1" > /dev/null 2>&1; then
-    mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" "$@"
-    return
-  fi
+  sql_escape_identifier() {
+    local value="$1"
+    value=${value//\`/\`\`}
+    printf '%s' "$value"
+  }
 
-  mysql -uroot "$@"
-}
+  run_local_mysql() {
+    if mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "SELECT 1" > /dev/null 2>&1; then
+      mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" "$@"
+      return
+    fi
 
-run_master_mysql() {
-  mysql -h mysql-master -uroot -p"${MYSQL_ROOT_PASSWORD}" "$@"
-}
+    mysql -uroot "$@"
+  }
 
-# 等待主库启动完成
-echo "等待主库 mysql-master:3306 启动..."
-until run_master_mysql -e "SELECT 1" > /dev/null 2>&1; do
-  sleep 2
-done
+  run_master_mysql() {
+    mysql -h mysql-master -uroot -p"${MYSQL_ROOT_PASSWORD}" "$@"
+  }
 
-repl_user_escaped="$(sql_escape_string "${BLOGX_DB_REPL_USER}")"
-repl_password_escaped="$(sql_escape_string "${BLOGX_DB_REPL_PASSWORD}")"
-db_name_escaped="$(sql_escape_identifier "${BLOGX_DB_NAME}")"
+  echo "等待主库 mysql-master:3306 启动..."
+  until run_master_mysql -e "SELECT 1" > /dev/null 2>&1; do
+    sleep 2
+  done
 
-# 从库初始化配置
-echo "开始配置从库..."
-run_local_mysql <<SQL
+  local repl_user_escaped
+  local repl_password_escaped
+  local db_name_escaped
+
+  repl_user_escaped="$(sql_escape_string "${BLOGX_DB_REPL_USER}")"
+  repl_password_escaped="$(sql_escape_string "${BLOGX_DB_REPL_PASSWORD}")"
+  db_name_escaped="$(sql_escape_identifier "${BLOGX_DB_NAME}")"
+
+  echo "开始配置从库..."
+  run_local_mysql <<SQL
 SET GLOBAL read_only = 0;
+STOP SLAVE;
+RESET SLAVE ALL;
 CHANGE MASTER TO
 MASTER_HOST='mysql-master',
 MASTER_USER='${repl_user_escaped}',
@@ -59,5 +65,7 @@ SET GLOBAL read_only = 1;
 SHOW SLAVE STATUS\G;
 SQL
 
-# 确保主库数据库已创建（和 Compose 初始化保持一致）
-run_master_mysql -e "CREATE DATABASE IF NOT EXISTS \`${db_name_escaped}\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+  run_master_mysql -e "CREATE DATABASE IF NOT EXISTS \`${db_name_escaped}\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+)
+
+main "$@"
