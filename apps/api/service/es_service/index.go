@@ -81,3 +81,15 @@ func CreateIndexForce(index, mapping string) error {
 	}
 	return CreateIndex(index, mapping)
 }
+
+// EnsureIndex 确保索引存在；已存在时不做破坏性操作。
+func EnsureIndex(index, mapping string) error {
+	exists, err := ExistsIndex(index)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	return CreateIndex(index, mapping)
+}

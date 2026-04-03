@@ -46,6 +46,9 @@ func Run(op *FlagOptions, db *gorm.DB) {
 		case "init":
 			FlagESIndex()
 			os.Exit(0)
+		case "ensure":
+			FlagESEnsure()
+			os.Exit(0)
 		case "article-sync":
 			FlagESArticleSync()
 			os.Exit(0)
@@ -55,6 +58,16 @@ func Run(op *FlagOptions, db *gorm.DB) {
 	}
 
 	switch op.Type {
+	case "run":
+		switch op.Sub {
+		case "init":
+			FlagDB(db)
+			FlagESEnsure()
+			return
+		default:
+			fmt.Println("未知子操作类型")
+			os.Exit(1)
+		}
 	case "user":
 		u := FlagUser{}
 		switch op.Sub {

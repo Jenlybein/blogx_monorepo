@@ -442,7 +442,7 @@
       [
         "/bin/sh",
         "-c",
-        'AUTH_HEADER="Authorization: Basic $(printf ''elastic:%s'' "$$BLOGX_ES_PASSWORD" | base64 | tr -d ''\n'')"; until wget -q --header="$$AUTH_HEADER" -O /dev/null "http://es:9200/_cluster/health?wait_for_status=yellow&timeout=5s"; do echo ''等待 ES 完整启动...''; sleep 3; done; exec /app/server',
+        'AUTH_HEADER="Authorization: Basic $(printf ''elastic:%s'' "$$BLOGX_ES_PASSWORD" | base64 | tr -d ''\n'')"; until wget -q --header="$$AUTH_HEADER" -O /dev/null "http://es:9200/_cluster/health?wait_for_status=yellow&timeout=5s"; do echo ''等待 ES 完整启动...''; sleep 3; done; exec /app/server -t run -s init',
       ]
     networks:
       - blogx_network

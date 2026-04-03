@@ -177,6 +177,9 @@ func InitRuntimeConfig() error {
 	if global.DB == nil {
 		return errors.New("数据库未初始化")
 	}
+	if !global.DB.Migrator().HasTable(&models.RuntimeSiteConfigModel{}) {
+		return errors.New("运行时配置表不存在，请先执行数据库初始化命令：/app/server -db")
+	}
 	var loaded *RuntimeConfig
 	if err := global.DB.Transaction(func(tx *gorm.DB) error {
 		_, cfg, err := ensureRuntimeConfigModel(tx)

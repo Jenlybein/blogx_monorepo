@@ -87,3 +87,15 @@ func CreatePipelineForce(pipeline, definition string) error {
 	}
 	return CreatePipeline(pipeline, definition)
 }
+
+// EnsurePipeline 确保流水线存在；已存在时不做破坏性操作。
+func EnsurePipeline(pipeline, definition string) error {
+	exists, err := ExistsPipeline(pipeline)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	return CreatePipeline(pipeline, definition)
+}

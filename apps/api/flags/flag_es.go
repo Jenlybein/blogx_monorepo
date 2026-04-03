@@ -71,6 +71,26 @@ func FlagESIndex() {
 	}
 }
 
+// FlagESEnsure 非交互地确保 ES 索引和流水线存在。
+// 这个模式用于容器首启初始化：缺失则创建，已存在则跳过，不会删除已有索引。
+func FlagESEnsure() {
+	article := models.ArticleModel{}
+	index := article.Index()
+	pipelineName := article.PipelineName()
+
+	if err := es_service.EnsureIndex(index, article.Mapping()); err != nil {
+		global.Logger.Errorf("确保索引失败: %v", err)
+		return
+	}
+	global.Logger.Infof("索引 %s 已就绪", index)
+
+	if err := es_service.EnsurePipeline(pipelineName, article.Pipeline()); err != nil {
+		global.Logger.Errorf("确保流水线失败: %v", err)
+		return
+	}
+	global.Logger.Infof("流水线 %s 已就绪", pipelineName)
+}
+
 // FlagESArticleSync 全量同步文章数据到 ES。
 func FlagESArticleSync() {
 	if global.DB == nil {

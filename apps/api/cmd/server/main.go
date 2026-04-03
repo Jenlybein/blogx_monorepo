@@ -30,7 +30,7 @@ func main() {
 
 	flags.Run(flag, global.DB)
 	if err := core.InitRuntimeSite(); err != nil {
-		panic(err)
+		global.Logger.Fatalf("运行时站点配置初始化失败: %v", err)
 	}
 
 	core.InitMySQLES()
