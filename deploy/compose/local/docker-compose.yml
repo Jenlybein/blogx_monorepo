@@ -12,11 +12,11 @@
     ports:
       - "${BLOGX_DB_MASTER_PORT}:3306"
     volumes:
-      - ./sql_master/my.cnf:/etc/mysql/my.cnf
-      - ./sql_master/mysql-files:/var/lib/mysql-files
-      - ./sql_master/data:/var/lib/mysql
-      - ./sql_master/log:/var/log/
-      - ./sql_master/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ../../docker/mysql/master/my.cnf:/etc/mysql/my.cnf
+      - ../../state/mysql/master/mysql-files:/var/lib/mysql-files
+      - ../../state/mysql/master/data:/var/lib/mysql
+      - ../../state/mysql/master/log:/var/log/
+      - ../../docker/mysql/master/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test:
         [
@@ -46,12 +46,12 @@
     ports:
       - "${BLOGX_DB_REPLICA_PORT}:3306"
     volumes:
-      - ./sql_slave/my.cnf:/etc/mysql/my.cnf
-      - ./sql_slave/mysql-files:/var/lib/mysql-files
-      - ./sql_slave/data:/var/lib/mysql
-      - ./sql_slave/log:/var/log/
-      - ./sql_slave/init.sql:/docker-entrypoint-initdb.d/init.sql
-      - ./sql_slave/init.sh:/docker-entrypoint-initdb.d/init.sh
+      - ../../docker/mysql/slave/my.cnf:/etc/mysql/my.cnf
+      - ../../state/mysql/slave/mysql-files:/var/lib/mysql-files
+      - ../../state/mysql/slave/data:/var/lib/mysql
+      - ../../state/mysql/slave/log:/var/log/
+      - ../../docker/mysql/slave/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ../../docker/mysql/slave/init.sh:/docker-entrypoint-initdb.d/init.sh
     depends_on:
       mysql-master:
         condition: service_healthy
@@ -75,8 +75,8 @@
 
   es:
     build:
-      context: ./es
-      dockerfile: Dockerfile
+      context: ../../..
+      dockerfile: deploy/docker/es/Dockerfile
     image: "myblogx-elasticsearch:7.12.0"
     pull_policy: never
     container_name: es
@@ -94,7 +94,7 @@
     ports:
       - "${BLOGX_ES_PORT}:9200"
     volumes:
-      - ./es/data:/usr/share/elasticsearch/data
+      - ../../state/es/data:/usr/share/elasticsearch/data
     healthcheck:
       test:
         [
@@ -118,8 +118,8 @@
     ports:
       - "${BLOGX_REDIS_PORT}:6379"
     volumes:
-      - ./redis/data:/data
-      - ./redis/conf/redis.conf:/etc/redis/redis.conf
+      - ../../state/redis/data:/data
+      - ../../docker/redis/conf/redis.conf:/etc/redis/redis.conf
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${BLOGX_REDIS_PASSWORD}", "ping"]
       interval: 5s
@@ -277,9 +277,9 @@
       # 原生 TCP 端口（客户端连接、程序直连用）
       - 9000:9000
     volumes:
-      - ./clickhouse/data:/var/lib/clickhouse
-      - ./clickhouse/logs:/var/log/clickhouse-server
-      - ./clickhouse/init:/docker-entrypoint-initdb.d
+      - ../../state/clickhouse/data:/var/lib/clickhouse
+      - ../../state/clickhouse/logs:/var/log/clickhouse-server
+      - ../../docker/clickhouse/init:/docker-entrypoint-initdb.d
     healthcheck:
       test:
         [
@@ -297,8 +297,8 @@
   blogx_server:
     restart: unless-stopped
     build:
-      context: ../..
-      dockerfile: Dockerfile
+      context: ../../..
+      dockerfile: deploy/docker/api/Dockerfile
     environment:
       TZ: "${TZ}"
       BLOGX_SERVER_ID: "${BLOGX_SERVER_ID}"
@@ -418,11 +418,10 @@
       redis:
         condition: service_healthy
     volumes:
-      - ./blog_server/site_default_settings.yaml:/app/site_default_settings.yaml:ro
-      - ./blog_server/settings.yaml:/app/settings.yaml:ro
-      - ./blog_server/uploads:/app/uploads
-      - ./blog_server/logs:/app/logs
-      - ./blog_server/var:/app/var
+      - ../../../apps/api/config:/app/config:ro
+      - ../../state/api/uploads:/app/uploads
+      - ../../state/api/logs:/app/logs
+      - ../../state/api/var:/app/var
     healthcheck:
       test:
         [
@@ -437,7 +436,7 @@
       [
         "/bin/sh",
         "-c",
-        'AUTH_HEADER="Authorization: Basic $(printf ''elastic:%s'' "$$BLOGX_ES_PASSWORD" | base64 | tr -d ''\n'')"; until wget -q --header="$$AUTH_HEADER" -O /dev/null "http://es:9200/_cluster/health?wait_for_status=yellow&timeout=5s"; do echo ''等待 ES 完整启动...''; sleep 3; done; exec /app/main',
+        'AUTH_HEADER="Authorization: Basic $(printf ''elastic:%s'' "$$BLOGX_ES_PASSWORD" | base64 | tr -d ''\n'')"; until wget -q --header="$$AUTH_HEADER" -O /dev/null "http://es:9200/_cluster/health?wait_for_status=yellow&timeout=5s"; do echo ''等待 ES 完整启动...''; sleep 3; done; exec /app/server',
       ]
     networks:
       blogx_network:
@@ -453,10 +452,10 @@
       blogx_server:
         condition: service_started
     volumes:
-      - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
-      - ./fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
-      - ./blog_server/logs:/logs:ro
-      - ./fluent-bit/state:/fluent-bit/state
+      - ../../docker/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ../../docker/fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+      - ../../state/api/logs:/logs:ro
+      - ../../state/fluent-bit/state:/fluent-bit/state
     networks:
       blogx_network:
         ipv4_address: 10.2.0.10
@@ -465,10 +464,10 @@
     image: nginx:latest
     restart: unless-stopped
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./nginx/logs:/var/log/nginx/
-      - ./nginx/dist:/usr/share/nginx/fai_web
-      - ./nginx/cert/:/usr/share/nginx/cert
+      - ../../docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ../../state/nginx/logs:/var/log/nginx/
+      - ../../docker/nginx/dist:/usr/share/nginx/fai_web
+      - ../../state/nginx/cert/:/usr/share/nginx/cert
     networks:
       blogx_network:
         ipv4_address: 10.2.0.8

@@ -22,7 +22,7 @@ type FlagOptions struct {
 func Parse() *FlagOptions {
 	var Flags = new(FlagOptions)
 
-	flag.StringVar(&Flags.File, "f", "settings.yaml", "指定配置文件路径")
+	flag.StringVar(&Flags.File, "f", "config/settings.yaml", "指定配置文件路径")
 	flag.BoolVar(&Flags.DB, "db", false, "数据库迁移")
 	flag.BoolVar(&Flags.Version, "version", false, "显示版本信息")
 	flag.StringVar(&Flags.Type, "t", "", "操作类型")

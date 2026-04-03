@@ -147,8 +147,11 @@
 | `global/` | 全局运行时对象容器 |
 | `conf/` | 配置结构体定义 |
 | `utils/` | JWT、Markdown、请求元信息、日志序列化、安全处理等工具 |
-| `init/` | 部署资源、SQL、Compose、Fluent Bit、IP 库等 |
-| `.read/` | 文档、阅读记录、重写文档 |
+| `config/` | API 进程运行配置模板 |
+| `resources/` | API 运行依赖的静态资源，例如 IP 库 |
+| `deploy/`（仓库根） | Compose、Docker、SQL 初始化、基础设施配置与状态目录 |
+| `docs/api/`（仓库根） | 后端文档、开发记录、架构草图、待办 |
+| `openapi/api/`（仓库根） | OpenAPI 描述文件 |
 
 这套结构的核心优点是：
 

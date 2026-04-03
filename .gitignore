@@ -1,5 +1,16 @@
-node_modules
-logs
-.vscode
+node_modules/
+apps/*/node_modules/
+apps/*/.nuxt/
+
+apps/api/bin/
+apps/api/logs/
+apps/api/uploads/
+apps/api/var/*
+!apps/api/var/.gitkeep
+
+deploy/state/**/*
+!deploy/state/**/.gitkeep
+
+*.exe
 
 .envrc

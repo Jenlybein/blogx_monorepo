@@ -9,8 +9,8 @@
 # ========== 【唯一配置区】 ==========
 # 要脱敏的文件列表
 files=(
-  "settings.yaml"
-  "site_default_settings.yaml"
+  "apps/api/config/settings.yaml"
+  "apps/api/config/site_default_settings.yaml"
   # "src/config/.env"
   # "application.yml"
 )
