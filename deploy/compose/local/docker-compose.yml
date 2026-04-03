@@ -36,8 +36,7 @@
       timeout: 2s
       retries: 10
     networks:
-      blogx_network:
-        ipv4_address: 10.2.0.2
+      - blogx_network
 
   mysql-slave:
     image: "mysql:5.7"
@@ -77,8 +76,7 @@
       timeout: 5s
       retries: 20
     networks:
-      blogx_network:
-        ipv4_address: 10.2.0.3
+      - blogx_network
 
   es:
     build:
@@ -113,8 +111,7 @@
       retries: 20
       start_period: 40s
     networks:
-      blogx_network:
-        ipv4_address: 10.2.0.4
+      - blogx_network
 
   redis:
     image: "redis:7.4.7"
@@ -136,8 +133,7 @@
       timeout: 5s
       retries: 20
     networks:
-      blogx_network:
-        ipv4_address: 10.2.0.5
+      - blogx_network
 
     # kafka:
   #   image: apache/kafka:3.9.0
@@ -270,8 +266,7 @@
   #     retries: 20
   #     start_period: 20s
   #   networks:
-  #     blogx_network:
-  #       ipv4_address: 10.2.0.6
+  #     - blogx_network
 
   clickhouse:
     image: clickhouse/clickhouse-server:25.3
@@ -301,10 +296,10 @@
       retries: 20
       start_period: 20s
     networks:
-      blogx_network:
-        ipv4_address: 10.2.0.9
+      - blogx_network
 
   blogx_server:
+    image: "blogx-server:1"
     restart: unless-stopped
     build:
       context: ../../..
@@ -449,8 +444,7 @@
         'AUTH_HEADER="Authorization: Basic $(printf ''elastic:%s'' "$$BLOGX_ES_PASSWORD" | base64 | tr -d ''\n'')"; until wget -q --header="$$AUTH_HEADER" -O /dev/null "http://es:9200/_cluster/health?wait_for_status=yellow&timeout=5s"; do echo ''等待 ES 完整启动...''; sleep 3; done; exec /app/server',
       ]
     networks:
-      blogx_network:
-        ipv4_address: 10.2.0.7
+      - blogx_network
 
   fluent-bit:
     image: fluent/fluent-bit:3.2
@@ -473,8 +467,7 @@
       - ../../state/api/logs:/logs:ro
       - ../../state/fluent-bit/state:/fluent-bit/state
     networks:
-      blogx_network:
-        ipv4_address: 10.2.0.10
+      - blogx_network
 
   blog_web:
     image: nginx:latest
@@ -485,8 +478,7 @@
       - ../../docker/nginx/dist:/usr/share/nginx/fai_web
       - ../../state/nginx/cert/:/usr/share/nginx/cert
     networks:
-      blogx_network:
-        ipv4_address: 10.2.0.8
+      - blogx_network
     ports:
       - "80:80"
       - "443:443"
@@ -494,7 +486,3 @@
 networks:
   blogx_network:
     driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 10.2.0.0/24

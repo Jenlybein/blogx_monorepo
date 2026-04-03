@@ -393,7 +393,7 @@ docker compose logs -f es
    - 它不会自动构建 `apps/web` 和 `apps/admin`。
    - 前端产物如果要进入 Nginx，需要单独构建并放到对应目录。
 
-5. Compose 网络固定使用 `10.2.0.0/24`。
+5. Compose 网络使用 Docker 默认桥接网络分配，无需固定子网。
    - 如果宿主机或其他 Docker 网络已经占用了相同网段，需要自行调整。
 
 ### 2.5.3 组件安全建议

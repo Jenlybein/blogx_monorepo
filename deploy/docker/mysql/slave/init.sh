@@ -34,7 +34,7 @@ run_master_mysql() {
 }
 
 # 等待主库启动完成
-echo "等待主库 mysql-master (10.2.0.2:3306) 启动..."
+echo "等待主库 mysql-master:3306 启动..."
 until run_master_mysql -e "SELECT 1" > /dev/null 2>&1; do
   sleep 2
 done
