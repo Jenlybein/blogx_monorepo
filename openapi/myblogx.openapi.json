@@ -986,7 +986,28 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SendEmailRequest"
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "integer",
+                    "enum": [
+                      1,
+                      2,
+                      3,
+                      4
+                    ],
+                    "description": "验证码业务类型，1 注册、2 找回密码、3 绑定邮箱、4 邮箱登录。"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "邮箱地址。"
+                  }
+                },
+                "required": [
+                  "type",
+                  "email"
+                ]
               },
               "examples": {
                 "email_login": {
@@ -1062,7 +1083,26 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RegisterEmailRequest"
+                "type": "object",
+                "properties": {
+                  "pwd": {
+                    "type": "string",
+                    "description": "注册时设置的新密码。"
+                  },
+                  "email_id": {
+                    "type": "string",
+                    "description": "获取的邮件验证标识id"
+                  },
+                  "email_code": {
+                    "type": "string",
+                    "description": "获取的邮件验证码"
+                  }
+                },
+                "required": [
+                  "email_id",
+                  "email_code",
+                  "pwd"
+                ]
               },
               "example": {
                 "pwd": "123456"
@@ -11599,16 +11639,16 @@
   },
   "servers": [
     {
-      "url": "",
-      "description": "开发环境"
+      "url": "106.53.184.85",
+      "description": "测试环境"
     },
     {
       "url": "http://127.0.0.1:8080",
       "description": "本地开发"
     },
     {
-      "url": "106.53.184.85",
-      "description": "测试环境"
+      "url": "",
+      "description": "开发环境"
     }
   ],
   "security": []

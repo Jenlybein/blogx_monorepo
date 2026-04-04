@@ -1,6 +1,8 @@
 node_modules/
+.turbo/
 apps/*/node_modules/
 apps/*/.nuxt/
+apps/*/.turbo/
 
 apps/api/bin/
 apps/api/logs/

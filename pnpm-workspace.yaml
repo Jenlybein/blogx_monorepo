@@ -2,5 +2,4 @@ packages:
   - "apps/api"
   - "apps/web"
   - "apps/admin"
-  - "apps/mock-server"
   - "packages/*"

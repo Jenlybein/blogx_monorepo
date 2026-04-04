@@ -2,8 +2,8 @@
   "name": "api",
   "private": true,
   "scripts": {
-    "dev": "go run ./cmd/server",
-    "build": "go build -o ./bin/server ./cmd/server",
-    "test": "go test ./..."
+    "dev": "node ./run-go-task.cjs dev",
+    "build": "node ./run-go-task.cjs build",
+    "test": "node ./run-go-task.cjs test"
   }
 }
