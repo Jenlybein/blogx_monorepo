@@ -7,6 +7,8 @@ import (
 	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
+	"myblogx/models/ctype"
+	"myblogx/service/read_service"
 	"myblogx/utils/jwts"
 
 	"github.com/gin-gonic/gin"
@@ -20,12 +22,20 @@ func (FavoriteApi) FavoriteCreateUpdateView(c *gin.Context) {
 
 	// 创建
 	if cr.ID == 0 {
+		userMap, err := read_service.LoadUserDisplayMap(global.DB, []ctype.ID{claims.UserID})
+		if err != nil {
+			res.FailWithMsg("查询用户信息失败", c)
+			return
+		}
+		user := userMap[claims.UserID]
 		// 收藏夹创建改为直接创建新记录，不再恢复同名软删数据。
 		favorite := models.FavoriteModel{
-			UserID:   claims.UserID,
-			Title:    cr.Title,
-			Cover:    cr.Cover,
-			Abstract: cr.Abstract,
+			UserID:        claims.UserID,
+			Title:         cr.Title,
+			Cover:         cr.Cover,
+			Abstract:      cr.Abstract,
+			OwnerNickname: user.Nickname,
+			OwnerAvatar:   user.Avatar,
 		}
 		if err := global.DB.Create(&favorite).Error; err != nil {
 			if errors.Is(err, gorm.ErrDuplicatedKey) {

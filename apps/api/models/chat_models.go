@@ -20,6 +20,8 @@ type ChatSessionModel struct {
 	SessionID        string     `gorm:"size:64;not null;index:idx_chat_session_id" json:"session_id"`
 	UserID           ctype.ID   `gorm:"not null;uniqueIndex:uk_chat_session_user_receiver,priority:1;index:idx_chat_session_user_time,priority:1" json:"user_id"`
 	ReceiverID       ctype.ID   `gorm:"not null;uniqueIndex:uk_chat_session_user_receiver,priority:2" json:"receiver_id"`
+	ReceiverNickname string     `gorm:"size:64" json:"receiver_nickname"`
+	ReceiverAvatar   string     `gorm:"size:256" json:"receiver_avatar"`
 	LastMsgID        ctype.ID   `json:"last_msg_id"`
 	LastMsgContent   string     `json:"last_msg_content"`
 	LastMsgTime      *time.Time `gorm:"index:idx_chat_session_user_time,priority:2,sort:desc" json:"last_msg_time"`

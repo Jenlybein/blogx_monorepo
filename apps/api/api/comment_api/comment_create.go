@@ -9,6 +9,7 @@ import (
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
 	"myblogx/service/message_service"
+	"myblogx/service/read_service"
 	"myblogx/service/redis_service/redis_article"
 	"myblogx/service/redis_service/redis_comment"
 	"myblogx/service/site_service"
@@ -40,11 +41,19 @@ func (CommentApi) CommentCreateView(c *gin.Context) {
 	claims := jwts.MustGetClaimsByGin(c)
 
 	status := enum.CommentStatusExamining
+	userMap, err := read_service.LoadUserDisplayMap(global.DB, []ctype.ID{claims.UserID})
+	if err != nil {
+		res.FailWithMsg("查询用户信息失败", c)
+		return
+	}
+	userDisplay := userMap[claims.UserID]
 	model := models.CommentModel{
-		Content:   cr.Content,
-		UserID:    claims.UserID,
-		ArticleID: cr.ArticleID,
-		Status:    status,
+		Content:      cr.Content,
+		UserID:       claims.UserID,
+		UserNickname: userDisplay.Nickname,
+		UserAvatar:   userDisplay.Avatar,
+		ArticleID:    cr.ArticleID,
+		Status:       status,
 	}
 	var rootCommentID ctype.ID
 
@@ -61,6 +70,16 @@ func (CommentApi) CommentCreateView(c *gin.Context) {
 		}
 
 		model.ReplyId = *cr.ReplyId
+		model.ReplyUserID = replyComment.UserID
+		model.ReplyUserNickname = replyComment.UserNickname
+		if model.ReplyUserNickname == "" {
+			replyUserMap, err := read_service.LoadUserDisplayMap(global.DB, []ctype.ID{replyComment.UserID})
+			if err != nil {
+				res.FailWithMsg("查询回复用户失败", c)
+				return
+			}
+			model.ReplyUserNickname = replyUserMap[replyComment.UserID].Nickname
+		}
 		if replyComment.RootID != 0 {
 			model.RootID = replyComment.RootID
 		} else {

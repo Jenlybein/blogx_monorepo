@@ -1,12 +1,10 @@
 package follow_api
 
 import (
-	"myblogx/common"
 	"myblogx/common/res"
 	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
-	"myblogx/models/ctype"
 	"myblogx/service/follow_service"
 	"myblogx/utils/jwts"
 
@@ -37,37 +35,11 @@ func (f *FollowApi) FollowListView(c *gin.Context) {
 		}
 	}
 
-	_list, count, err := common.ListQuery(models.UserFollowModel{
-		FollowedUserID: cr.FollowedUserID,
-		FansUserID:     cr.UserID,
-	}, common.Options{
-		PageInfo:      cr.PageInfo,
-		ExactPreloads: map[string][]string{"FollowedUserModel": {"id", "avatar", "nickname", "abstract", "created_at"}},
-	})
-
+	queryService := follow_service.NewQueryService(global.DB)
+	list, count, err := queryService.ListFollowing(cr.UserID, claims.UserID, cr.FollowedUserID, cr.PageInfo)
 	if err != nil {
 		res.FailWithError(err, c)
 		return
-	}
-
-	// 计算用户关系
-	userIDs := make([]ctype.ID, 0, len(_list))
-	for _, item := range _list {
-		userIDs = append(userIDs, item.FollowedUserID)
-	}
-	relationMap := follow_service.CalUserRelationshipBatch(claims.UserID, userIDs)
-
-	// 格式化
-	var list = make([]FollowListResponse, 0)
-	for _, item := range _list {
-		list = append(list, FollowListResponse{
-			FollowedUserID:   item.FollowedUserID,
-			FollowedNickname: item.FollowedUserModel.Nickname,
-			FollowedAvatar:   item.FollowedUserModel.Avatar,
-			FollowedAbstract: item.FollowedUserModel.Abstract,
-			FollowTime:       item.CreatedAt,
-			Relation:         int8(relationMap[item.FollowedUserID]),
-		})
 	}
 	res.OkWithList(list, count, c)
 }

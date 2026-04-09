@@ -5,7 +5,9 @@ import (
 	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
+	"myblogx/models/ctype"
 	"myblogx/service/db_service"
+	"myblogx/service/read_service"
 	"myblogx/service/user_service"
 	"myblogx/utils/jwts"
 
@@ -27,18 +29,44 @@ func (FollowApi) FollowUserView(c *gin.Context) {
 	// TODO：考虑每天关注量上限和取关量上限
 
 	createdOrRestored := false
-	err := global.DB.Transaction(func(tx *gorm.DB) error {
+	userMap, err := read_service.LoadUserDisplayMap(global.DB, []ctype.ID{claims.UserID, cr.ID})
+	if err != nil {
+		res.FailWithMsg("查询用户信息失败", c)
+		return
+	}
+	followedUser := userMap[cr.ID]
+	fansUser := userMap[claims.UserID]
+	err = global.DB.Transaction(func(tx *gorm.DB) error {
 		// 尝试寻找是否存在软删的关注记录，没有则尝试进行创建
 		var createErr error
 		createdOrRestored, createErr = db_service.RestoreOrCreateUnique(tx, &models.UserFollowModel{
-			FollowedUserID: cr.ID,
-			FansUserID:     claims.UserID,
+			FollowedUserID:   cr.ID,
+			FollowedNickname: followedUser.Nickname,
+			FollowedAvatar:   followedUser.Avatar,
+			FollowedAbstract: followedUser.Abstract,
+			FansUserID:       claims.UserID,
+			FansNickname:     fansUser.Nickname,
+			FansAvatar:       fansUser.Avatar,
+			FansAbstract:     fansUser.Abstract,
 		}, []string{"followed_user_id", "fans_user_id"})
 		if createErr != nil {
 			return createErr
 		}
 		if !createdOrRestored {
 			return nil
+		}
+
+		if err := tx.Model(&models.UserFollowModel{}).
+			Where("followed_user_id = ? AND fans_user_id = ?", cr.ID, claims.UserID).
+			Updates(map[string]any{
+				"followed_nickname": followedUser.Nickname,
+				"followed_avatar":   followedUser.Avatar,
+				"followed_abstract": followedUser.Abstract,
+				"fans_nickname":     fansUser.Nickname,
+				"fans_avatar":       fansUser.Avatar,
+				"fans_abstract":     fansUser.Abstract,
+			}).Error; err != nil {
+			return err
 		}
 
 		// 关注成功后，增加粉丝数和关注数

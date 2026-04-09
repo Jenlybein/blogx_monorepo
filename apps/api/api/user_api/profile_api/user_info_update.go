@@ -9,6 +9,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/es_service"
+	"myblogx/service/read_service"
 	"myblogx/utils/info_check"
 	"myblogx/utils/jwts"
 	"myblogx/utils/maps"
@@ -106,6 +107,11 @@ func (ProfileApi) UserInfoUpdateView(c *gin.Context) {
 		if cr.Nickname != nil || cr.Avatar != nil {
 			if err = es_service.SyncESDocsByAuthorIDs([]ctype.ID{claims.UserID}); err != nil {
 				global.Logger.Errorf("同步用户文章 ES 文档失败: 用户ID=%d 错误=%v", claims.UserID, err)
+			}
+		}
+		if cr.Nickname != nil || cr.Avatar != nil || cr.Abstract != nil {
+			if err = read_service.SyncUserDisplaySnapshots(global.DB, claims.UserID); err != nil {
+				global.Logger.Errorf("同步用户展示快照失败: 用户ID=%d 错误=%v", claims.UserID, err)
 			}
 		}
 	}

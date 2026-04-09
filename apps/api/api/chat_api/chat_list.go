@@ -8,7 +8,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/chat_msg_enum"
-	"myblogx/service/follow_service"
+	"myblogx/service/chat_service"
 	"myblogx/utils/jwts"
 	"time"
 
@@ -19,12 +19,6 @@ import (
 func (a *ChatApi) ChatSessionListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[ChatSessionListRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
-
-	var opts = common.Options{
-		PageInfo:      cr.PageInfo,
-		ExactPreloads: map[string][]string{"ReceiverModel": {"id", "nickname", "avatar"}},
-		DefaultOrder:  "is_top desc, last_msg_time desc, id desc",
-	}
 
 	switch cr.Type {
 	case 1:
@@ -38,47 +32,19 @@ func (a *ChatApi) ChatSessionListView(c *gin.Context) {
 			res.FailWithMsg("user_id 不能为 0", c)
 			return
 		}
-		opts.Unscoped = true
 	}
 
-	list, count, err := common.ListQuery(models.ChatSessionModel{
-		UserID: cr.UserID,
-	}, opts)
+	queryService := chat_service.NewQueryService(global.DB)
+	list, count, err := queryService.ListSessions(chat_service.SessionListQuery{
+		PageInfo: cr.PageInfo,
+		UserID:   cr.UserID,
+		Type:     cr.Type,
+	})
 	if err != nil {
 		res.FailWithError(err, c)
 		return
 	}
-
-	// 计算好友关系
-	receiverIDs := make([]ctype.ID, 0, len(list))
-	for _, item := range list {
-		receiverIDs = append(receiverIDs, item.ReceiverID)
-	}
-	relationMap := follow_service.CalUserRelationshipBatch(cr.UserID, receiverIDs)
-
-	respList := make([]ChatSessionListResponse, 0, len(list))
-	for _, item := range list {
-		data := ChatSessionListResponse{
-			SessionID:        item.SessionID,
-			ReceiverID:       item.ReceiverID,
-			ReceiverNickname: item.ReceiverModel.Nickname,
-			ReceiverAvatar:   item.ReceiverModel.Avatar,
-			Relation:         int8(relationMap[item.ReceiverID]),
-			LastMsgContent:   item.LastMsgContent,
-			LastMsgTime:      item.LastMsgTime,
-			UnreadCount:      item.UnreadCount,
-			IsTop:            item.IsTop,
-			IsMute:           item.IsMute,
-		}
-
-		if cr.Type == 2 && item.DeletedAt.Valid {
-			data.DeletedAt = &item.DeletedAt.Time
-		}
-
-		respList = append(respList, data)
-	}
-
-	res.OkWithList(respList, count, c)
+	res.OkWithList(list, count, c)
 }
 
 // ChatMsgListView 返回当前登录用户在某个会话下的消息列表。

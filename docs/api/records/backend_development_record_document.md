@@ -1686,3 +1686,57 @@ Worker 收到一条消息：
 - 新增 `openapi/myblogx.openai.json`，专门说明 `/api/search/articles` 的用法、权限语义、分页模式和示例调用。
 - 这轮之后，剩余最值得继续推进的大项就是“HTTP / river / cron 角色彻底拆开启动”，这个留到下一阶段做更合适。
 
+## 本轮后端修复记录 2（2026-04-09）
+
+### 修复范围
+
+本轮继续沿着“模块化单体 + 为未来分库分表留边界”的方向推进，重点处理：
+
+- 评论、关注、收藏夹、置顶、聊天会话这些高频读取链路
+- 高频展示字段冗余
+- 文章 / 评论计数补偿统一读层
+- 去掉这些链路里的 `JOIN / ListQuery / preload / handler 手工拼 Redis`
+
+### 已完成调整
+
+- 统一读层：
+  - 新增 `read_service.ArticleCounterReader` 与 `read_service.CommentCounterReader`
+  - 评论 Redis 支持 `GetBatchCounters(...)`，评论回复数和点赞数增量不再由接口层分开读
+- 高频展示字段冗余：
+  - 评论写入 `user_nickname / user_avatar / reply_user_id / reply_user_nickname`
+  - 关注关系写入关注对象 / 粉丝双方的昵称、头像、简介
+  - 收藏夹写入 `article_count / owner_nickname / owner_avatar`
+  - 收藏关系写入文章标题、摘要、封面、状态，以及作者昵称 / 头像
+  - 聊天会话写入对方昵称 / 头像
+- 写路径同步：
+  - 评论创建、关注创建、收藏夹创建、收藏关系创建、聊天会话创建都会写入新快照字段
+  - 用户昵称 / 头像 / 简介更新后，会统一回刷评论、关注、收藏夹、收藏关系、聊天会话里的展示快照
+  - 文章更新 / 审核后，会统一回刷收藏关系里的文章卡片快照
+- 专用 query service：
+  - `comment_service.QueryService` 现在覆盖一级评论、二级评论、评论管理列表
+  - 新增 `follow_service.QueryService`
+  - 新增 `favorite_service.QueryService`
+  - 新增 `top_service.QueryService`
+  - 新增 `chat_service.QueryService`
+- 查询风格调整：
+  - 上述高频链路都改成“单表主查 + 批量兜底补充 + 统一计数补偿”
+  - 不再依赖 SQL `JOIN`
+  - 不再让 handler 自己补 Redis 计数、关系态、点赞态
+- 置顶文章列表：
+  - 管理员置顶列表现在会按文章去重
+  - 作者、分类、标签、置顶状态改成分步装配，不再联表
+
+### 当前结果
+
+- `apps/api` 下执行 `go test -p 1 ./...` 已通过。
+- `openapi/myblogx.openai.json` 已补充当前高频读取接口的实际调用说明：
+  - `/api/comments`
+  - `/api/comments/replies`
+  - `/api/follow`
+  - `/api/fans`
+  - `/api/articles/favorite`
+  - `/api/articles/favorite/contents`
+  - `/api/articles/top`
+  - `/api/chat/sessions`
+- 本轮之后，高频读链路已经基本脱离“通用分页器 + preload + Redis 散补”的旧模式，后续若继续推进分库分表，主要改动会集中在 query service / reader 层。
+

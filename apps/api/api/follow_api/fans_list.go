@@ -1,12 +1,10 @@
 package follow_api
 
 import (
-	"myblogx/common"
 	"myblogx/common/res"
 	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
-	"myblogx/models/ctype"
 	"myblogx/service/follow_service"
 	"myblogx/utils/jwts"
 
@@ -37,33 +35,11 @@ func (f *FollowApi) FansListView(c *gin.Context) {
 		}
 	}
 
-	_list, count, err := common.ListQuery(models.UserFollowModel{
-		FollowedUserID: cr.UserID,
-		FansUserID:     cr.FansUserID,
-	}, common.Options{
-		PageInfo:      cr.PageInfo,
-		ExactPreloads: map[string][]string{"FansUserModel": {"id", "avatar", "nickname", "abstract", "created_at"}},
-	})
+	queryService := follow_service.NewQueryService(global.DB)
+	list, count, err := queryService.ListFans(cr.UserID, claims.UserID, cr.FansUserID, cr.PageInfo)
 	if err != nil {
 		res.FailWithError(err, c)
 		return
-	}
-
-	var list = make([]FansListResponse, 0, len(_list))
-	userIDs := make([]ctype.ID, 0, len(_list))
-	for _, item := range _list {
-		userIDs = append(userIDs, item.FansUserID)
-	}
-	relationMap := follow_service.CalUserRelationshipBatch(claims.UserID, userIDs)
-	for _, item := range _list {
-		list = append(list, FansListResponse{
-			FansUserID:   item.FansUserID,
-			FansNickname: item.FansUserModel.Nickname,
-			FansAvatar:   item.FansUserModel.Avatar,
-			FansAbstract: item.FansUserModel.Abstract,
-			FollowTime:   item.CreatedAt,
-			Relation:     int8(relationMap[item.FansUserID]),
-		})
 	}
 	res.OkWithList(list, count, c)
 }

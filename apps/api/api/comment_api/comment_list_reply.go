@@ -8,10 +8,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
-	"myblogx/models/enum/relationship_enum"
 	"myblogx/service/comment_service"
-	"myblogx/service/redis_service/redis_comment"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,18 +20,7 @@ type CommentReplyListRequest struct {
 }
 
 type CommentReplyListResponse struct {
-	CreatedAt         time.Time          `json:"created_at"`
-	Content           string             `json:"content"`
-	UserID            ctype.ID           `json:"user_id"`
-	ReplyId           ctype.ID           `json:"reply_id"`
-	DiggCount         int                `json:"digg_count"`
-	ReplyCount        int                `json:"reply_count"`
-	IsDigg            bool               `json:"is_digg"`
-	Relation          int8               `json:"relation"`
-	Status            enum.CommentStatus `json:"status"`
-	UserNickname      string             `json:"user_nickname"`
-	UserAvatar        string             `json:"user_avatar"`
-	ReplyUserNickname string             `json:"reply_user_nickname"`
+	comment_service.ReplyCommentItem
 }
 
 func (CommentApi) CommentReplyListView(c *gin.Context) {
@@ -53,60 +39,18 @@ func (CommentApi) CommentReplyListView(c *gin.Context) {
 		return
 	}
 
-	rows, hasMore, err := queryService.ListPublishedReplyComments(cr.ArticleID, cr.RootID, cr.PageInfo)
+	rows, hasMore, err := queryService.ListPublishedReplyComments(cr.ArticleID, cr.RootID, cr.PageInfo, commentViewerIDFromGin(c))
 	if err != nil {
 		res.FailWithMsg("查询二级评论失败 "+err.Error(), c)
 		return
 	}
-
-	// 批量查询回复数和点赞数
-	commentIDs := make([]ctype.ID, 0, len(rows))
-	for _, item := range rows {
-		commentIDs = append(commentIDs, item.ID)
-	}
-	replyCountMap := redis_comment.GetBatchCacheReply(commentIDs)
-	diggCountMap := redis_comment.GetBatchCacheDigg(commentIDs)
-
-	// 批量查询点赞，好友关系
-	viewerUserID := commentViewerIDFromGin(c)
-	userIDs := make([]ctype.ID, 0, len(rows))
-	for _, item := range rows {
-		userIDs = append(userIDs, item.UserID)
-	}
-	isDiggMap := buildCommentDiggMap(viewerUserID, commentIDs)
-	relationMap := buildCommentRelationMap(viewerUserID, userIDs)
-
-	// 组装响应
-	responseList := make([]CommentReplyListResponse, 0, len(rows))
-	for _, item := range rows {
-		item.ReplyCount += replyCountMap[item.ID]
-		item.DiggCount += diggCountMap[item.ID]
-		relation := relationship_enum.RelationStranger
-		if got, ok := relationMap[item.UserID]; ok {
-			relation = got
-		}
-		resp := CommentReplyListResponse{
-			CreatedAt:    item.CreatedAt,
-			Content:      item.Content,
-			UserID:       item.UserID,
-			ReplyId:      item.ReplyID,
-			DiggCount:    item.DiggCount,
-			ReplyCount:   item.ReplyCount,
-			IsDigg:       isDiggMap[item.ID],
-			Relation:     int8(relation),
-			Status:       item.Status,
-			UserNickname: item.UserNickname,
-			UserAvatar:   item.UserAvatar,
-		}
-		resp.ReplyUserNickname = item.ReplyUserNickname
-		responseList = append(responseList, resp)
-	}
-
-	rootReplyCount := root.ReplyCount + redis_comment.GetCacheReply(cr.RootID)
+	rootReplyCount := root.ReplyCount
+	rootCounters := queryService.CounterReader.Batch([]ctype.ID{cr.RootID})
+	rootReplyCount += rootCounters.ReplyMap[cr.RootID]
 	res.OkWithData(map[string]any{
 		"root_id":     cr.RootID,
 		"reply_count": rootReplyCount,
-		"list":        responseList,
+		"list":        rows,
 		"has_more":    hasMore,
 	}, c)
 }

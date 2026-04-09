@@ -9,6 +9,7 @@ import (
 	"myblogx/models/ctype"
 	"myblogx/service/es_service"
 	"myblogx/service/log_service"
+	"myblogx/service/read_service"
 	"myblogx/utils/jwts"
 	"strconv"
 
@@ -45,6 +46,9 @@ func (ArticleApi) ArticleUpdateView(c *gin.Context) {
 		if err := es_service.UpdateESDocsContent([]ctype.ID{article.ID}); err != nil {
 			global.Logger.Errorf("更新文章正文后刷新 ES 文档失败: 文章ID=%d 错误=%v", article.ID, err)
 		}
+	}
+	if err := read_service.SyncArticleFavorSnapshots(global.DB, []ctype.ID{article.ID}); err != nil {
+		global.Logger.Errorf("同步文章收藏快照失败: 文章ID=%d 错误=%v", article.ID, err)
 	}
 	res.OkWithMsg("更新文章成功", c)
 	log_service.EmitActionAuditFromGin(c, log_service.GinAuditInput{

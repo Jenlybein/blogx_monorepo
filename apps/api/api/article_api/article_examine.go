@@ -6,6 +6,8 @@ import (
 	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
+	"myblogx/models/ctype"
+	"myblogx/service/read_service"
 	"myblogx/service/log_service"
 	"myblogx/service/message_service"
 	"strconv"
@@ -28,6 +30,9 @@ func (ArticleApi) ArticleExamineView(c *gin.Context) {
 	}).Error; err != nil {
 		res.FailWithMsg("文章审核失败", c)
 		return
+	}
+	if err := read_service.SyncArticleFavorSnapshots(global.DB, []ctype.ID{article.ID}); err != nil {
+		global.Logger.Errorf("同步文章收藏快照失败: 文章ID=%d 错误=%v", article.ID, err)
 	}
 
 	// 给文章创作者发送系统通知

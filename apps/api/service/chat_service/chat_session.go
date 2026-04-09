@@ -6,6 +6,7 @@ import (
 
 	"myblogx/models"
 	"myblogx/models/ctype"
+	"myblogx/service/read_service"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -25,18 +26,27 @@ func isSelfChat(senderID, receiverID ctype.ID) bool {
 
 // 检查聊天双方的会话记录，不存在则分别创建。
 func ensureChatSessions(tx *gorm.DB, req ToChatRequest, sessionID string) error {
+	userMap, err := read_service.LoadUserDisplayMap(tx, []ctype.ID{req.SenderID, req.ReceiverID})
+	if err != nil {
+		return err
+	}
+
 	sessions := []models.ChatSessionModel{
 		{
-			SessionID:  sessionID,
-			UserID:     req.SenderID,
-			ReceiverID: req.ReceiverID,
+			SessionID:        sessionID,
+			UserID:           req.SenderID,
+			ReceiverID:       req.ReceiverID,
+			ReceiverNickname: userMap[req.ReceiverID].Nickname,
+			ReceiverAvatar:   userMap[req.ReceiverID].Avatar,
 		},
 	}
 	if !isSelfChat(req.SenderID, req.ReceiverID) {
 		sessions = append(sessions, models.ChatSessionModel{
-			SessionID:  sessionID,
-			UserID:     req.ReceiverID,
-			ReceiverID: req.SenderID,
+			SessionID:        sessionID,
+			UserID:           req.ReceiverID,
+			ReceiverID:       req.SenderID,
+			ReceiverNickname: userMap[req.SenderID].Nickname,
+			ReceiverAvatar:   userMap[req.SenderID].Avatar,
 		})
 	}
 
@@ -47,9 +57,11 @@ func ensureChatSessions(tx *gorm.DB, req ToChatRequest, sessionID string) error 
 			{Name: "receiver_id"},
 		},
 		DoUpdates: clause.Assignments(map[string]any{
-			"session_id":   sessionID,
-			"deleted_at":   nil,
-			"unread_count": gorm.Expr("CASE WHEN deleted_at IS NOT NULL THEN 0 ELSE unread_count END"),
+			"session_id":        sessionID,
+			"receiver_nickname": gorm.Expr("excluded.receiver_nickname"),
+			"receiver_avatar":   gorm.Expr("excluded.receiver_avatar"),
+			"deleted_at":        nil,
+			"unread_count":      gorm.Expr("CASE WHEN deleted_at IS NOT NULL THEN 0 ELSE unread_count END"),
 		}),
 	}).Create(&sessions).Error
 }

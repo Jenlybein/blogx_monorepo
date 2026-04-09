@@ -1,180 +1,218 @@
 {
-  "name": "myblogx article read api guide",
+  "name": "myblogx read api guide",
   "updated_at": "2026-04-09",
-  "purpose": "说明文章读取接口已经统一到 /api/search/articles，并给出最常用的调用方式。",
+  "purpose": "说明当前高频读取接口的推荐调用方式。文章读取统一走 /api/search/articles，评论、关注、收藏夹、置顶、聊天会话虽然外部路径不变，但内部已切到专用 query service 和统一计数读层。",
   "important_changes": [
     "GET /api/articles 已下线，不再用于文章读取。",
     "文章列表、文章搜索、作者文章、我的文章、管理员文章查询统一走 GET /api/search/articles。",
-    "page_mode 支持 has_more 和 count 两种分页模式。",
-    "status 继续传数字状态，不改成字符串。",
-    "author_id 是新的作者筛选字段；旧的 user_id 只做兼容，不建议新调用继续使用。",
-    "tag_ids 是新的标签筛选字段；推荐传重复 query 或逗号分隔数字 ID。"
+    "评论、关注、收藏夹、置顶、聊天会话这几条高频读取链路，内部已经不再走 handler + ListQuery + preload + Redis 拼装。",
+    "文章计数和评论计数都通过统一 reader 补偿，外部调用方不需要自己处理 Redis 增量。",
+    "评论、关注、收藏关系、聊天会话等高频展示字段已经写入冗余快照；昵称、头像、文章标题、封面、状态变更后会同步刷新。"
   ],
-  "endpoint": {
-    "method": "GET",
-    "path": "/api/search/articles",
+  "article_read": {
+    "endpoint": {
+      "method": "GET",
+      "path": "/api/search/articles"
+    },
     "auth": {
       "type_1_public": "匿名可访问",
       "type_2_recommend": "匿名可访问，登录后会叠加偏好标签推荐",
       "type_3_author": "匿名可访问，但必须传 author_id",
       "type_4_self": "必须登录",
       "type_5_admin": "必须管理员"
-    }
-  },
-  "query_parameters": {
-    "type": {
-      "type": "integer",
-      "default": 1,
-      "enum": {
-        "1": "公共文章列表/公共搜索",
-        "2": "猜你喜欢/推荐流",
-        "3": "作者文章",
-        "4": "当前登录用户自己的文章",
-        "5": "管理员文章查询"
-      }
     },
-    "sort": {
-      "type": "integer",
-      "default": 1,
-      "enum": {
-        "1": "默认排序",
-        "2": "最新发布",
-        "3": "最多回复",
-        "4": "最多点赞",
-        "5": "最多收藏",
-        "6": "最多浏览"
-      }
-    },
-    "key": {
-      "type": "string",
-      "description": "主要搜索内容。为空时表示列表查询，不做关键词检索。"
-    },
-    "page": {
-      "type": "integer",
-      "default": 1,
-      "description": "页码，从 1 开始。"
-    },
-    "limit": {
-      "type": "integer",
-      "default": 10,
-      "description": "每页条数，建议 1-100。"
-    },
-    "page_mode": {
-      "type": "string",
-      "default_rule": "type=1/2/3 默认 has_more；type=4/5 默认 count。",
-      "enum": {
-        "has_more": "前台列表/滚动加载",
-        "count": "后台准确数据页"
-      }
-    },
-    "author_id": {
-      "type": "string",
-      "description": "作者 ID。type=3 时必填。"
-    },
-    "category_id": {
-      "type": "string",
-      "description": "分类 ID，所有 type 都支持。"
-    },
-    "tag_ids": {
-      "type": "string",
-      "description": "标签 ID 列表。推荐 tag_ids=1&tag_ids=2，也兼容 tag_ids=1,2。"
-    },
-    "status": {
-      "type": "integer",
-      "description": "继续传数字状态。type=1/2/3 只允许已发布状态；type=4/5 可按数字状态过滤。"
-    }
-  },
-  "usage_rules": [
-    "想查公共文章流：传 type=1，key 可空，前台默认建议 page_mode=has_more。",
-    "想做站内搜索：仍然传 type=1，再额外传 key。",
-    "想查某个作者的文章：传 type=3，必须传 author_id。",
-    "想查自己的文章：传 type=4，并带登录态；status 继续传数字。",
-    "想查后台审核池或后台文章管理：传 type=5，建议 page_mode=count。",
-    "category_id 和 tag_ids 是统一筛选字段；新调用不要再继续使用 user_id。",
-    "tag_ids 推荐写法是 tag_ids=1&tag_ids=2；如果前端不方便，也兼容 tag_ids=1,2。"
-  ],
-  "response_shape": {
-    "code": 0,
-    "msg": "",
-    "data": {
-      "list": [
-        {
-          "id": "101",
-          "created_at": "2026-04-09T10:00:00+08:00",
-          "updated_at": "2026-04-09T10:30:00+08:00",
-          "title": "Go Elasticsearch 实战",
-          "abstract": "这是一篇关于 Go + ES 的文章摘要",
-          "cover": "https://cdn.example.com/cover.jpg",
-          "view_count": 120,
-          "digg_count": 8,
-          "comment_count": 16,
-          "favor_count": 4,
-          "comments_toggle": true,
-          "status": 3,
-          "tags": [
-            {
-              "id": "1",
-              "title": "Go"
-            },
-            {
-              "id": "2",
-              "title": "Elasticsearch"
-            }
-          ],
-          "category": {
-            "id": "3",
-            "title": "后端"
-          },
-          "author": {
-            "id": "9",
-            "nickname": "张三",
-            "avatar": "https://cdn.example.com/avatar.jpg"
-          },
-          "top": {
-            "user": false,
-            "admin": true
-          },
-          "highlight": {
-            "title": "<em>Go</em> Elasticsearch 实战",
-            "abstract": "这是一篇关于 <em>Go</em> + ES 的文章摘要"
-          },
-          "score": 12.38
+    "query_parameters": {
+      "type": {
+        "type": "integer",
+        "default": 1,
+        "enum": {
+          "1": "公共文章列表/公共搜索",
+          "2": "猜你喜欢/推荐流",
+          "3": "作者文章",
+          "4": "当前登录用户自己的文章",
+          "5": "管理员文章查询"
         }
-      ],
-      "pagination": {
-        "mode": "has_more",
-        "page": 1,
-        "limit": 10,
-        "has_more": true,
-        "total": 137,
-        "total_pages": 14
+      },
+      "sort": {
+        "type": "integer",
+        "default": 1,
+        "enum": {
+          "1": "默认排序",
+          "2": "最新发布",
+          "3": "最多回复",
+          "4": "最多点赞",
+          "5": "最多收藏",
+          "6": "最多浏览"
+        }
+      },
+      "key": {
+        "type": "string",
+        "description": "主要搜索内容。为空时表示列表查询，不做关键词检索。"
+      },
+      "page": {
+        "type": "integer",
+        "default": 1,
+        "description": "页码，从 1 开始。"
+      },
+      "limit": {
+        "type": "integer",
+        "default": 10,
+        "description": "每页条数，建议 1-100。"
+      },
+      "page_mode": {
+        "type": "string",
+        "default_rule": "type=1/2/3 默认 has_more；type=4/5 默认 count。",
+        "enum": {
+          "has_more": "前台列表/滚动加载",
+          "count": "后台准确数据页"
+        }
+      },
+      "author_id": {
+        "type": "string",
+        "description": "作者 ID。type=3 时必填。"
+      },
+      "category_id": {
+        "type": "string",
+        "description": "分类 ID，所有 type 都支持。"
+      },
+      "tag_ids": {
+        "type": "string",
+        "description": "标签 ID 列表。推荐 tag_ids=1&tag_ids=2，也兼容 tag_ids=1,2。"
+      },
+      "status": {
+        "type": "integer",
+        "description": "继续传数字状态。type=1/2/3 只允许已发布状态；type=4/5 可按数字状态过滤。"
       }
-    }
+    },
+    "usage_rules": [
+      "想查公共文章流：传 type=1，key 可空，前台默认建议 page_mode=has_more。",
+      "想做站内搜索：仍然传 type=1，再额外传 key。",
+      "想查某个作者的文章：传 type=3，必须传 author_id。",
+      "想查自己的文章：传 type=4，并带登录态；status 继续传数字。",
+      "想查后台审核池或后台文章管理：传 type=5，建议 page_mode=count。",
+      "category_id 和 tag_ids 是统一筛选字段；新调用不要再继续使用 user_id。",
+      "tag_ids 推荐写法是 tag_ids=1&tag_ids=2；如果前端不方便，也兼容 tag_ids=1,2。"
+    ]
   },
-  "response_rules": [
-    "list 和 pagination 始终存在。",
-    "pagination.has_more 始终存在。",
-    "pagination.total 与 pagination.total_pages 只在 page_mode=count 时返回。",
-    "highlight 只有 key 非空时才有意义。",
-    "score 是 ES 检索分数，列表查询时可能为空。"
-  ],
-  "examples": [
+  "high_frequency_read_apis": [
     {
-      "name": "公共文章流",
-      "request": "GET /api/search/articles?type=1&page=1&limit=10&page_mode=has_more&sort=1"
+      "name": "一级评论列表",
+      "method": "GET",
+      "path": "/api/comments",
+      "auth": "匿名可访问",
+      "query": {
+        "article_id": "必填",
+        "page": "页码，从 1 开始",
+        "limit": "每页条数"
+      },
+      "response_rule": "返回 data.list + data.has_more。digg_count / reply_count 已自动叠加 Redis 增量，is_digg / relation 也会自动补齐。"
     },
     {
-      "name": "作者文章搜索",
-      "request": "GET /api/search/articles?type=3&author_id=9&key=golang&page=1&limit=10&page_mode=has_more&sort=2"
+      "name": "二级评论列表",
+      "method": "GET",
+      "path": "/api/comments/replies",
+      "auth": "匿名可访问",
+      "query": {
+        "article_id": "必填",
+        "root_id": "必填，一级评论 ID",
+        "page": "页码，从 1 开始",
+        "limit": "每页条数"
+      },
+      "response_rule": "返回 root_id、reply_count、list、has_more。reply_count 已自动叠加 Redis 增量。"
     },
     {
-      "name": "管理员审核池",
-      "request": "GET /api/search/articles?type=5&status=2&page=1&limit=20&page_mode=count&sort=2"
+      "name": "关注列表",
+      "method": "GET",
+      "path": "/api/follow",
+      "auth": "必须登录",
+      "query": {
+        "user_id": "可选。不传时查自己；传别人时会校验对方是否公开关注列表。",
+        "followed_user_id": "可选，按关注对象过滤",
+        "page": "页码",
+        "limit": "每页条数"
+      },
+      "response_rule": "返回 list + count。昵称、头像、简介和 relation 已由专用 query service 组装。"
+    },
+    {
+      "name": "粉丝列表",
+      "method": "GET",
+      "path": "/api/fans",
+      "auth": "必须登录",
+      "query": {
+        "user_id": "可选。不传时查自己；传别人时会校验对方是否公开粉丝列表。",
+        "fans_user_id": "可选，按粉丝过滤",
+        "page": "页码",
+        "limit": "每页条数"
+      },
+      "response_rule": "返回 list + count。昵称、头像、简介和 relation 已由专用 query service 组装。"
+    },
+    {
+      "name": "收藏夹列表",
+      "method": "GET",
+      "path": "/api/articles/favorite",
+      "auth": "type=1 需要登录；type=2 允许公开访问；type=3 需要管理员",
+      "query": {
+        "type": {
+          "1": "查自己的收藏夹",
+          "2": "查别人的收藏夹",
+          "3": "管理员后台查"
+        },
+        "user_id": "type=2 时必填",
+        "article_id": "可选。type=1 时可用来判断某篇文章是否已在该收藏夹中",
+        "key": "可选，按收藏夹标题筛选",
+        "page": "页码",
+        "limit": "每页条数"
+      },
+      "response_rule": "返回 list + count。article_count 直接来自读模型快照并带兼容兜底；has_article 只在 type=1 且传 article_id 时有意义。"
+    },
+    {
+      "name": "收藏夹内容列表",
+      "method": "GET",
+      "path": "/api/articles/favorite/contents",
+      "auth": "收藏夹所有者和管理员可直接访问；其他人只有收藏夹公开时可访问",
+      "query": {
+        "favorite_id": "必填",
+        "key": "可选，按文章标题筛选",
+        "order": "可选，created_at desc 或 created_at asc",
+        "page": "页码",
+        "limit": "每页条数"
+      },
+      "response_rule": "返回 list + count。标题/摘要/封面/作者来自收藏关系快照并带文章表兜底；view/digg/comment/favor 已自动补 Redis 增量。"
+    },
+    {
+      "name": "置顶文章列表",
+      "method": "GET",
+      "path": "/api/articles/top",
+      "auth": "匿名可访问",
+      "query": {
+        "type": {
+          "1": "作者置顶",
+          "2": "管理员置顶"
+        },
+        "user_id": "type=1 必填"
+      },
+      "response_rule": "返回 list + count。内部已去掉 SQL JOIN，按文章、作者、分类、标签分步装配；同一篇管理员置顶文章会自动去重。"
+    },
+    {
+      "name": "聊天会话列表",
+      "method": "GET",
+      "path": "/api/chat/sessions",
+      "auth": "必须登录",
+      "query": {
+        "type": {
+          "1": "查自己的会话",
+          "2": "管理员代查指定 user_id 的会话"
+        },
+        "user_id": "type=2 时必填",
+        "page": "页码",
+        "limit": "每页条数"
+      },
+      "response_rule": "返回 list + count。对方昵称/头像已写入会话快照并带用户表兜底；relation 由专用 query service 统一计算。"
     }
   ],
   "compatibility": {
     "still_supported_temporarily": [
-      "user_id -> author_id",
+      "user_id -> author_id（仅文章搜索兼容）",
       "tag_list -> 旧 AI 搜索兼容，仅旧流程使用"
     ],
     "recommended_now": [

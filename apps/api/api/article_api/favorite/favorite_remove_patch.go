@@ -49,6 +49,11 @@ func (f FavoriteApi) FavoriteRemovePatchView(c *gin.Context) {
 		if err := tx.Delete(&relationList).Error; err != nil {
 			return err
 		}
+		if err := tx.Model(&models.FavoriteModel{}).
+			Where("id = ?", cr.FavoriteID).
+			UpdateColumn("article_count", gorm.Expr("CASE WHEN article_count >= ? THEN article_count - ? ELSE 0 END", len(relationList), len(relationList))).Error; err != nil {
+			return err
+		}
 		return nil
 	}); err != nil {
 		if err == gorm.ErrRecordNotFound {
