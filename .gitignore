@@ -13,6 +13,8 @@ apps/api/var/*
 deploy/state/**/*
 !deploy/state/**/.gitkeep
 
+log
+
 *.exe
 
 .envrc
