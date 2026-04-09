@@ -5,6 +5,7 @@ import (
 	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
+	"myblogx/service/article_service"
 	"myblogx/utils/jwts"
 
 	"github.com/gin-gonic/gin"
@@ -22,7 +23,7 @@ func (ArticleApi) ArticleRemoveUserView(c *gin.Context) {
 	}
 
 	// 软删除
-	if err := global.DB.Delete(&model).Error; err != nil {
+	if err := article_service.DeleteArticles(global.DB, []models.ArticleModel{model}, false); err != nil {
 		res.FailWithMsg("删除文章失败", c)
 		return
 	}

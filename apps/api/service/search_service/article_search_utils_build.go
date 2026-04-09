@@ -150,6 +150,9 @@ func buildArticleSearchQuery(key string, boolQuery map[string]any) map[string]an
 
 // buildLikeTagsQuery 构建喜欢标签查询
 func buildLikeTagsQuery(query map[string]any, userID ctype.ID) map[string]any {
+	if userID == 0 {
+		return query
+	}
 	var userConf models.UserConfModel
 	if err := global.DB.Select("user_id", "like_tags").Take(&userConf, userID).Error; err != nil {
 		return query
@@ -175,9 +178,9 @@ func buildLikeTagsQuery(query map[string]any, userID ctype.ID) map[string]any {
 	return query
 }
 
-// buildUserIDQuery 构建用户 ID 查询
-func buildUserIDQuery(query map[string]any, userID ctype.ID) map[string]any {
-	if userID == 0 {
+// buildAuthorIDQuery 构建作者 ID 查询。
+func buildAuthorIDQuery(query map[string]any, authorID ctype.ID) map[string]any {
+	if authorID == 0 {
 		return query
 	}
 
@@ -189,13 +192,18 @@ func buildUserIDQuery(query map[string]any, userID ctype.ID) map[string]any {
 	filters, _ := boolQuery["filter"].([]any)
 	boolQuery["filter"] = append(filters, map[string]any{
 		"term": map[string]any{
-			"author_id": userID,
+			"author_id": authorID,
 		},
 	})
 	return query
 }
 
-// buildTagListQuery 构建标签列表查询
+// buildUserIDQuery 兼容旧调用，内部转给 buildAuthorIDQuery。
+func buildUserIDQuery(query map[string]any, userID ctype.ID) map[string]any {
+	return buildAuthorIDQuery(query, userID)
+}
+
+// buildTagListQuery 构建标签标题查询，兼容旧 AI 搜索调用。
 func buildTagListQuery(query map[string]any, tagList []string) map[string]any {
 	normalized := make([]string, 0, len(tagList))
 	seen := make(map[string]struct{}, len(tagList))
@@ -223,6 +231,39 @@ func buildTagListQuery(query map[string]any, tagList []string) map[string]any {
 	boolQuery["filter"] = append(filters, map[string]any{
 		"terms": map[string]any{
 			"tags.title": normalized,
+		},
+	})
+
+	return query
+}
+
+// buildTagIDsQuery 构建标签 ID 查询。
+func buildTagIDsQuery(query map[string]any, tagIDs []ctype.ID) map[string]any {
+	normalized := make([]ctype.ID, 0, len(tagIDs))
+	seen := make(map[ctype.ID]struct{}, len(tagIDs))
+	for _, item := range tagIDs {
+		if item == 0 {
+			continue
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		normalized = append(normalized, item)
+	}
+	if len(normalized) == 0 {
+		return query
+	}
+
+	boolQuery, ok := extractSearchBoolQuery(query)
+	if !ok {
+		return query
+	}
+
+	filters, _ := boolQuery["filter"].([]any)
+	boolQuery["filter"] = append(filters, map[string]any{
+		"terms": map[string]any{
+			"tags.id": normalized,
 		},
 	})
 
@@ -282,7 +323,9 @@ func buildArticleSearchExtraBody(sortField, key string) map[string]any {
 		"status",
 		"tags",
 		"author_id",
+		"author",
 		"category_id",
+		"category",
 		"admin_top",
 		"author_top",
 	}

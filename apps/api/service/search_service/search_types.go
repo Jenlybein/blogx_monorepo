@@ -8,21 +8,56 @@ import (
 	"time"
 )
 
+type PageMode string
+
+const (
+	PageModeHasMore PageMode = "has_more"
+	PageModeCount   PageMode = "count"
+)
+
 type ArticleSearchRequest struct {
 	// Type
-	// 1 普通搜索 2 猜你喜欢 3 作者文章 4 自己文章 5 管理员搜
+	// 1 公共文章列表/搜索 2 猜你喜欢 3 作者文章 4 自己文章 5 管理员搜
 	// Sort
 	// 1 默认搜索 2 最新发布 3 最多回复
 	// 4 最多点赞 5 最多收藏 6 最多浏览
 	common.PageInfo
-	Type       int8               `form:"type" binding:"required,oneof=1 2 3 4 5"`
-	Sort       int8               `form:"sort" binding:"required,oneof=1 2 3 4 5 6"`
-	TagList    []string           `form:"tag_list"`
-	CategoryID ctype.ID           `form:"category_id"`
-	UserID     ctype.ID           `form:"user_id"`
-	TopSearch  bool               `form:"top_search"` // 是否启用置顶优先搜索
-	Status     enum.ArticleStatus `form:"status"`
-	Key        string             `form:"key"`
+	Type          int8               `form:"type"`
+	Sort          int8               `form:"sort"`
+	PageMode      PageMode           `form:"page_mode"`
+	TagIDs        []ctype.ID         `form:"tag_ids"`
+	CategoryID    ctype.ID           `form:"category_id"`
+	AuthorID      ctype.ID           `form:"author_id"`
+	Status        enum.ArticleStatus `form:"status"`
+	Key           string             `form:"key"`
+	LegacyUserID  ctype.ID           `form:"user_id" json:"-"`
+	LegacyTagList []string           `form:"tag_list" json:"-"`
+}
+
+type SearchTag struct {
+	ID    ctype.ID `json:"id"`
+	Title string   `json:"title"`
+}
+
+type SearchCategory struct {
+	ID    ctype.ID `json:"id"`
+	Title string   `json:"title"`
+}
+
+type SearchAuthor struct {
+	ID       ctype.ID `json:"id"`
+	Nickname string   `json:"nickname"`
+	Avatar   string   `json:"avatar"`
+}
+
+type SearchTop struct {
+	User  bool `json:"user"`
+	Admin bool `json:"admin"`
+}
+
+type SearchHighlight struct {
+	Title    string `json:"title,omitempty"`
+	Abstract string `json:"abstract,omitempty"`
 }
 
 type SearchListResponse struct {
@@ -31,8 +66,6 @@ type SearchListResponse struct {
 	UpdatedAt      time.Time              `json:"updated_at"`
 	Title          string                 `json:"title"`
 	Abstract       string                 `json:"abstract,omitempty"`
-	Content        string                 `json:"content,omitempty"`
-	Part           []markdown.ContentPart `json:"part,omitempty"`
 	Cover          string                 `json:"cover"`
 	ViewCount      int                    `json:"view_count"`
 	DiggCount      int                    `json:"digg_count"`
@@ -40,10 +73,71 @@ type SearchListResponse struct {
 	FavorCount     int                    `json:"favor_count"`
 	CommentsToggle bool                   `json:"comments_toggle"`
 	Status         enum.ArticleStatus     `json:"status"`
-	Tags           []string               `json:"tags"`
-	UserTop        bool                   `json:"user_top,omitempty"`  // 是否置顶
-	AdminTop       bool                   `json:"admin_top,omitempty"` // 是否管理员置顶
-	CategoryTitle  string                 `json:"category_title"`
-	UserNickname   string                 `json:"user_nickname"`
-	UserAvatar     string                 `json:"user_avatar"`
+	Tags           []SearchTag            `json:"tags"`
+	Category       *SearchCategory        `json:"category,omitempty"`
+	Author         SearchAuthor           `json:"author"`
+	Top            *SearchTop             `json:"top,omitempty"`
+	Highlight      *SearchHighlight       `json:"highlight,omitempty"`
+	Score          float64                `json:"score,omitempty"`
+	Content        string                 `json:"-"`
+	Part           []markdown.ContentPart `json:"-"`
+	UserTop        bool                   `json:"-"`
+	AdminTop       bool                   `json:"-"`
+	CategoryTitle  string                 `json:"-"`
+	UserNickname   string                 `json:"-"`
+	UserAvatar     string                 `json:"-"`
+}
+
+type SearchPagination struct {
+	Mode       PageMode `json:"mode"`
+	Page       int      `json:"page"`
+	Limit      int      `json:"limit"`
+	HasMore    bool     `json:"has_more"`
+	Total      *int     `json:"total,omitempty"`
+	TotalPages *int     `json:"total_pages,omitempty"`
+}
+
+type ArticleSearchResponse struct {
+	List       []SearchListResponse `json:"list"`
+	Pagination SearchPagination     `json:"pagination"`
+}
+
+func (r ArticleSearchRequest) NormalizeType() int8 {
+	if r.Type == 0 {
+		return 1
+	}
+	return r.Type
+}
+
+func (r ArticleSearchRequest) NormalizeSort() int8 {
+	if r.Sort == 0 {
+		return 1
+	}
+	return r.Sort
+}
+
+func (r ArticleSearchRequest) NormalizePageMode() PageMode {
+	if r.PageMode == PageModeCount {
+		return PageModeCount
+	}
+	if r.PageMode == PageModeHasMore {
+		return PageModeHasMore
+	}
+	switch r.NormalizeType() {
+	case 4, 5:
+		return PageModeCount
+	default:
+		return PageModeHasMore
+	}
+}
+
+func (r ArticleSearchRequest) NormalizeAuthorID() ctype.ID {
+	if r.AuthorID != 0 {
+		return r.AuthorID
+	}
+	return r.LegacyUserID
+}
+
+func (r ArticleSearchRequest) TagTitleList() []string {
+	return append([]string(nil), r.LegacyTagList...)
 }

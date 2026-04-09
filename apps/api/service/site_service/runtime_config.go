@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"myblogx/conf"
+	siteconf "myblogx/conf/site"
 	"myblogx/global"
 	"myblogx/models"
 	"myblogx/utils/envyaml"
@@ -97,6 +98,18 @@ func GetRuntimeConfig() RuntimeConfig {
 
 func GetRuntimeSite() conf.Site {
 	return GetRuntimeConfig().Site
+}
+
+func GetRuntimeLogin() siteconf.Login {
+	return GetRuntimeSite().Login
+}
+
+func GetRuntimeArticle() siteconf.Article {
+	return GetRuntimeSite().Article
+}
+
+func GetRuntimeComment() siteconf.Comment {
+	return GetRuntimeSite().Comment
 }
 
 func GetRuntimeAI() conf.AI {

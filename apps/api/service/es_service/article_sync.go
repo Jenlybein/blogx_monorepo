@@ -20,11 +20,6 @@ type articleESTop struct {
 
 // BuildArticleESDocument 将文章及其聚合字段转换为 ES 文档。
 func BuildArticleESDocument(article models.ArticleModel, adminTop, authorTop bool) map[string]any {
-	commentsToggle := 0
-	if article.CommentsToggle {
-		commentsToggle = 1
-	}
-
 	tags := make([]models.ESTag, 0, len(article.Tags))
 	for _, tag := range article.Tags {
 		tags = append(tags, models.ESTag{
@@ -34,22 +29,46 @@ func BuildArticleESDocument(article models.ArticleModel, adminTop, authorTop boo
 	}
 
 	return map[string]any{
-		"id":              article.ID,
-		"created_at":      article.CreatedAt,
-		"updated_at":      article.UpdatedAt,
-		"title":           article.Title,
-		"abstract":        article.Abstract,
-		"content_parts":   markdown.MdToContentParts(article.Content),
-		"content_head":    markdown.ExtractText(markdown.MdToTextParagraph(article.Content), 150),
-		"category_id":     article.CategoryID,
-		"cover":           article.Cover,
-		"author_id":       article.AuthorID,
+		"id":            article.ID,
+		"created_at":    article.CreatedAt,
+		"updated_at":    article.UpdatedAt,
+		"title":         article.Title,
+		"abstract":      article.Abstract,
+		"content_parts": markdown.MdToContentParts(article.Content),
+		"content_head":  markdown.ExtractText(markdown.MdToTextParagraph(article.Content), 150),
+		"category_id":   article.CategoryID,
+		"category": map[string]any{
+			"id": article.CategoryID,
+			"title": func() string {
+				if article.CategoryModel == nil {
+					return ""
+				}
+				return article.CategoryModel.Title
+			}(),
+		},
+		"cover":     article.Cover,
+		"author_id": article.AuthorID,
+		"author": map[string]any{
+			"id": article.AuthorID,
+			"nickname": func() string {
+				if article.UserModel.ID == 0 {
+					return ""
+				}
+				return article.UserModel.Nickname
+			}(),
+			"avatar": func() string {
+				if article.UserModel.ID == 0 {
+					return ""
+				}
+				return article.UserModel.Avatar
+			}(),
+		},
 		"view_count":      article.ViewCount,
 		"digg_count":      article.DiggCount,
 		"comment_count":   article.CommentCount,
 		"favor_count":     article.FavorCount,
 		"status":          article.Status,
-		"comments_toggle": commentsToggle,
+		"comments_toggle": article.CommentsToggle,
 		"tags":            tags,
 		"admin_top":       adminTop,
 		"author_top":      authorTop,
@@ -155,23 +174,44 @@ func UpdateESDocsContent(articleIDs []ctype.ID) error {
 
 	reqs := make([]*BulkRequest, 0, len(articleList))
 	for _, article := range articleList {
-		commentsToggle := 0
-		if article.CommentsToggle {
-			commentsToggle = 1
-		}
 		reqs = append(reqs, &BulkRequest{
 			Action: ActionUpdate,
 			ID:     strconv.FormatUint(uint64(article.ID), 10),
 			Data: map[string]any{
-				"updated_at":      article.UpdatedAt,
-				"title":           article.Title,
-				"abstract":        article.Abstract,
-				"content_parts":   markdown.MdToContentParts(article.Content),
-				"content_head":    markdown.ExtractText(markdown.MdToTextParagraph(article.Content), 150),
-				"category_id":     article.CategoryID,
-				"cover":           article.Cover,
+				"updated_at":    article.UpdatedAt,
+				"title":         article.Title,
+				"abstract":      article.Abstract,
+				"content_parts": markdown.MdToContentParts(article.Content),
+				"content_head":  markdown.ExtractText(markdown.MdToTextParagraph(article.Content), 150),
+				"category_id":   article.CategoryID,
+				"category": map[string]any{
+					"id": article.CategoryID,
+					"title": func() string {
+						if article.CategoryModel == nil {
+							return ""
+						}
+						return article.CategoryModel.Title
+					}(),
+				},
+				"cover":     article.Cover,
+				"author_id": article.AuthorID,
+				"author": map[string]any{
+					"id": article.AuthorID,
+					"nickname": func() string {
+						if article.UserModel.ID == 0 {
+							return ""
+						}
+						return article.UserModel.Nickname
+					}(),
+					"avatar": func() string {
+						if article.UserModel.ID == 0 {
+							return ""
+						}
+						return article.UserModel.Avatar
+					}(),
+				},
 				"status":          article.Status,
-				"comments_toggle": commentsToggle,
+				"comments_toggle": article.CommentsToggle,
 			},
 		})
 	}
@@ -205,6 +245,44 @@ func UpdateESDocsTop(articleIDs []ctype.ID) error {
 	}
 
 	return applyArticlePartialBulkUpdate(reqs, "更新文章 ES 置顶字段失败")
+}
+
+func SyncESDocsByCategoryIDs(categoryIDs []ctype.ID) error {
+	if global.DB == nil || global.ESClient == nil {
+		return nil
+	}
+	categoryIDs = normalizeArticleIDs(categoryIDs)
+	if len(categoryIDs) == 0 {
+		return nil
+	}
+
+	var articleIDs []ctype.ID
+	if err := global.DB.Model(&models.ArticleModel{}).
+		Where("category_id IN ?", categoryIDs).
+		Order("id asc").
+		Pluck("id", &articleIDs).Error; err != nil {
+		return err
+	}
+	return SyncESDocs(articleIDs)
+}
+
+func SyncESDocsByAuthorIDs(userIDs []ctype.ID) error {
+	if global.DB == nil || global.ESClient == nil {
+		return nil
+	}
+	userIDs = normalizeArticleIDs(userIDs)
+	if len(userIDs) == 0 {
+		return nil
+	}
+
+	var articleIDs []ctype.ID
+	if err := global.DB.Model(&models.ArticleModel{}).
+		Where("author_id IN ?", userIDs).
+		Order("id asc").
+		Pluck("id", &articleIDs).Error; err != nil {
+		return err
+	}
+	return SyncESDocs(articleIDs)
 }
 
 func applyArticlePartialBulkUpdate(reqs []*BulkRequest, errPrefix string) error {
@@ -268,6 +346,12 @@ func loadArticlesForES(db *gorm.DB, articleIDs []ctype.ID) ([]models.ArticleMode
 		Preload("Tags", func(db *gorm.DB) *gorm.DB {
 			return db.Select("tag_models.id", "tag_models.title").Order("sort desc, id asc")
 		}).
+		Preload("CategoryModel", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "title")
+		}).
+		Preload("UserModel", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "nickname", "avatar")
+		}).
 		Order("id asc").
 		Find(&articleList).Error
 	return articleList, err
@@ -283,10 +367,17 @@ func loadArticlesForESContentUpdate(db *gorm.DB, articleIDs []ctype.ID) ([]model
 		"content",
 		"category_id",
 		"cover",
+		"author_id",
 		"status",
 		"comments_toggle",
 	).
 		Where("id IN ?", articleIDs).
+		Preload("CategoryModel", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "title")
+		}).
+		Preload("UserModel", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "nickname", "avatar")
+		}).
 		Order("id asc").
 		Find(&articleList).Error
 	return articleList, err

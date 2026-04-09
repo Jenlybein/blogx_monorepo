@@ -7,6 +7,8 @@ import (
 	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
+	"myblogx/models/ctype"
+	"myblogx/service/es_service"
 	"myblogx/service/log_service"
 	"myblogx/utils/jwts"
 	"strconv"
@@ -60,6 +62,9 @@ func (CategoryApi) CategoryCreateUpdateView(c *gin.Context) {
 		}
 		res.FailWithMsg(fmt.Sprintf("更新分类失败 %v", err), c)
 		return
+	}
+	if err := es_service.SyncESDocsByCategoryIDs([]ctype.ID{category.ID}); err != nil {
+		global.Logger.Errorf("同步分类相关文章 ES 文档失败: 分类ID=%d 错误=%v", category.ID, err)
 	}
 	res.OkWithMsg("更新分类成功", c)
 	log_service.EmitActionAuditFromGin(c, log_service.GinAuditInput{

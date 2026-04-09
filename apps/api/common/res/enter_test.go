@@ -45,6 +45,20 @@ func TestOkWithData(t *testing.T) {
 	}
 }
 
+func TestOkWithHasMoreList(t *testing.T) {
+	c, w := newGinCtx()
+	res.OkWithHasMoreList([]int{1, 2}, true, c)
+	body := decodeBody(t, w)
+
+	if body["code"].(float64) != float64(res.SuccessCode) {
+		t.Fatalf("code 错误: %v", body["code"])
+	}
+	data := body["data"].(map[string]any)
+	if data["has_more"] != true {
+		t.Fatalf("has_more 错误: %v", data["has_more"])
+	}
+}
+
 func TestFailWithMsg(t *testing.T) {
 	c, w := newGinCtx()
 	res.FailWithMsg("bad request", c)

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"myblogx/global"
+	"myblogx/service/site_service"
 	"net/http"
 	"strings"
 )
@@ -78,12 +79,13 @@ func BaseRequest(req Request) (*http.Response, error) {
 	if global.Config == nil {
 		return nil, errors.New("系统配置未初始化")
 	}
-	if !global.Config.AI.Enable {
+	aiConf := site_service.GetRuntimeAI()
+	if !aiConf.Enable {
 		return nil, errors.New("AI服务未开启")
 	}
 
-	key := global.Config.AI.SecretKey
-	url := global.Config.AI.BaseURL
+	key := aiConf.SecretKey
+	url := aiConf.BaseURL
 
 	if key == "" {
 		return nil, errors.New("AI SecretKey 未配置")
@@ -123,13 +125,13 @@ func BaseRequest(req Request) (*http.Response, error) {
 
 // Chat 非流式AI对话接口
 func Chat(msgList []Message) (string, error) {
-	model := global.Config.AI.ChatModel
+	model := site_service.GetRuntimeAI().ChatModel
 	return chatWithModel(msgList, model)
 }
 
 // ChatStream 流式AI对话接口（返回流式输出的内容通道）
 func ChatStream(msgList []Message) (chan string, chan error) {
-	model := global.Config.AI.ChatModel
+	model := site_service.GetRuntimeAI().ChatModel
 	return chatStreamWithModel(msgList, model)
 }
 

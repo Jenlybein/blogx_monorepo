@@ -9,6 +9,7 @@ import (
 	"myblogx/models/enum"
 	"myblogx/service/log_service"
 	"myblogx/service/redis_service/redis_user"
+	"myblogx/service/site_service"
 	"myblogx/service/user_service"
 	"myblogx/utils/pwd"
 	"strings"
@@ -22,7 +23,7 @@ type PwdLoginRequest struct {
 }
 
 func (AuthApi) PwdLoginView(c *gin.Context) {
-	if !global.Config.Site.Login.UsernamePwdLogin {
+	if !site_service.GetRuntimeLogin().UsernamePwdLogin {
 		log_service.EmitLoginEventFromGin(c, "login_fail", enum.PasswordLoginType, false, "", 0, "站点未启用密码登录", nil)
 		res.FailWithMsg("站点未启用密码登录功能", c)
 		return

@@ -8,12 +8,14 @@ import (
 	blogmodels "myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/db_service"
+	"myblogx/service/user_service"
 	"myblogx/utils/jwts"
 	"net/http"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -23,6 +25,8 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
+
+var sqliteDSNCounter uint64
 
 func InitGlobals() {
 	logger := logrus.New()
@@ -83,7 +87,8 @@ func SetupSQLite(t *testing.T, models ...any) *gorm.DB {
 	t.Helper()
 	InitGlobals()
 
-	dsn := fmt.Sprintf("file:%d?mode=memory&cache=shared", time.Now().UnixNano())
+	seq := atomic.AddUint64(&sqliteDSNCounter, 1)
+	dsn := fmt.Sprintf("file:test_%d_%d?mode=memory&cache=shared", time.Now().UnixNano(), seq)
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		TranslateError: true,
 	})
@@ -107,6 +112,18 @@ func SetupSQLite(t *testing.T, models ...any) *gorm.DB {
 
 	global.DB = db
 	return db
+}
+
+func CreateUser(t *testing.T, db *gorm.DB, user *blogmodels.UserModel) {
+	t.Helper()
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(user).Error; err != nil {
+			return err
+		}
+		return user_service.InitUserDefaults(tx, user.ID)
+	}); err != nil {
+		t.Fatalf("创建用户失败: %v", err)
+	}
 }
 
 func appendDependentModels(list []any) []any {

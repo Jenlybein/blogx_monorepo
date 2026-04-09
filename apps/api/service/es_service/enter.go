@@ -195,6 +195,45 @@ func Search[T any](index string, page, limit int, query map[string]any, extraBod
 	}
 }
 
+// SearchBody 允许上层直接传入完整搜索请求体。
+// 适合需要自定义 size、track_total_hits 或 has_more 语义的读服务。
+func SearchBody(index string, body map[string]any) ESResponse {
+	payload, _ := json.Marshal(body)
+
+	req := esapi.SearchRequest{
+		Index: []string{index},
+		Body:  bytes.NewReader(payload),
+	}
+
+	res, err := doRequest(req)
+	if err != nil {
+		return ESResponse{Success: false, Msg: err.Error()}
+	}
+
+	result, _ := decodeResponse(res.Body)
+	hitsObj, ok := result["hits"].(map[string]any)
+	if !ok {
+		return ESResponse{Success: false, Msg: "搜索结果格式错误"}
+	}
+
+	totalValue := 0.0
+	if totalObj, ok := hitsObj["total"].(map[string]any); ok {
+		if value, ok := totalObj["value"].(float64); ok {
+			totalValue = value
+		}
+	}
+
+	return ESResponse{
+		Success: true,
+		Msg:     "查询成功",
+		Data: map[string]any{
+			"total": hitsObj["total"],
+			"hits":  hitsObj["hits"],
+			"value": totalValue,
+		},
+	}
+}
+
 // 更新通用文档
 func UpdateDocument(index, docID string, updateData map[string]any) ESResponse {
 	body, _ := json.Marshal(map[string]any{"doc": updateData})

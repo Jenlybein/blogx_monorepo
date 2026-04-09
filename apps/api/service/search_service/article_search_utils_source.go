@@ -121,8 +121,42 @@ func sourceStringValue(sourceMap map[string]any, key string) string {
 
 // sourceBoolValue 从 ES _source 中提取 bool 字段。
 func sourceBoolValue(sourceMap map[string]any, key string) bool {
-	value, _ := sourceMap[key].(bool)
-	return value
+	switch value := sourceMap[key].(type) {
+	case bool:
+		return value
+	case int:
+		return value != 0
+	case int8:
+		return value != 0
+	case int16:
+		return value != 0
+	case int32:
+		return value != 0
+	case int64:
+		return value != 0
+	case uint:
+		return value != 0
+	case uint8:
+		return value != 0
+	case uint16:
+		return value != 0
+	case uint32:
+		return value != 0
+	case uint64:
+		return value != 0
+	case float32:
+		return value != 0
+	case float64:
+		return value != 0
+	case json.Number:
+		intValue, err := value.Int64()
+		if err != nil {
+			return false
+		}
+		return intValue != 0
+	default:
+		return false
+	}
 }
 
 // sourceTimeValue 从 ES _source 中提取时间字段。
@@ -158,6 +192,27 @@ func sourceStringSliceValue(sourceMap map[string]any, key string) []string {
 		return result
 	default:
 		return nil
+	}
+}
+
+func sourceFloatValue(sourceMap map[string]any, key string) float64 {
+	switch value := sourceMap[key].(type) {
+	case float64:
+		return value
+	case float32:
+		return float64(value)
+	case int:
+		return float64(value)
+	case int64:
+		return float64(value)
+	case json.Number:
+		floatValue, err := value.Float64()
+		if err != nil {
+			return 0
+		}
+		return floatValue
+	default:
+		return 0
 	}
 }
 
@@ -207,6 +262,31 @@ func sourceTagTitlesValue(sourceMap map[string]any, key string) []string {
 			continue
 		}
 		result = append(result, title)
+	}
+	return result
+}
+
+func sourceTagItemsValue(sourceMap map[string]any, key string) []SearchTag {
+	rawList, ok := sourceMap[key].([]any)
+	if !ok {
+		return nil
+	}
+
+	result := make([]SearchTag, 0, len(rawList))
+	for _, rawItem := range rawList {
+		itemMap, ok := rawItem.(map[string]any)
+		if !ok {
+			continue
+		}
+		title := sourceStringValue(itemMap, "title")
+		id := sourceIDValue(itemMap, "id")
+		if title == "" && id == 0 {
+			continue
+		}
+		result = append(result, SearchTag{
+			ID:    id,
+			Title: title,
+		})
 	}
 	return result
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"myblogx/global"
 	"myblogx/models/ctype"
+	"myblogx/service/site_service"
 	"myblogx/utils/markdown"
 	"strings"
 )
@@ -13,7 +14,7 @@ import (
 func cleanArticleMetainfoContent(content string) string {
 	text := markdown.MdToTextParagraph(content)
 
-	maxChars := global.Config.AI.MaxInputChars
+	maxChars := site_service.GetRuntimeAI().MaxInputChars
 	if maxChars <= 0 {
 		maxChars = 4096
 	}

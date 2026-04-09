@@ -6,6 +6,7 @@ import (
 	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
+	"myblogx/service/article_service"
 	"myblogx/service/log_service"
 
 	"github.com/gin-gonic/gin"
@@ -21,7 +22,7 @@ func (ArticleApi) ArticleRemoveView(c *gin.Context) {
 		res.FailWithMsg("删除失败，文章不存在", c)
 		return
 	}
-	if err := global.DB.Delete(&list).Error; err != nil {
+	if err := article_service.DeleteArticles(global.DB, list, false); err != nil {
 		res.FailWithMsg("删除文章失败", c)
 		return
 	}

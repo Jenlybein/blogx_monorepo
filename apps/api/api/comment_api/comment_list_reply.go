@@ -9,6 +9,7 @@ import (
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
 	"myblogx/models/enum/relationship_enum"
+	"myblogx/service/comment_service"
 	"myblogx/service/redis_service/redis_comment"
 	"time"
 
@@ -38,6 +39,7 @@ type CommentReplyListResponse struct {
 
 func (CommentApi) CommentReplyListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[CommentReplyListRequest](c)
+	queryService := comment_service.NewQueryService(global.DB)
 
 	// 查询一级评论
 	var root models.CommentModel
@@ -51,40 +53,15 @@ func (CommentApi) CommentReplyListView(c *gin.Context) {
 		return
 	}
 
-	list, count, err := common.ListQuery(models.CommentModel{
-		ArticleID: cr.ArticleID,
-		RootID:    cr.RootID,
-		Status:    enum.CommentStatusPublished,
-	}, common.Options{
-		PageInfo:     cr.PageInfo,
-		DefaultOrder: "created_at asc",
-		Select: []string{
-			"id",
-			"created_at",
-			"updated_at",
-			"content",
-			"user_id",
-			"article_id",
-			"reply_id",
-			"root_id",
-			"digg_count",
-			"reply_count",
-			"status",
-		},
-		ExactPreloads: map[string][]string{
-			"UserModel":             {"id", "nickname", "avatar"},
-			"ParentModel":           {"id", "user_id"},
-			"ParentModel.UserModel": {"id", "nickname"},
-		},
-	})
+	rows, hasMore, err := queryService.ListPublishedReplyComments(cr.ArticleID, cr.RootID, cr.PageInfo)
 	if err != nil {
 		res.FailWithMsg("查询二级评论失败 "+err.Error(), c)
 		return
 	}
 
 	// 批量查询回复数和点赞数
-	commentIDs := make([]ctype.ID, 0, len(list))
-	for _, item := range list {
+	commentIDs := make([]ctype.ID, 0, len(rows))
+	for _, item := range rows {
 		commentIDs = append(commentIDs, item.ID)
 	}
 	replyCountMap := redis_comment.GetBatchCacheReply(commentIDs)
@@ -92,16 +69,16 @@ func (CommentApi) CommentReplyListView(c *gin.Context) {
 
 	// 批量查询点赞，好友关系
 	viewerUserID := commentViewerIDFromGin(c)
-	userIDs := make([]ctype.ID, 0, len(list))
-	for _, item := range list {
+	userIDs := make([]ctype.ID, 0, len(rows))
+	for _, item := range rows {
 		userIDs = append(userIDs, item.UserID)
 	}
 	isDiggMap := buildCommentDiggMap(viewerUserID, commentIDs)
 	relationMap := buildCommentRelationMap(viewerUserID, userIDs)
 
 	// 组装响应
-	responseList := make([]CommentReplyListResponse, 0, len(list))
-	for _, item := range list {
+	responseList := make([]CommentReplyListResponse, 0, len(rows))
+	for _, item := range rows {
 		item.ReplyCount += replyCountMap[item.ID]
 		item.DiggCount += diggCountMap[item.ID]
 		relation := relationship_enum.RelationStranger
@@ -112,18 +89,16 @@ func (CommentApi) CommentReplyListView(c *gin.Context) {
 			CreatedAt:    item.CreatedAt,
 			Content:      item.Content,
 			UserID:       item.UserID,
-			ReplyId:      item.ReplyId,
+			ReplyId:      item.ReplyID,
 			DiggCount:    item.DiggCount,
 			ReplyCount:   item.ReplyCount,
 			IsDigg:       isDiggMap[item.ID],
 			Relation:     int8(relation),
 			Status:       item.Status,
-			UserNickname: item.UserModel.Nickname,
-			UserAvatar:   item.UserModel.Avatar,
+			UserNickname: item.UserNickname,
+			UserAvatar:   item.UserAvatar,
 		}
-		if item.ParentModel != nil {
-			resp.ReplyUserNickname = item.ParentModel.UserModel.Nickname
-		}
+		resp.ReplyUserNickname = item.ReplyUserNickname
 		responseList = append(responseList, resp)
 	}
 
@@ -132,6 +107,6 @@ func (CommentApi) CommentReplyListView(c *gin.Context) {
 		"root_id":     cr.RootID,
 		"reply_count": rootReplyCount,
 		"list":        responseList,
-		"count":       count,
+		"has_more":    hasMore,
 	}, c)
 }

@@ -1,0 +1,186 @@
+{
+  "name": "myblogx article read api guide",
+  "updated_at": "2026-04-09",
+  "purpose": "说明文章读取接口已经统一到 /api/search/articles，并给出最常用的调用方式。",
+  "important_changes": [
+    "GET /api/articles 已下线，不再用于文章读取。",
+    "文章列表、文章搜索、作者文章、我的文章、管理员文章查询统一走 GET /api/search/articles。",
+    "page_mode 支持 has_more 和 count 两种分页模式。",
+    "status 继续传数字状态，不改成字符串。",
+    "author_id 是新的作者筛选字段；旧的 user_id 只做兼容，不建议新调用继续使用。",
+    "tag_ids 是新的标签筛选字段；推荐传重复 query 或逗号分隔数字 ID。"
+  ],
+  "endpoint": {
+    "method": "GET",
+    "path": "/api/search/articles",
+    "auth": {
+      "type_1_public": "匿名可访问",
+      "type_2_recommend": "匿名可访问，登录后会叠加偏好标签推荐",
+      "type_3_author": "匿名可访问，但必须传 author_id",
+      "type_4_self": "必须登录",
+      "type_5_admin": "必须管理员"
+    }
+  },
+  "query_parameters": {
+    "type": {
+      "type": "integer",
+      "default": 1,
+      "enum": {
+        "1": "公共文章列表/公共搜索",
+        "2": "猜你喜欢/推荐流",
+        "3": "作者文章",
+        "4": "当前登录用户自己的文章",
+        "5": "管理员文章查询"
+      }
+    },
+    "sort": {
+      "type": "integer",
+      "default": 1,
+      "enum": {
+        "1": "默认排序",
+        "2": "最新发布",
+        "3": "最多回复",
+        "4": "最多点赞",
+        "5": "最多收藏",
+        "6": "最多浏览"
+      }
+    },
+    "key": {
+      "type": "string",
+      "description": "主要搜索内容。为空时表示列表查询，不做关键词检索。"
+    },
+    "page": {
+      "type": "integer",
+      "default": 1,
+      "description": "页码，从 1 开始。"
+    },
+    "limit": {
+      "type": "integer",
+      "default": 10,
+      "description": "每页条数，建议 1-100。"
+    },
+    "page_mode": {
+      "type": "string",
+      "default_rule": "type=1/2/3 默认 has_more；type=4/5 默认 count。",
+      "enum": {
+        "has_more": "前台列表/滚动加载",
+        "count": "后台准确数据页"
+      }
+    },
+    "author_id": {
+      "type": "string",
+      "description": "作者 ID。type=3 时必填。"
+    },
+    "category_id": {
+      "type": "string",
+      "description": "分类 ID，所有 type 都支持。"
+    },
+    "tag_ids": {
+      "type": "string",
+      "description": "标签 ID 列表。推荐 tag_ids=1&tag_ids=2，也兼容 tag_ids=1,2。"
+    },
+    "status": {
+      "type": "integer",
+      "description": "继续传数字状态。type=1/2/3 只允许已发布状态；type=4/5 可按数字状态过滤。"
+    }
+  },
+  "usage_rules": [
+    "想查公共文章流：传 type=1，key 可空，前台默认建议 page_mode=has_more。",
+    "想做站内搜索：仍然传 type=1，再额外传 key。",
+    "想查某个作者的文章：传 type=3，必须传 author_id。",
+    "想查自己的文章：传 type=4，并带登录态；status 继续传数字。",
+    "想查后台审核池或后台文章管理：传 type=5，建议 page_mode=count。",
+    "category_id 和 tag_ids 是统一筛选字段；新调用不要再继续使用 user_id。",
+    "tag_ids 推荐写法是 tag_ids=1&tag_ids=2；如果前端不方便，也兼容 tag_ids=1,2。"
+  ],
+  "response_shape": {
+    "code": 0,
+    "msg": "",
+    "data": {
+      "list": [
+        {
+          "id": "101",
+          "created_at": "2026-04-09T10:00:00+08:00",
+          "updated_at": "2026-04-09T10:30:00+08:00",
+          "title": "Go Elasticsearch 实战",
+          "abstract": "这是一篇关于 Go + ES 的文章摘要",
+          "cover": "https://cdn.example.com/cover.jpg",
+          "view_count": 120,
+          "digg_count": 8,
+          "comment_count": 16,
+          "favor_count": 4,
+          "comments_toggle": true,
+          "status": 3,
+          "tags": [
+            {
+              "id": "1",
+              "title": "Go"
+            },
+            {
+              "id": "2",
+              "title": "Elasticsearch"
+            }
+          ],
+          "category": {
+            "id": "3",
+            "title": "后端"
+          },
+          "author": {
+            "id": "9",
+            "nickname": "张三",
+            "avatar": "https://cdn.example.com/avatar.jpg"
+          },
+          "top": {
+            "user": false,
+            "admin": true
+          },
+          "highlight": {
+            "title": "<em>Go</em> Elasticsearch 实战",
+            "abstract": "这是一篇关于 <em>Go</em> + ES 的文章摘要"
+          },
+          "score": 12.38
+        }
+      ],
+      "pagination": {
+        "mode": "has_more",
+        "page": 1,
+        "limit": 10,
+        "has_more": true,
+        "total": 137,
+        "total_pages": 14
+      }
+    }
+  },
+  "response_rules": [
+    "list 和 pagination 始终存在。",
+    "pagination.has_more 始终存在。",
+    "pagination.total 与 pagination.total_pages 只在 page_mode=count 时返回。",
+    "highlight 只有 key 非空时才有意义。",
+    "score 是 ES 检索分数，列表查询时可能为空。"
+  ],
+  "examples": [
+    {
+      "name": "公共文章流",
+      "request": "GET /api/search/articles?type=1&page=1&limit=10&page_mode=has_more&sort=1"
+    },
+    {
+      "name": "作者文章搜索",
+      "request": "GET /api/search/articles?type=3&author_id=9&key=golang&page=1&limit=10&page_mode=has_more&sort=2"
+    },
+    {
+      "name": "管理员审核池",
+      "request": "GET /api/search/articles?type=5&status=2&page=1&limit=20&page_mode=count&sort=2"
+    }
+  ],
+  "compatibility": {
+    "still_supported_temporarily": [
+      "user_id -> author_id",
+      "tag_list -> 旧 AI 搜索兼容，仅旧流程使用"
+    ],
+    "recommended_now": [
+      "author_id",
+      "tag_ids",
+      "page_mode"
+    ]
+  }
+}

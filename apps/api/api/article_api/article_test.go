@@ -3,7 +3,6 @@ package article_api
 import (
 	"encoding/json"
 	"fmt"
-	"myblogx/common"
 	"myblogx/conf"
 	confsite "myblogx/conf/site"
 	"myblogx/global"
@@ -115,120 +114,6 @@ func waitArticleMessageCount(t *testing.T, want int) []models.ArticleMessageMode
 	}
 	t.Fatalf("等待消息数量超时: got=%d want=%d", len(list), want)
 	return nil
-}
-
-func TestValidateRequestAndList(t *testing.T) {
-	user := setupArticleEnv(t)
-
-	{
-		c, _ := newCtx()
-		if _, err := validateRequest(ArticleListRequest{Type: 1}, nil, c); err != nil {
-			t.Fatalf("Type=1 未传 user_id 不应失败: %v", err)
-		}
-	}
-
-	otherUser := models.UserModel{
-		Username: "u2",
-		Password: "x",
-		Role:     enum.RoleUser,
-	}
-	if err := global.DB.Create(&otherUser).Error; err != nil {
-		t.Fatalf("创建第二个用户失败: %v", err)
-	}
-
-	tag := models.TagModel{Title: "Go", IsEnabled: true}
-	if err := global.DB.Create(&tag).Error; err != nil {
-		t.Fatalf("创建标签失败: %v", err)
-	}
-
-	article := models.ArticleModel{
-		Title:    "a1",
-		Content:  "hello",
-		AuthorID: user.ID,
-		Status:   enum.ArticleStatusPublished,
-	}
-	if err := global.DB.Create(&article).Error; err != nil {
-		t.Fatalf("创建文章失败: %v", err)
-	}
-	if err := global.DB.Create(&models.ArticleTagModel{ArticleID: article.ID, TagID: tag.ID}).Error; err != nil {
-		t.Fatalf("创建文章标签关系失败: %v", err)
-	}
-
-	otherArticle := models.ArticleModel{
-		Title:    "a2",
-		Content:  "world",
-		AuthorID: otherUser.ID,
-		Status:   enum.ArticleStatusPublished,
-	}
-	if err := global.DB.Create(&otherArticle).Error; err != nil {
-		t.Fatalf("创建第二篇文章失败: %v", err)
-	}
-	if err := global.DB.Create(&models.ArticleTagModel{ArticleID: otherArticle.ID, TagID: tag.ID}).Error; err != nil {
-		t.Fatalf("创建第二篇文章标签关系失败: %v", err)
-	}
-
-	draftArticle := models.ArticleModel{
-		Title:    "draft",
-		Content:  "hidden",
-		AuthorID: otherUser.ID,
-		Status:   enum.ArticleStatusExamining,
-	}
-	if err := global.DB.Create(&draftArticle).Error; err != nil {
-		t.Fatalf("创建草稿文章失败: %v", err)
-	}
-
-	{
-		c, w := newCtx()
-		c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
-		c.Set("requestQuery", ArticleListRequest{
-			PageInfo: common.PageInfo{Page: 1, Limit: 10},
-			Type:     1,
-			TagID:    &tag.ID,
-			Status:   enum.ArticleStatusPublished,
-		})
-		ArticleApi{}.ArticleListView(c)
-		body := readBody(t, w)
-		if code := int(body["code"].(float64)); code != 0 {
-			t.Fatalf("查询全部公开文章失败, code=%d body=%s", code, w.Body.String())
-		}
-		data := body["data"].(map[string]any)
-		list := data["list"].([]any)
-		if count := int(data["count"].(float64)); count != 2 {
-			t.Fatalf("未传 user_id 时应查到两篇公开文章, got=%d", count)
-		}
-		if len(list) != 2 {
-			t.Fatalf("未传 user_id 时返回列表长度错误, got=%d", len(list))
-		}
-	}
-
-	{
-		c, w := newCtx()
-		c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
-		c.Set("requestQuery", ArticleListRequest{
-			PageInfo: common.PageInfo{Page: 1, Limit: 10},
-			Type:     1,
-			UserID:   user.ID,
-			TagID:    &tag.ID,
-			Status:   enum.ArticleStatusPublished,
-		})
-		ArticleApi{}.ArticleListView(c)
-		body := readBody(t, w)
-		if code := int(body["code"].(float64)); code != 0 {
-			t.Fatalf("按 user_id 查询公开文章失败, code=%d body=%s", code, w.Body.String())
-		}
-		data := body["data"].(map[string]any)
-		list := data["list"].([]any)
-		if count := int(data["count"].(float64)); count != 1 {
-			t.Fatalf("传 user_id=%d 时应只查到一篇文章, got=%d", user.ID, count)
-		}
-		if len(list) != 1 {
-			t.Fatalf("按 user_id 查询时返回列表长度错误, got=%d", len(list))
-		}
-		item := list[0].(map[string]any)
-		if title := item["title"].(string); title != "a1" {
-			t.Fatalf("按 user_id 查询返回了错误文章, got=%s", title)
-		}
-	}
 }
 
 func TestArticleCreateUpdateExamineAndRemove(t *testing.T) {

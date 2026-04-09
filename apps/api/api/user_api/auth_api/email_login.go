@@ -6,6 +6,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/service/log_service"
+	"myblogx/service/site_service"
 	"myblogx/service/user_service"
 
 	"github.com/gin-gonic/gin"
@@ -14,7 +15,7 @@ import (
 // EmailLoginView 邮箱验证码登录。
 // 这里依赖 EmailVerifyMiddleware 先完成验证码校验，并把邮箱写入上下文。
 func (AuthApi) EmailLoginView(c *gin.Context) {
-	if !global.Config.Site.Login.EmailLogin {
+	if !site_service.GetRuntimeLogin().EmailLogin {
 		log_service.EmitLoginEventFromGin(c, "login_fail", enum.EmailLoginType, false, "", 0, "站点未启用邮箱登录", nil)
 		res.FailWithMsg("站点未启用邮箱登录功能", c)
 		return

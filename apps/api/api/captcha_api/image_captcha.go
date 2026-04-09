@@ -4,6 +4,7 @@ import (
 	"image/color"
 	"myblogx/common/res"
 	"myblogx/global"
+	"myblogx/service/site_service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mojocn/base64Captcha"
@@ -18,7 +19,7 @@ type ImageCaptchaResponse struct {
 }
 
 func (i *ImageCaptchaApi) CaptchaView(c *gin.Context) {
-	if !global.Config.Site.Login.Captcha {
+	if !site_service.GetRuntimeLogin().Captcha {
 		res.FailWithMsg("站点未启用验证码功能", c)
 		return
 	}

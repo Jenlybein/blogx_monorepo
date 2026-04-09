@@ -73,6 +73,17 @@ func OkWithList(list any, count int, c *gin.Context) {
 	}.Json(c)
 }
 
+func OkWithHasMoreList(list any, hasMore bool, c *gin.Context) {
+	Response{
+		Code: SuccessCode,
+		Data: map[string]any{
+			"list":     list,
+			"has_more": hasMore,
+		},
+		Msg: "成功",
+	}.Json(c)
+}
+
 func FailWithMsg(msg string, c *gin.Context) {
 	Response{
 		Code: FailValidCode,

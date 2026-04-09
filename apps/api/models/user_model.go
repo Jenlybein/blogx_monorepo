@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // 用户表
@@ -42,9 +43,11 @@ func (u *UserModel) BeforeCreate(tx *gorm.DB) (err error) {
 	return u.Model.BeforeCreate(tx)
 }
 
-func (u *UserModel) AfterCreate(tx *gorm.DB) (err error) {
-	// 创建用户配置表
-	u.UserConfModel = &UserConfModel{
+// AfterCreate 目前保留为兼容兜底。
+// 业务主路径已改为显式调用 user_service.InitUserDefaults，
+// 这里仅保证旧测试和遗留直写 Create(&UserModel{}) 不会缺失用户默认行。
+func (u *UserModel) AfterCreate(tx *gorm.DB) error {
+	confModel := UserConfModel{
 		UserID:                   u.ID,
 		FavoritesVisibility:      true,
 		FollowVisibility:         true,
@@ -56,21 +59,17 @@ func (u *UserModel) AfterCreate(tx *gorm.DB) (err error) {
 		PrivateChatNoticeEnabled: true,
 		StrangerChatEnabled:      true,
 	}
-	if err = tx.Create(u.UserConfModel).Error; err != nil {
+	if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&confModel).Error; err != nil {
 		return err
 	}
 
-	// 创建用户统计表
-	u.UserStatModel = &UserStatModel{
+	statModel := UserStatModel{
 		UserID:      u.ID,
 		ViewCount:   0,
 		FansCount:   0,
 		FollowCount: 0,
 	}
-	if err = tx.Create(u.UserStatModel).Error; err != nil {
-		return err
-	}
-	return nil
+	return tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&statModel).Error
 }
 
 // CodeAge 计算用户注册年龄（单位：年）

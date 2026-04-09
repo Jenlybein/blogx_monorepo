@@ -106,8 +106,8 @@ func TestCommentReplyListView(t *testing.T) {
 			t.Fatalf("解析响应失败: %v", err)
 		}
 		data := body["data"].(map[string]any)
-		if int(data["count"].(float64)) != 2 {
-			t.Fatalf("count 错误: %+v", data)
+		if data["has_more"].(bool) {
+			t.Fatalf("二级评论列表不应还有更多: %+v", data)
 		}
 		if int(data["reply_count"].(float64)) != 3 {
 			t.Fatalf("root reply_count 错误: %+v", data)

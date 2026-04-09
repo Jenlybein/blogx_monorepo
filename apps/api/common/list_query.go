@@ -32,11 +32,16 @@ type PageInfo struct {
 	Order string `form:"order"` // 允许前端覆盖排序字段
 }
 
-func (p PageInfo) GetPage(count int) int {
+func (p PageInfo) NormalizePage() int {
 	page := p.Page
 	if page <= 0 {
-		page = 1
+		return 1
 	}
+	return page
+}
+
+func (p PageInfo) GetPage(count int) int {
+	page := p.NormalizePage()
 
 	if count <= 0 {
 		return 1
@@ -61,8 +66,13 @@ func (p PageInfo) GetOffset(count int) int {
 	return (p.GetPage(count) - 1) * p.GetLimit()
 }
 
+func (p PageInfo) GetOffsetNoCount() int {
+	return (p.NormalizePage() - 1) * p.GetLimit()
+}
+
 type Options struct {
 	PageInfo
+	DB            *gorm.DB
 	Select        []string
 	Likes         []string
 	Preloads      []string
@@ -132,6 +142,51 @@ func ListQuery[T any](model T, option Options) (list []T, count int, err error) 
 	return
 }
 
+// ListQueryHasMore 适合“不需要精确总数，只关心还有没有下一页”的前台列表。
+// 查询时会多取一条记录，用来判断 has_more，从而避免额外 count 开销。
+func ListQueryHasMore[T any](model T, option Options) (list []T, hasMore bool, err error) {
+	baseQuery := buildListQuery(model, option)
+
+	listQuery := baseQuery.Session(&gorm.Session{})
+	limit := option.PageInfo.GetLimit()
+	offset := option.PageInfo.GetOffsetNoCount()
+	listQuery = listQuery.Limit(limit + 1).Offset(offset)
+
+	if option.PageInfo.Order != "" {
+		if option.OrderMap == nil || !option.OrderMap[option.PageInfo.Order] {
+			err = ErrInvalidOrder
+			return
+		}
+		listQuery = listQuery.Order(option.PageInfo.Order)
+	} else if option.DefaultOrder != "" {
+		listQuery = listQuery.Order(option.DefaultOrder)
+	}
+
+	if len(option.Select) > 0 {
+		listQuery = listQuery.Select(option.Select)
+	}
+
+	for _, preload := range option.Preloads {
+		listQuery = listQuery.Preload(preload)
+	}
+
+	for preload, fields := range option.ExactPreloads {
+		listQuery = listQuery.Preload(preload, func(db *gorm.DB) *gorm.DB {
+			return db.Select(fields)
+		})
+	}
+
+	err = listQuery.Find(&list).Error
+	if err != nil {
+		return
+	}
+	if len(list) > limit {
+		hasMore = true
+		list = list[:limit]
+	}
+	return
+}
+
 // CountQuery 只负责统计总数。
 // 这里单独复制 session，避免与后续列表查询的 limit/order/preload 相互污染。
 func CountQuery(query *gorm.DB) (count int, err error) {
@@ -197,10 +252,55 @@ func PageIDQuery(query *gorm.DB, option IDPageOptions) (ids []ctype.ID, count in
 	return
 }
 
+// PageIDHasMoreQuery 用于复杂列表的分页第一阶段，但不再统计 count。
+// 通过多取一条主键记录判断是否还有下一页，适合前台滚动加载列表。
+func PageIDHasMoreQuery(query *gorm.DB, option IDPageOptions) (ids []ctype.ID, hasMore bool, err error) {
+	if option.Unscoped {
+		query = query.Unscoped()
+	}
+
+	order, err := ResolveOrder(option.PageInfo.Order, option.OrderMap, option.DefaultOrder)
+	if err != nil {
+		return nil, false, err
+	}
+
+	idColumn := option.IDColumn
+	if idColumn == "" {
+		idColumn = "id"
+	}
+
+	listQuery := query.Session(&gorm.Session{})
+	if order != "" {
+		listQuery = listQuery.Order(order)
+	}
+
+	limit := option.PageInfo.GetLimit()
+	offset := option.PageInfo.GetOffsetNoCount()
+
+	err = listQuery.
+		Select(idColumn).
+		Limit(limit+1).
+		Offset(offset).
+		Pluck(idColumn, &ids).Error
+	if err != nil {
+		return nil, false, err
+	}
+	if len(ids) > limit {
+		hasMore = true
+		ids = ids[:limit]
+	}
+	return
+}
+
 // buildListQuery 只负责拼接公共过滤条件，不执行查询。
 // Where 预期传入附加过滤条件，而不是完整查询链。
 func buildListQuery[T any](model T, option Options) *gorm.DB {
-	query := global.DB.Model(model)
+	queryDB := option.DB
+	if queryDB == nil {
+		queryDB = global.DB
+	}
+
+	query := queryDB.Model(model)
 
 	if option.Unscoped {
 		query = query.Unscoped()
@@ -213,7 +313,7 @@ func buildListQuery[T any](model T, option Options) *gorm.DB {
 	}
 
 	if len(option.Likes) > 0 && option.PageInfo.Key != "" {
-		query = query.Where(buildLikeCondition(option.Likes, option.PageInfo.Key))
+		query = query.Where(buildLikeCondition(queryDB, option.Likes, option.PageInfo.Key))
 	}
 
 	if option.Where != nil {
@@ -224,9 +324,12 @@ func buildListQuery[T any](model T, option Options) *gorm.DB {
 }
 
 // buildLikeCondition 构造多个列的 OR LIKE 条件。
-func buildLikeCondition(columns []string, key string) *gorm.DB {
+func buildLikeCondition(db *gorm.DB, columns []string, key string) *gorm.DB {
+	if db == nil {
+		db = global.DB
+	}
 	pattern := "%" + key + "%"
-	likeQuery := global.DB.Where(fmt.Sprintf("%s LIKE ?", columns[0]), pattern)
+	likeQuery := db.Where(fmt.Sprintf("%s LIKE ?", columns[0]), pattern)
 	for _, column := range columns[1:] {
 		likeQuery = likeQuery.Or(fmt.Sprintf("%s LIKE ?", column), pattern)
 	}

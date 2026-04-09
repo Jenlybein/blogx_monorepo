@@ -11,6 +11,7 @@ import (
 	"myblogx/service/message_service"
 	"myblogx/service/redis_service/redis_article"
 	"myblogx/service/redis_service/redis_comment"
+	"myblogx/service/site_service"
 	"myblogx/utils/jwts"
 
 	"github.com/gin-gonic/gin"
@@ -74,7 +75,7 @@ func (CommentApi) CommentCreateView(c *gin.Context) {
 	}
 
 	// 临时审核（模拟审核过程，之后再修改）
-	if (claims != nil && claims.IsAdmin()) || global.Config.Site.Comment.SkipExamining {
+	if (claims != nil && claims.IsAdmin()) || site_service.GetRuntimeComment().SkipExamining {
 		status = enum.CommentStatusPublished
 		if err := global.DB.Model(&model).Update("status", status).Error; err != nil {
 			res.FailWithMsg("审核失败", c)

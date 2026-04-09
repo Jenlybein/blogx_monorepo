@@ -8,6 +8,7 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
+	"myblogx/service/es_service"
 	"myblogx/utils/info_check"
 	"myblogx/utils/jwts"
 	"myblogx/utils/maps"
@@ -101,6 +102,11 @@ func (ProfileApi) UserInfoUpdateView(c *gin.Context) {
 		if err = global.DB.Model(&userModel).Updates(userMap).Error; err != nil {
 			res.FailWithMsg("用户信息更新失败", c)
 			return
+		}
+		if cr.Nickname != nil || cr.Avatar != nil {
+			if err = es_service.SyncESDocsByAuthorIDs([]ctype.ID{claims.UserID}); err != nil {
+				global.Logger.Errorf("同步用户文章 ES 文档失败: 用户ID=%d 错误=%v", claims.UserID, err)
+			}
 		}
 	}
 

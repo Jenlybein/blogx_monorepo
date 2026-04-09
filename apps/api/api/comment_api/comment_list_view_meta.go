@@ -6,7 +6,7 @@ import (
 	"myblogx/models/ctype"
 	"myblogx/models/enum/relationship_enum"
 	"myblogx/service/follow_service"
-	"myblogx/service/user_service"
+	"myblogx/utils/jwts"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,8 +14,8 @@ import (
 // commentViewerIDFromGin 提取当前可选登录用户。
 // 评论列表接口允许匿名访问，所以这里不能强制要求鉴权成功。
 func commentViewerIDFromGin(c *gin.Context) ctype.ID {
-	if authResult := user_service.MustAuthenticateAccessTokenByGin(c); authResult != nil {
-		return authResult.Claims.UserID
+	if claims, err := jwts.ParseTokenByGin(c); err == nil && claims != nil {
+		return claims.UserID
 	}
 	return 0
 }
@@ -45,5 +45,17 @@ func buildCommentRelationMap(viewerUserID ctype.ID, userIDs []ctype.ID) map[ctyp
 	if viewerUserID == 0 {
 		return make(map[ctype.ID]relationship_enum.Relation, len(userIDs))
 	}
-	return follow_service.CalUserRelationshipBatch(viewerUserID, userIDs)
+	seen := make(map[ctype.ID]struct{}, len(userIDs))
+	deduped := make([]ctype.ID, 0, len(userIDs))
+	for _, userID := range userIDs {
+		if userID == 0 {
+			continue
+		}
+		if _, ok := seen[userID]; ok {
+			continue
+		}
+		seen[userID] = struct{}{}
+		deduped = append(deduped, userID)
+	}
+	return follow_service.CalUserRelationshipBatch(viewerUserID, deduped)
 }

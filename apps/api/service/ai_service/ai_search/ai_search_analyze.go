@@ -58,6 +58,13 @@ func buildArticleSearchAnalyzeMessages(question string, list []search_service.Se
 
 	searchList := make([]AISearchList, 0, len(list))
 	for _, item := range list {
+		tagTitles := make([]string, 0, len(item.Tags))
+		for _, tag := range item.Tags {
+			if tag.Title == "" {
+				continue
+			}
+			tagTitles = append(tagTitles, tag.Title)
+		}
 		searchList = append(searchList, AISearchList{
 			ID:           item.ID,
 			CreatedAt:    item.CreatedAt,
@@ -69,7 +76,7 @@ func buildArticleSearchAnalyzeMessages(question string, list []search_service.Se
 			DiggCount:    item.DiggCount,
 			CommentCount: item.CommentCount,
 			FavorCount:   item.FavorCount,
-			Tags:         item.Tags,
+			Tags:         tagTitles,
 		})
 	}
 

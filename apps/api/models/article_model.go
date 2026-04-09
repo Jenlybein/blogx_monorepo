@@ -5,9 +5,6 @@ import (
 	"myblogx/global"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
-	"myblogx/service/redis_service/redis_tag"
-
-	"gorm.io/gorm"
 )
 
 // ESTag 是文章写入 ES 时使用的标签结构。
@@ -58,74 +55,4 @@ func (ArticleModel) Pipeline() string {
 
 func (ArticleModel) PipelineName() string {
 	return "article_pipeline"
-}
-
-func (a *ArticleModel) BeforeDelete(tx *gorm.DB) (err error) {
-	var commentList []CommentModel
-	if err = tx.Where("article_id = ?", a.ID).Find(&commentList).Error; err != nil {
-		return err
-	}
-	if err = tx.Where("article_id = ?", a.ID).Delete(&CommentModel{}).Error; err != nil {
-		return err
-	}
-
-	var diggList []ArticleDiggModel
-	if err = tx.Where("article_id = ?", a.ID).Find(&diggList).Error; err != nil {
-		return err
-	}
-	if err = tx.Where("article_id = ?", a.ID).Delete(&ArticleDiggModel{}).Error; err != nil {
-		return err
-	}
-
-	var favoriteList []UserArticleFavorModel
-	if err = tx.Where("article_id = ?", a.ID).Find(&favoriteList).Error; err != nil {
-		return err
-	}
-	if err = tx.Where("article_id = ?", a.ID).Delete(&UserArticleFavorModel{}).Error; err != nil {
-		return err
-	}
-
-	var topList []UserTopArticleModel
-	if err = tx.Where("article_id = ?", a.ID).Find(&topList).Error; err != nil {
-		return err
-	}
-	if err = tx.Where("article_id = ?", a.ID).Delete(&UserTopArticleModel{}).Error; err != nil {
-		return err
-	}
-
-	var viewList []UserArticleViewHistoryModel
-	if err = tx.Where("article_id = ?", a.ID).Find(&viewList).Error; err != nil {
-		return err
-	}
-	if err = tx.Where("article_id = ?", a.ID).Delete(&UserArticleViewHistoryModel{}).Error; err != nil {
-		return err
-	}
-
-	var articleTagList []ArticleTagModel
-	if err = tx.Where("article_id = ?", a.ID).Find(&articleTagList).Error; err != nil {
-		return err
-	}
-	if err = tx.Where("article_id = ?", a.ID).Delete(&ArticleTagModel{}).Error; err != nil {
-		return err
-	}
-	if global.Redis != nil {
-		for _, relation := range articleTagList {
-			if cacheErr := redis_tag.SetCacheArticleCount(relation.TagID, -1); cacheErr != nil {
-				global.Logger.Errorf("标签文章数缓存减少失败: 标签ID=%d 错误=%v", relation.TagID, cacheErr)
-			}
-		}
-	}
-
-	global.Logger.Infof(
-		"删除文章 %d 时，删除了 %d 条评论、%d 条点赞、%d 条收藏、%d 条置顶、%d 条浏览记录、%d 条标签关系",
-		a.ID,
-		len(commentList),
-		len(diggList),
-		len(favoriteList),
-		len(topList),
-		len(viewList),
-		len(articleTagList),
-	)
-
-	return nil
 }

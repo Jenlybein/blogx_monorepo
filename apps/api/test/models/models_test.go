@@ -6,6 +6,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
+	"myblogx/service/article_service"
 	"myblogx/test/testutil"
 	"testing"
 	"time"
@@ -80,24 +81,22 @@ func TestModelMethods(t *testing.T) {
 	}
 }
 
-func TestUserAfterCreateHook(t *testing.T) {
+func TestInitUserDefaults(t *testing.T) {
 	db := testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{})
 
 	user := models.UserModel{
 		Username: "tester_01",
 		Password: "pwd",
 	}
-	if err := db.Create(&user).Error; err != nil {
-		t.Fatalf("创建用户失败: %v", err)
-	}
+	testutil.CreateUser(t, db, &user)
 
 	var confModel models.UserConfModel
 	if err := db.First(&confModel, "user_id = ?", user.ID).Error; err != nil {
-		t.Fatalf("AfterCreate 未创建 user_conf: %v", err)
+		t.Fatalf("InitUserDefaults 未创建 user_conf: %v", err)
 	}
 }
 
-func TestArticleBeforeDeleteHook(t *testing.T) {
+func TestDeleteArticles(t *testing.T) {
 	db := testutil.SetupSQLite(
 		t,
 		&models.UserModel{},
@@ -113,9 +112,7 @@ func TestArticleBeforeDeleteHook(t *testing.T) {
 	)
 
 	author := models.UserModel{Username: "u1", Password: "p"}
-	if err := db.Create(&author).Error; err != nil {
-		t.Fatalf("创建作者失败: %v", err)
-	}
+	testutil.CreateUser(t, db, &author)
 	article := models.ArticleModel{Title: "t", AuthorID: author.ID}
 	if err := db.Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)
@@ -151,7 +148,7 @@ func TestArticleBeforeDeleteHook(t *testing.T) {
 		t.Fatalf("创建浏览记录失败: %v", err)
 	}
 
-	if err := db.Delete(&article).Error; err != nil {
+	if err := article_service.DeleteArticles(db, []models.ArticleModel{article}, false); err != nil {
 		t.Fatalf("删除文章失败: %v", err)
 	}
 

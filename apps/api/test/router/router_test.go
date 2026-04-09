@@ -19,6 +19,7 @@ func TestRegisterAllRoutes(t *testing.T) {
 	router.CaptchaRouter(api)
 	router.UserRouter(api)
 	router.ArticleRouter(api)
+	router.SearchRouter(api)
 	router.SitemsgRouter(api)
 	router.GlobalNotifRouter(api)
 
@@ -44,7 +45,7 @@ func TestRegisterAllRoutes(t *testing.T) {
 		"POST /api/images/qiniu/callback",
 		"GET /api/banners",
 		"POST /api/users/login",
-		"GET /api/articles",
+		"GET /api/search/articles",
 		"GET /api/sitemsg",
 		"GET /api/global_notif",
 		"POST /api/global_notif/read",

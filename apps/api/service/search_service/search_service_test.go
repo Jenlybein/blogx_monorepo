@@ -539,17 +539,20 @@ func TestExtractArticleSearchResults(t *testing.T) {
 	if len(list) != 1 {
 		t.Fatalf("结果数量错误: %d", len(list))
 	}
-	if list[0].ID != 1 || list[0].Title != "<em>go</em> search" {
+	if list[0].ID != 1 || list[0].Title != "go search article" {
 		t.Fatalf("文章解析错误: %+v", list[0])
 	}
 	if !list[0].CreatedAt.Equal(createdAt) || !list[0].UpdatedAt.Equal(updatedAt) {
 		t.Fatalf("时间字段解析错误: %+v", list[0])
 	}
-	if list[0].Abstract != "<em>hello</em> world" {
-		t.Fatalf("摘要高亮回填错误: %+v", list[0])
+	if list[0].Abstract != "hello world" {
+		t.Fatalf("摘要字段解析错误: %+v", list[0])
 	}
 	if list[0].Content != "prefix <em>go</em> suffix" {
 		t.Fatalf("正文摘要回填错误: %+v", list[0])
+	}
+	if list[0].Highlight == nil || list[0].Highlight.Title != "<em>go</em> search" || list[0].Highlight.Abstract != "<em>hello</em> world" {
+		t.Fatalf("高亮字段解析错误: %+v", list[0].Highlight)
 	}
 	expectedParts := []markdown.ContentPart{
 		{
@@ -590,7 +593,7 @@ func TestExtractArticleSearchResults(t *testing.T) {
 	if list[0].Cover != "/cover.png" || !list[0].CommentsToggle || list[0].Status != enum.ArticleStatusPublished {
 		t.Fatalf("基础字段解析错误: %+v", list[0])
 	}
-	if len(list[0].Tags) != 2 || list[0].Tags[0] != "Go" {
+	if len(list[0].Tags) != 2 || list[0].Tags[0].Title != "Go" {
 		t.Fatalf("标签解析错误: %+v", list[0].Tags)
 	}
 	if list[0].ViewCount != 13 || list[0].DiggCount != 22 || list[0].FavorCount != 34 || list[0].CommentCount != 45 {
@@ -604,5 +607,14 @@ func TestExtractArticleSearchResults(t *testing.T) {
 	}
 	if list[0].UserNickname != "作者昵称" || list[0].UserAvatar != "/avatar.png" {
 		t.Fatalf("作者信息回填错误: %+v", list[0])
+	}
+	if list[0].Category == nil || list[0].Category.Title != "Go 分类" {
+		t.Fatalf("分类对象回填错误: %+v", list[0].Category)
+	}
+	if list[0].Author.Nickname != "作者昵称" || list[0].Author.Avatar != "/avatar.png" {
+		t.Fatalf("作者对象回填错误: %+v", list[0].Author)
+	}
+	if list[0].Top == nil || !list[0].Top.User || !list[0].Top.Admin {
+		t.Fatalf("置顶对象解析错误: %+v", list[0].Top)
 	}
 }

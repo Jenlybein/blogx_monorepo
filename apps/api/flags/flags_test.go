@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -163,8 +164,10 @@ func TestBuildArticleESDocument(t *testing.T) {
 		Abstract:       "文章摘要",
 		Content:        "# 标题\n正文",
 		CategoryID:     &categoryID,
+		CategoryModel:  &models.CategoryModel{Model: models.Model{ID: categoryID}, Title: "后端"},
 		Cover:          "/cover.png",
 		AuthorID:       9,
+		UserModel:      models.UserModel{Model: models.Model{ID: 9}, Nickname: "作者A", Avatar: "/avatar.png"},
 		ViewCount:      11,
 		DiggCount:      12,
 		CommentCount:   13,
@@ -190,17 +193,25 @@ func TestBuildArticleESDocument(t *testing.T) {
 	} else if strings.Contains(parts[0].Content, "# ") {
 		t.Fatalf("content_parts 应存纯文本内容, got=%q", parts[0].Content)
 	}
-	if got, ok := doc["comments_toggle"].(int); !ok || got != 1 {
-		t.Fatalf("comments_toggle 应按 integer mapping 转成 1, got=%#v", doc["comments_toggle"])
+	if got, ok := doc["comments_toggle"].(bool); !ok || !got {
+		t.Fatalf("comments_toggle 应按 boolean mapping 转成 true, got=%#v", doc["comments_toggle"])
 	}
 	tags, ok := doc["tags"].([]models.ESTag)
 	if !ok || len(tags) != 2 || tags[0].Title != "Go" || tags[1].Title != "Redis" {
 		t.Fatalf("tags 同步结果不正确: %#v", doc["tags"])
 	}
+	category, ok := doc["category"].(map[string]any)
+	if !ok || category["id"] != &categoryID || category["title"] != "后端" {
+		t.Fatalf("分类字段同步结果不正确: %#v", doc["category"])
+	}
+	author, ok := doc["author"].(map[string]any)
+	if !ok || author["id"] != article.AuthorID || author["nickname"] != "作者A" || author["avatar"] != "/avatar.png" {
+		t.Fatalf("作者字段同步结果不正确: %#v", doc["author"])
+	}
 	if doc["admin_top"] != true || doc["author_top"] != false {
 		t.Fatalf("置顶字段同步结果不正确: admin=%#v author=%#v", doc["admin_top"], doc["author_top"])
 	}
-	const expectedFieldCount = 19
+	const expectedFieldCount = 21
 	if len(doc) != expectedFieldCount {
 		t.Fatalf("ES 文档字段数不正确, got=%d want=%d", len(doc), expectedFieldCount)
 	}
@@ -335,12 +346,16 @@ func TestSyncArticleDocuments(t *testing.T) {
 	if _, ok := first["content"]; ok {
 		t.Fatal("bulk 文档中不应包含 content 字段")
 	}
-	if got, ok := first["comments_toggle"].(float64); !ok || got != 1 {
-		t.Fatalf("comments_toggle 应写成 1, got=%#v", first["comments_toggle"])
+	if got, ok := first["comments_toggle"].(bool); !ok || !got {
+		t.Fatalf("comments_toggle 应写成 true, got=%#v", first["comments_toggle"])
 	}
 	tags, ok := first["tags"].([]any)
 	if !ok || len(tags) != 2 {
 		t.Fatalf("tags 应以数组写入 ES, got=%#v", first["tags"])
+	}
+	author, ok := first["author"].(map[string]any)
+	if !ok || author["id"] != strconv.FormatUint(uint64(author1.ID), 10) {
+		t.Fatalf("作者字段应正确写入 ES, got=%#v", first["author"])
 	}
 	if first["admin_top"] != true || first["author_top"] != true {
 		t.Fatalf("置顶字段应正确写入 ES, got admin=%#v author=%#v", first["admin_top"], first["author_top"])

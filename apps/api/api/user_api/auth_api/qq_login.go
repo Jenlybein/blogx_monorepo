@@ -10,6 +10,7 @@ import (
 	"myblogx/service/log_service"
 	"myblogx/service/qq_service"
 	"myblogx/service/redis_service/redis_user"
+	"myblogx/service/site_service"
 	"myblogx/service/user_service"
 
 	"github.com/gin-gonic/gin"
@@ -22,7 +23,7 @@ type QQLoginRequest struct {
 }
 
 func (AuthApi) QQLoginView(c *gin.Context) {
-	if !global.Config.Site.Login.QQLogin {
+	if !site_service.GetRuntimeLogin().QQLogin {
 		log_service.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, "", 0, "站点未启用QQ登录", nil)
 		res.FailWithMsg("站点未启用qq登录功能", c)
 		return
@@ -68,10 +69,25 @@ func (AuthApi) QQLoginView(c *gin.Context) {
 				OpenID:         &openID,
 				Role:           enum.RoleUser,
 			}
-			result := global.DB.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "open_id"}},
-				DoNothing: true,
-			}).Create(&user)
+			var resultRows int64
+			err = global.DB.Transaction(func(tx *gorm.DB) error {
+				result := tx.Clauses(clause.OnConflict{
+					Columns:   []clause.Column{{Name: "open_id"}},
+					DoNothing: true,
+				}).Create(&user)
+				if result.Error != nil {
+					return result.Error
+				}
+				resultRows = result.RowsAffected
+				if resultRows == 0 {
+					return nil
+				}
+				return user_service.InitUserDefaults(tx, user.ID)
+			})
+			result := struct {
+				Error        error
+				RowsAffected int64
+			}{Error: err, RowsAffected: resultRows}
 			if result.Error == nil {
 				if result.RowsAffected == 0 {
 					if err = global.DB.Take(&user, "open_id = ?", userInfoResp.OpenID).Error; err != nil {

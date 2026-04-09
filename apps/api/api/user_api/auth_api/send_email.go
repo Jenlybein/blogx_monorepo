@@ -9,6 +9,7 @@ import (
 	"myblogx/service/email_service"
 	"myblogx/service/redis_service/redis_email"
 	"myblogx/service/redis_service/redis_user"
+	"myblogx/service/site_service"
 	"myblogx/service/user_service"
 
 	"github.com/gin-gonic/gin"
@@ -25,7 +26,8 @@ type SendEmailResponse struct {
 }
 
 func (AuthApi) SendEmailView(c *gin.Context) {
-	if !global.Config.Site.Login.EmailLogin {
+	loginConf := site_service.GetRuntimeLogin()
+	if !loginConf.EmailLogin {
 		res.FailWithMsg("站点未启用邮箱功能", c)
 		return
 	}
@@ -39,7 +41,7 @@ func (AuthApi) SendEmailView(c *gin.Context) {
 
 	var user models.UserModel
 	code := base64Captcha.RandText(4, "0123456789")
-	timeout := global.Config.Site.Login.EmailCodeTimeout
+	timeout := loginConf.EmailCodeTimeout
 	if timeout <= 0 {
 		timeout = 5
 	}

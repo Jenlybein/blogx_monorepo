@@ -60,11 +60,34 @@
       "category_id": {
         "type": "integer"
       },
+      "category": {
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "keyword"
+          }
+        }
+      },
       "cover": {
         "type": "keyword"
       },
       "author_id": {
         "type": "integer"
+      },
+      "author": {
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "nickname": {
+            "type": "keyword"
+          },
+          "avatar": {
+            "type": "keyword"
+          }
+        }
       },
       "view_count": {
         "type": "integer"
@@ -92,7 +115,7 @@
         "type": "integer"
       },
       "comments_toggle": {
-        "type": "integer"
+        "type": "boolean"
       },
       "admin_top": {
         "type": "boolean"

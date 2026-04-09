@@ -146,12 +146,12 @@ func searchAIArticleList(rewrite *ai_search.ArticleSearchRewrite) ([]search_serv
 	seen := make(map[ctype.ID]struct{}, 20)
 
 	if len(rewrite.TagList) > 0 {
-		tagList, _, err := search_service.SearchArticles(search_service.ArticleSearchRequest{
-			Type:     1,
-			Sort:     rewrite.Sort,
-			TagList:  rewrite.TagList,
-			Key:      key,
-			PageInfo: common.PageInfo{Page: 1, Limit: 10},
+		tagList, err := search_service.SearchArticleList(search_service.ArticleSearchRequest{
+			Type:          1,
+			Sort:          rewrite.Sort,
+			LegacyTagList: rewrite.TagList,
+			Key:           key,
+			PageInfo:      common.PageInfo{Page: 1, Limit: 10},
 		}, nil)
 		if err != nil {
 			return nil, err
@@ -159,7 +159,7 @@ func searchAIArticleList(rewrite *ai_search.ArticleSearchRewrite) ([]search_serv
 		list = appendUniqueSearchResults(list, seen, tagList)
 	}
 
-	queryList, _, err := search_service.SearchArticles(search_service.ArticleSearchRequest{
+	queryList, err := search_service.SearchArticleList(search_service.ArticleSearchRequest{
 		Type:     1,
 		Sort:     rewrite.Sort,
 		Key:      key,

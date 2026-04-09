@@ -697,13 +697,14 @@
                                 "$ref": "#/components/schemas/BannerModel"
                               }
                             },
-                            "count": {
-                              "type": "integer"
+                            "has_more": {
+                              "type": "boolean",
+                              "description": "是否还有下一页数据。前台列表不返回精确总数。"
                             }
                           },
                           "required": [
                             "list",
-                            "count"
+                            "has_more"
                           ]
                         }
                       },
@@ -1922,131 +1923,6 @@
       }
     },
     "/api/articles": {
-      "get": {
-        "summary": "文章列表",
-        "deprecated": false,
-        "description": "获取文章列表。可结合 type、status、user_id、分页与排序参数筛选结果。",
-        "tags": [
-          "文章管理/文章"
-        ],
-        "parameters": [
-          {
-            "name": "type",
-            "in": "query",
-            "description": "类型筛选参数，具体取值请结合该接口业务含义使用。",
-            "required": false,
-            "example": "1",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "user_id",
-            "in": "query",
-            "description": "目标用户 ID，用于筛选或指定用户。",
-            "required": false,
-            "example": "1",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "status",
-            "in": "query",
-            "description": "状态筛选参数，具体取值请结合该接口业务含义使用。",
-            "required": false,
-            "example": "3",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "description": "分页页码，从 1 开始。",
-            "required": false,
-            "example": "1",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "每页返回条数。",
-            "required": false,
-            "example": "3",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "order",
-            "in": "query",
-            "description": "排序方式参数，具体格式按接口实现约定。",
-            "required": false,
-            "example": "viesc",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "",
-            "required": true,
-            "example": "Bearer {{bearerToken}}",
-            "schema": {
-              "type": "string",
-              "default": "Bearer {{bearerToken}}"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiMessageResponse"
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "data": {
-                          "type": "object",
-                          "properties": {
-                            "list": {
-                              "type": "array",
-                              "items": {
-                                "$ref": "#/components/schemas/ArticleListItem"
-                              }
-                            },
-                            "count": {
-                              "type": "integer"
-                            }
-                          },
-                          "required": [
-                            "list",
-                            "count"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "data"
-                      ]
-                    }
-                  ]
-                }
-              }
-            },
-            "headers": {}
-          }
-        },
-        "security": []
-      },
       "post": {
         "summary": "发布文章",
         "deprecated": false,
@@ -5731,7 +5607,7 @@
       "get": {
         "summary": "文章搜索",
         "deprecated": false,
-        "description": "按关键字、标签和排序方式搜索文章列表。适合搜索页或站内搜索框使用。",
+        "description": "统一的文章读取接口。公开文章流、推荐流、作者文章、我的文章、管理员文章查询全部走这里。`key` 为空时退化为文章列表；`page_mode=has_more` 适合前台滚动加载，`page_mode=count` 适合后台准确总数页。",
         "tags": [
           "搜索模块/文章"
         ],
@@ -5739,37 +5615,74 @@
           {
             "name": "type",
             "in": "query",
-            "description": "类型筛选参数，具体取值请结合该接口业务含义使用。",
+            "description": "读取场景。1 公共文章列表/搜索；2 猜你喜欢；3 作者文章；4 当前登录用户自己的文章；5 管理员文章查询。",
             "required": false,
-            "example": "4",
+            "example": "1",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "enum": [1, 2, 3, 4, 5],
+              "default": 1
             }
           },
           {
             "name": "key",
             "in": "query",
-            "description": "搜索关键字或查询词。",
+            "description": "搜索关键字。为空时表示列表查询，不走关键词检索。",
             "required": false,
-            "example": "特别长",
+            "example": "golang",
             "schema": {
               "type": "string"
             }
           },
           {
-            "name": "tag_list",
+            "name": "page",
             "in": "query",
-            "description": "参与筛选的标签名称列表。",
+            "description": "分页页码，从 1 开始。",
             "required": false,
-            "example": "Golang",
+            "example": "1",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "每页条数，建议 1-100。",
+            "required": false,
+            "example": "10",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "page_mode",
+            "in": "query",
+            "description": "分页模式。`has_more` 适合前台流式加载，`count` 适合后台准确数据页。",
+            "required": false,
+            "example": "has_more",
+            "schema": {
+              "type": "string",
+              "enum": ["has_more", "count"]
             }
           },
           {
             "name": "sort",
             "in": "query",
-            "description": "搜索结果排序方式。",
+            "description": "排序方式。1 默认搜索；2 最新发布；3 最多回复；4 最多点赞；5 最多收藏；6 最多浏览。",
+            "required": false,
+            "example": "1",
+            "schema": {
+              "type": "integer",
+              "enum": [1, 2, 3, 4, 5, 6],
+              "default": 1
+            }
+          },
+          {
+            "name": "author_id",
+            "in": "query",
+            "description": "作者 ID。`type=3` 时必填；兼容旧字段 `user_id`，但新调用统一使用 `author_id`。",
             "required": false,
             "example": "1",
             "schema": {
@@ -5777,14 +5690,43 @@
             }
           },
           {
+            "name": "category_id",
+            "in": "query",
+            "description": "分类 ID，所有场景都支持。",
+            "required": false,
+            "example": "12",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag_ids",
+            "in": "query",
+            "description": "标签 ID 列表。推荐使用重复 query，如 `tag_ids=1&tag_ids=2`；也兼容 `tag_ids=1,2`。",
+            "required": false,
+            "example": "1,2",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "文章状态数字。`type=1/2/3` 只允许传已发布状态；`type=4/5` 可传草稿/审核中/已发布/驳回等状态。",
+            "required": false,
+            "example": "3",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
             "name": "Authorization",
             "in": "header",
-            "description": "",
-            "required": true,
+            "description": "可选登录态。`type=4` 必须登录，`type=5` 必须管理员，其他类型匿名可访问。",
+            "required": false,
             "example": "Bearer {{bearerToken}}",
             "schema": {
-              "type": "string",
-              "default": "Bearer {{bearerToken}}"
+              "type": "string"
             }
           }
         ],
@@ -5802,96 +5744,108 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "count": {
-                          "type": "integer"
-                        },
                         "list": {
                           "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
-                              "id": {
-                                "type": "integer"
-                              },
-                              "created_at": {
-                                "type": "string"
-                              },
-                              "updated_at": {
-                                "type": "string"
-                              },
-                              "deleted_at": {
-                                "type": "null"
-                              },
-                              "title": {
-                                "type": "string"
-                              },
-                              "abstract": {
-                                "type": "string"
-                              },
-                              "content": {
-                                "type": "string"
-                              },
-                              "html_content": {
-                                "type": "string"
-                              },
-                              "category_id": {
-                                "type": "integer",
-                                "nullable": true
-                              },
-                              "cover": {
-                                "type": "string"
-                              },
-                              "author_id": {
-                                "type": "integer"
-                              },
-                              "view_count": {
-                                "type": "integer"
-                              },
-                              "digg_count": {
-                                "type": "integer"
-                              },
-                              "comment_count": {
-                                "type": "integer"
-                              },
-                              "favor_count": {
-                                "type": "integer"
-                              },
-                              "comments_toggle": {
-                                "type": "boolean"
-                              },
-                              "status": {
-                                "type": "integer"
-                              },
+                              "id": {"type": "string"},
+                              "created_at": {"type": "string", "format": "date-time"},
+                              "updated_at": {"type": "string", "format": "date-time"},
+                              "title": {"type": "string"},
+                              "abstract": {"type": "string"},
+                              "cover": {"type": "string"},
+                              "view_count": {"type": "integer"},
+                              "digg_count": {"type": "integer"},
+                              "comment_count": {"type": "integer"},
+                              "favor_count": {"type": "integer"},
+                              "comments_toggle": {"type": "boolean"},
+                              "status": {"type": "integer"},
                               "tags": {
-                                "type": "null"
-                              }
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {"type": "string"},
+                                    "title": {"type": "string"}
+                                  },
+                                  "required": ["id", "title"]
+                                }
+                              },
+                              "category": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {"type": "string"},
+                                  "title": {"type": "string"}
+                                }
+                              },
+                              "author": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {"type": "string"},
+                                  "nickname": {"type": "string"},
+                                  "avatar": {"type": "string"}
+                                },
+                                "required": ["id", "nickname", "avatar"]
+                              },
+                              "top": {
+                                "type": "object",
+                                "properties": {
+                                  "user": {"type": "boolean"},
+                                  "admin": {"type": "boolean"}
+                                }
+                              },
+                              "highlight": {
+                                "type": "object",
+                                "properties": {
+                                  "title": {"type": "string"},
+                                  "abstract": {"type": "string"}
+                                }
+                              },
+                              "score": {"type": "number"}
                             },
                             "required": [
                               "id",
                               "created_at",
                               "updated_at",
-                              "deleted_at",
                               "title",
                               "abstract",
-                              "content",
-                              "html_content",
-                              "category_id",
                               "cover",
-                              "author_id",
                               "view_count",
                               "digg_count",
                               "comment_count",
                               "favor_count",
                               "comments_toggle",
                               "status",
-                              "tags"
+                              "tags",
+                              "author"
                             ]
                           }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": ["has_more", "count"]
+                            },
+                            "page": {"type": "integer"},
+                            "limit": {"type": "integer"},
+                            "has_more": {"type": "boolean"},
+                            "total": {"type": "integer"},
+                            "total_pages": {"type": "integer"}
+                          },
+                          "required": [
+                            "mode",
+                            "page",
+                            "limit",
+                            "has_more"
+                          ]
                         }
                       },
                       "required": [
-                        "count",
-                        "list"
+                        "list",
+                        "pagination"
                       ]
                     },
                     "msg": {
@@ -9490,14 +9444,14 @@
             },
             "description": "字段 `list` 的数组数据。"
           },
-          "count": {
-            "type": "integer",
-            "description": "字段 `count` 的业务含义请结合该接口上下文使用。"
+          "has_more": {
+            "type": "boolean",
+            "description": "是否还有下一页数据。前台评论列表不返回精确总数。"
           }
         },
         "required": [
           "list",
-          "count"
+          "has_more"
         ]
       },
       "CommentReplyItem": {
@@ -9586,16 +9540,16 @@
             },
             "description": "字段 `list` 的数组数据。"
           },
-          "count": {
-            "type": "integer",
-            "description": "字段 `count` 的业务含义请结合该接口上下文使用。"
+          "has_more": {
+            "type": "boolean",
+            "description": "是否还有下一页数据。前台评论列表不返回精确总数。"
           }
         },
         "required": [
           "root_id",
           "reply_count",
           "list",
-          "count"
+          "has_more"
         ]
       },
       "CommentManItem": {

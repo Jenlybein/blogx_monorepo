@@ -9,6 +9,7 @@ import (
 	"myblogx/models/enum"
 	"myblogx/service/log_service"
 	"myblogx/service/redis_service/redis_user"
+	"myblogx/service/site_service"
 	"myblogx/service/user_service"
 	"myblogx/utils/pwd"
 
@@ -22,7 +23,7 @@ type RegisterEmailRequest struct {
 }
 
 func (AuthApi) RegisterEmailView(c *gin.Context) {
-	if !global.Config.Site.Login.EmailLogin {
+	if !site_service.GetRuntimeLogin().EmailLogin {
 		log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, "", 0, "站点未启用邮箱注册", nil)
 		res.FailWithMsg("站点未启用邮箱注册功能", c)
 		return
@@ -64,10 +65,25 @@ func (AuthApi) RegisterEmailView(c *gin.Context) {
 			Email:          &emailValue,
 			Role:           enum.RoleUser,
 		}
-		result := global.DB.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "email"}},
-			DoNothing: true,
-		}).Create(&user)
+		var resultRows int64
+		err = global.DB.Transaction(func(tx *gorm.DB) error {
+			result := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "email"}},
+				DoNothing: true,
+			}).Create(&user)
+			if result.Error != nil {
+				return result.Error
+			}
+			resultRows = result.RowsAffected
+			if resultRows == 0 {
+				return nil
+			}
+			return user_service.InitUserDefaults(tx, user.ID)
+		})
+		result := struct {
+			Error        error
+			RowsAffected int64
+		}{Error: err, RowsAffected: resultRows}
 		if result.Error == nil {
 			if result.RowsAffected == 0 {
 				log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱已被使用", nil)

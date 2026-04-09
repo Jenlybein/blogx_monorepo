@@ -54,9 +54,10 @@ type BannerListRequest struct {
 func (BannerApi) BannerListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[BannerListRequest](c)
 
-	list, count, err := common.ListQuery(models.BannerModel{
+	list, hasMore, err := common.ListQueryHasMore(models.BannerModel{
 		Show: cr.Show,
 	}, common.Options{
+		DB:       global.DB,
 		PageInfo: cr.PageInfo,
 	})
 	if err != nil {
@@ -64,7 +65,7 @@ func (BannerApi) BannerListView(c *gin.Context) {
 		return
 	}
 
-	res.OkWithList(list, count, c)
+	res.OkWithHasMoreList(list, hasMore, c)
 }
 
 func (BannerApi) BannerRemoveView(c *gin.Context) {

@@ -3,6 +3,7 @@ package middleware
 import (
 	"myblogx/common/res"
 	"myblogx/global"
+	"myblogx/service/site_service"
 	"myblogx/utils/io_util"
 
 	"github.com/gin-gonic/gin"
@@ -14,7 +15,7 @@ type CaptchaMiddlewareRequest struct {
 }
 
 func CaptchaMiddleware(c *gin.Context) {
-	if !global.Config.Site.Login.Captcha {
+	if !site_service.GetRuntimeLogin().Captcha {
 		return
 	}
 

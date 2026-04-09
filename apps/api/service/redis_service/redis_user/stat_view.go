@@ -24,7 +24,11 @@ func TryMarkUserHomeViewed(userID, viewerUserID ctype.ID, now time.Time) (bool, 
 		return false, err
 	}
 	if marked {
-		if err = global.Redis.ExpireAt(ctx, key, nextDayStart(now)).Err(); err != nil {
+		ttl := time.Until(nextDayStart(now))
+		if ttl <= 0 {
+			ttl = time.Second
+		}
+		if err = global.Redis.Expire(ctx, key, ttl).Err(); err != nil {
 			_ = global.Redis.HDel(ctx, key, field).Err()
 			return false, err
 		}

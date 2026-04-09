@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"myblogx/global"
+	"myblogx/service/site_service"
 )
 
 // CheckLoginAllowed 检查账号和IP是否允许登录
@@ -25,7 +26,7 @@ func RecordLoginFailure(account, ip string) {
 		return
 	}
 	ctx := context.Background()
-	conf := &global.Config.Site.Login
+	conf := site_service.GetRuntimeLogin()
 	window := time.Duration(conf.LoginFailWindowMinute) * time.Minute
 	// 分别记录账号和IP的失败次数
 	recordFailure(ctx, loginFailUserKey(account), loginLockUserKey(account), window, conf.LoginFailUserMax)
@@ -53,7 +54,7 @@ func AllowEmailSend(email, ip string, sendType int8) bool {
 		return true
 	}
 	ctx := context.Background()
-	conf := &global.Config.Site.Login
+	conf := site_service.GetRuntimeLogin()
 	window := time.Duration(conf.EmailSendWindowSecond) * time.Second
 	// 分别检查邮箱和IP的发送频率
 	okEmail := allowWithinWindow(ctx, emailSendKeyByEmail(email, sendType), window, conf.EmailSendPerEmailMax)
