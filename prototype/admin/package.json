@@ -1,0 +1,27 @@
+{
+  "name": "prototype-admin",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "echarts": "^5.6.0",
+    "katex": "^0.16.11",
+    "naive-ui": "^2.41.0",
+    "vue": "^3.5.31",
+    "vue-echarts": "^7.0.3",
+    "vue-router": "^4.5.1"
+  },
+  "devDependencies": {
+    "@blogx/vite-plugin-vue-source-locator": "workspace:*",
+    "@types/node": "^24.3.0",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.5",
+    "vite-plugin-vue-devtools": "^8.0.1",
+    "vue-tsc": "^3.1.0"
+  }
+}

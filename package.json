@@ -8,17 +8,24 @@
     "scripts": {
         "dev:web": "turbo run dev --filter=web",
         "dev:admin": "turbo run dev --filter=admin",
+        "dev:prototype:web": "turbo run dev --filter=prototype-web",
+        "dev:prototype:admin": "turbo run dev --filter=prototype-admin",
+        "dev:prototype": "turbo run dev --filter=prototype-web --filter=prototype-admin",
         "dev:api": "turbo run dev --filter=api",
         "dev": "turbo run dev --filter=web",
         "dev:all": "turbo run dev",
         "build:web": "turbo run build --filter=web",
         "build:admin": "turbo run build --filter=admin",
+        "build:prototype:web": "turbo run build --filter=prototype-web",
+        "build:prototype:admin": "turbo run build --filter=prototype-admin",
+        "build:prototype": "turbo run build --filter=prototype-web --filter=prototype-admin",
         "build:api": "turbo run build --filter=api",
         "build": "turbo run build",
         "lint": "pnpm -r --if-present lint",
         "test": "turbo run test --filter=api"
     },
     "devDependencies": {
-        "turbo": "^2.9.3"
+        "turbo": "^2.9.3",
+        "vite-plugin-vue-devtools": "^8.1.1"
     }
 }

@@ -2,4 +2,7 @@ packages:
   - "apps/api"
   - "apps/web"
   - "apps/admin"
+  - "plugin/*"
+  - "prototype/web"
+  - "prototype/admin"
   - "packages/*"
