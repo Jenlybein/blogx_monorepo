@@ -9,8 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func FollowRouter(r *gin.RouterGroup) {
-	app := api.App.FollowApi
+func FollowRouter(r *gin.RouterGroup, appContainer api.Api) {
+	app := appContainer.FollowApi
 
 	// 关注
 	followGroup := r.Group("follow")

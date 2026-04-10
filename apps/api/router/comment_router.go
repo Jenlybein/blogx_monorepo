@@ -9,8 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func CommentRouter(r *gin.RouterGroup) {
-	app := api.App.CommentApi
+func CommentRouter(r *gin.RouterGroup, appContainer api.Api) {
+	app := appContainer.CommentApi
 
 	Group := r.Group("comments")
 	authGroup := Group.Group("", mw.AuthMiddleware)

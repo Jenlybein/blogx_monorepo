@@ -12,12 +12,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func UserRouter(r *gin.RouterGroup) {
+func UserRouter(r *gin.RouterGroup, appContainer api.Api) {
 	Group := r.Group("users")
 	authGroup := Group.Group("", mw.AuthMiddleware)
 	adminGroup := authGroup.Group("", mw.AdminMiddleware)
 
-	auth := api.App.UserApi.AuthApi
+	auth := appContainer.UserApi.AuthApi
 	Group.POST("email/verify", mw.CaptchaMiddleware, mw.BindJson[auth_api.SendEmailRequest], auth.SendEmailView)
 	Group.POST("email/login", mw.EmailVerifyMiddleware, auth.EmailLoginView)
 	Group.POST("email/register", mw.EmailVerifyMiddleware, mw.BindJson[auth_api.RegisterEmailRequest], auth.RegisterEmailView)
@@ -30,15 +30,15 @@ func UserRouter(r *gin.RouterGroup) {
 	authGroup.POST("logout/all", auth.UserLogoutAllView)
 	authGroup.PUT("email/bind", mw.EmailVerifyMiddleware, auth.BindEmailView)
 
-	profile := api.App.UserApi.ProfileApi
+	profile := appContainer.UserApi.ProfileApi
 	authGroup.GET("detail", profile.UserDetailView)
 	authGroup.GET("base", mw.BindQuery[models.IDRequest], profile.UserBaseInfoView)
 	authGroup.PUT("info", mw.BindJson[profile_api.UserInfoUpdateRequest], profile.UserInfoUpdateView)
 	adminGroup.PUT("admin/info", mw.CaptureLog(mw.ReqBody|mw.ReqHeader), mw.BindJson[profile_api.AdminUserInfoUpdateRequest], profile.AdminUserInfoUpdateView)
 
-	log := api.App.UserApi.LogApi
+	log := appContainer.UserApi.LogApi
 	authGroup.GET("login/log", mw.BindQuery[log_api.UserLoginListRequest], log.UserLoginLogList)
 
-	man := api.App.UserApi.UserManApi
+	man := appContainer.UserApi.UserManApi
 	adminGroup.GET("admin/list", mw.BindQuery[user_man_api.UserListRequest], man.UserListView)
 }

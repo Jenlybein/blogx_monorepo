@@ -2,7 +2,6 @@ package comment_api
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/enum"
@@ -17,19 +16,21 @@ import (
 
 func (CommentApi) CommentDiggView(c *gin.Context) {
 	id := middleware.GetBindUri[models.IDRequest](c)
+	db := mustApp(c).DB
+	logger := mustApp(c).Logger
 
 	var comment models.CommentModel
-	if err := global.DB.Preload("ArticleModel", func(db *gorm.DB) *gorm.DB { return db.Select("id", "title") }).Take(&comment, "id = ? and status = ?", id.ID, enum.CommentStatusPublished).Error; err != nil {
+	if err := db.Preload("ArticleModel", func(db *gorm.DB) *gorm.DB { return db.Select("id", "title") }).Take(&comment, "id = ? and status = ?", id.ID, enum.CommentStatusPublished).Error; err != nil {
 		res.FailWithMsg("评论不存在", c)
 		return
 	}
 
 	claims := jwts.MustGetClaimsByGin(c)
 	var digg models.CommentDiggModel
-	if err := global.DB.Take(&digg, "comment_id = ? and user_id = ?", id.ID, claims.UserID).Error; err == nil {
+	if err := db.Take(&digg, "comment_id = ? and user_id = ?", id.ID, claims.UserID).Error; err == nil {
 		// 取消点赞必须以条件删除的命中结果为准，避免并发下重复成功。
 		// 取消点赞必须看本次 Delete 是否真的删掉了活记录，避免并发下双成功。
-		deleteResult := global.DB.Where(map[string]any{
+		deleteResult := db.Where(map[string]any{
 			"comment_id": id.ID,
 			"user_id":    claims.UserID,
 		}).Delete(&models.CommentDiggModel{})
@@ -42,7 +43,7 @@ func (CommentApi) CommentDiggView(c *gin.Context) {
 			return
 		}
 		if err := redis_comment.SetCacheDigg(id.ID, -1); err != nil {
-			global.Logger.Errorf("回写评论点赞缓存失败: 评论ID=%d 错误=%v", id.ID, err)
+			logger.Errorf("回写评论点赞缓存失败: 评论ID=%d 错误=%v", id.ID, err)
 		}
 		res.OkWithMsg("取消点赞成功", c)
 		return
@@ -52,7 +53,7 @@ func (CommentApi) CommentDiggView(c *gin.Context) {
 	}
 
 	// 点赞成功与否只看本次恢复/新建是否真正落库。
-	createdOrRestored, err := dbservice.RestoreOrCreateUnique(global.DB, &models.CommentDiggModel{
+	createdOrRestored, err := dbservice.RestoreOrCreateUnique(db, &models.CommentDiggModel{
 		CommentID: id.ID,
 		UserID:    claims.UserID,
 	}, []string{"comment_id", "user_id"})
@@ -65,7 +66,7 @@ func (CommentApi) CommentDiggView(c *gin.Context) {
 		return
 	}
 	if err := redis_comment.SetCacheDigg(id.ID, 1); err != nil {
-		global.Logger.Errorf("写入评论点赞缓存失败: 评论ID=%d 错误=%v", id.ID, err)
+		logger.Errorf("写入评论点赞缓存失败: 评论ID=%d 错误=%v", id.ID, err)
 	}
 	go message_service.InsertCommentDiggMessage(message_service.CommentDiggMessage{
 		ReceiverID:   comment.UserID,

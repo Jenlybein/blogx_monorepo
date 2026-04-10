@@ -3,7 +3,6 @@ package top_service
 import (
 	"time"
 
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -46,8 +45,7 @@ func NewQueryService(db *gorm.DB) *QueryService {
 }
 
 func (s *QueryService) ListArticles(topType int, userID ctype.ID) ([]ArticleTopListItem, error) {
-	db := s.db()
-	rows, err := s.loadTopRows(db, topType, userID)
+	rows, err := s.loadTopRows(s.DB, topType, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -62,19 +60,19 @@ func (s *QueryService) ListArticles(topType int, userID ctype.ID) ([]ArticleTopL
 		topUserIDs = append(topUserIDs, row.UserID)
 	}
 	articleIDs = read_service.NormalizeIDs(articleIDs)
-	articleBaseMap, err := read_service.LoadArticleBaseMap(db, articleIDs)
+	articleBaseMap, err := read_service.LoadArticleBaseMap(s.DB, articleIDs)
 	if err != nil {
 		return nil, err
 	}
 
-	allTopRows, err := s.loadAllTopRows(db, articleIDs)
+	allTopRows, err := s.loadAllTopRows(s.DB, articleIDs)
 	if err != nil {
 		return nil, err
 	}
 	for _, row := range allTopRows {
 		topUserIDs = append(topUserIDs, row.UserID)
 	}
-	userMap, err := read_service.LoadUserDisplayMap(db, topUserIDs)
+	userMap, err := read_service.LoadUserDisplayMap(s.DB, topUserIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -87,15 +85,15 @@ func (s *QueryService) ListArticles(topType int, userID ctype.ID) ([]ArticleTopL
 		}
 		authorIDs = append(authorIDs, article.AuthorID)
 	}
-	authorMap, err := read_service.LoadUserDisplayMap(db, authorIDs)
+	authorMap, err := read_service.LoadUserDisplayMap(s.DB, authorIDs)
 	if err != nil {
 		return nil, err
 	}
-	categoryMap, err := read_service.LoadCategoryTitleMap(db, categoryIDs)
+	categoryMap, err := read_service.LoadCategoryTitleMap(s.DB, categoryIDs)
 	if err != nil {
 		return nil, err
 	}
-	tagMap, err := read_service.LoadArticleTagTitlesMap(db, articleIDs)
+	tagMap, err := read_service.LoadArticleTagTitlesMap(s.DB, articleIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -216,11 +214,4 @@ func buildTopStateMap(rows []models.UserTopArticleModel, articleMap map[ctype.ID
 		result[row.ArticleID] = state
 	}
 	return result
-}
-
-func (s *QueryService) db() *gorm.DB {
-	if s.DB != nil {
-		return s.DB
-	}
-	return global.DB
 }

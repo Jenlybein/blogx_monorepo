@@ -3,6 +3,7 @@
 package site_api
 
 import (
+	"myblogx/appctx"
 	"myblogx/common/res"
 	"myblogx/global"
 	"myblogx/service/site_service"
@@ -11,6 +12,15 @@ import (
 )
 
 type SiteApi struct {
+}
+
+func New(ctx *appctx.AppContext) SiteApi {
+	_ = ctx
+	return SiteApi{}
+}
+
+func mustApp(c *gin.Context) *appctx.AppContext {
+	return appctx.MustFromGin(c)
 }
 
 // 敏感信息占位符

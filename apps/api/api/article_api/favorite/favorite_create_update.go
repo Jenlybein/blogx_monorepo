@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -22,7 +21,7 @@ func (FavoriteApi) FavoriteCreateUpdateView(c *gin.Context) {
 
 	// 创建
 	if cr.ID == 0 {
-		userMap, err := read_service.LoadUserDisplayMap(global.DB, []ctype.ID{claims.UserID})
+		userMap, err := read_service.LoadUserDisplayMap(mustApp(c).DB, []ctype.ID{claims.UserID})
 		if err != nil {
 			res.FailWithMsg("查询用户信息失败", c)
 			return
@@ -37,7 +36,7 @@ func (FavoriteApi) FavoriteCreateUpdateView(c *gin.Context) {
 			OwnerNickname: user.Nickname,
 			OwnerAvatar:   user.Avatar,
 		}
-		if err := global.DB.Create(&favorite).Error; err != nil {
+		if err := mustApp(c).DB.Create(&favorite).Error; err != nil {
 			if errors.Is(err, gorm.ErrDuplicatedKey) {
 				res.FailWithMsg("收藏夹名称重复", c)
 				return
@@ -51,12 +50,12 @@ func (FavoriteApi) FavoriteCreateUpdateView(c *gin.Context) {
 
 	// 编辑
 	var favorite models.FavoriteModel
-	if err := global.DB.Take(&favorite, "user_id = ? and id = ?", claims.UserID, cr.ID).Error; err != nil {
+	if err := mustApp(c).DB.Take(&favorite, "user_id = ? and id = ?", claims.UserID, cr.ID).Error; err != nil {
 		res.FailWithMsg("收藏夹不存在", c)
 		return
 	}
 
-	if err := global.DB.Model(&favorite).Updates(map[string]any{
+	if err := mustApp(c).DB.Model(&favorite).Updates(map[string]any{
 		"title":    cr.Title,
 		"cover":    cr.Cover,
 		"abstract": cr.Abstract,

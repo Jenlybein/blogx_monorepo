@@ -3,6 +3,7 @@ package router_test
 import (
 	"encoding/json"
 	"fmt"
+	api2 "myblogx/api"
 	"myblogx/conf"
 	"myblogx/global"
 	"myblogx/models"
@@ -68,7 +69,7 @@ func newSitemsgRouterEngine() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	apiGroup := r.Group("/api")
-	router.SitemsgRouter(apiGroup)
+	router.SitemsgRouter(apiGroup, api2.New(nil))
 	return r
 }
 
@@ -98,7 +99,7 @@ func TestSitemsgRouterPutConfBindsJSON(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	apiGroup := r.Group("/api")
-	router.SitemsgRouter(apiGroup)
+	router.SitemsgRouter(apiGroup, api2.New(nil))
 
 	req := testutil.NewJSONRequest(http.MethodPut, "/api/sitemsg/conf", `{
 		"digg_notice_enabled": false,

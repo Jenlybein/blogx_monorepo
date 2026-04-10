@@ -3,15 +3,17 @@
 package router
 
 import (
-	"myblogx/global"
+	"myblogx/api"
+	"myblogx/appctx"
 	"myblogx/middleware"
 
 	"github.com/gin-gonic/gin"
 )
 
-func Run() {
-	gin.SetMode(global.Config.System.GinMode)
+func Run(ctx *appctx.AppContext, app api.Api) {
+	gin.SetMode(ctx.Config.System.GinMode)
 	r := gin.Default()
+	r.Use(middleware.WithAppContext(ctx))
 	r.Use(middleware.CorsMiddleware())
 
 	r.Static("/uploads", "./uploads")
@@ -19,22 +21,22 @@ func Run() {
 	nr := r.Group("/api")
 	nr.Use(middleware.LogMiddleware)
 
-	SiteRouter(nr)
-	LogRouter(nr)
-	ImageRouter(nr)
-	BannerRouter(nr)
-	CaptchaRouter(nr)
-	UserRouter(nr)
-	ArticleRouter(nr)
-	CommentRouter(nr)
-	ChatRouter(nr)
-	SitemsgRouter(nr)
-	GlobalNotifRouter(nr)
-	FollowRouter(nr)
-	SearchRouter(nr)
-	AIRouter(nr)
-	DataRouter(nr)
+	SiteRouter(nr, app)
+	LogRouter(nr, app)
+	ImageRouter(nr, app)
+	BannerRouter(nr, app)
+	CaptchaRouter(nr, app)
+	UserRouter(nr, app)
+	ArticleRouter(nr, app)
+	CommentRouter(nr, app)
+	ChatRouter(nr, app)
+	SitemsgRouter(nr, app)
+	GlobalNotifRouter(nr, app)
+	FollowRouter(nr, app)
+	SearchRouter(nr, app)
+	AIRouter(nr, app)
+	DataRouter(nr, app)
 
-	addr := global.Config.System.Addr()
+	addr := ctx.Config.System.Addr()
 	r.Run(addr)
 }

@@ -2,7 +2,7 @@ package global_notif_api_test
 
 import (
 	"encoding/json"
-	global_notif_api "myblogx/api/global_msg_api"
+	"myblogx/api/global_notif_api"
 	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"

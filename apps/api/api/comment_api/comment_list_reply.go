@@ -3,7 +3,6 @@ package comment_api
 import (
 	"myblogx/common"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -25,11 +24,11 @@ type CommentReplyListResponse struct {
 
 func (CommentApi) CommentReplyListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[CommentReplyListRequest](c)
-	queryService := comment_service.NewQueryService(global.DB)
+	queryService := comment_service.NewQueryService(mustApp(c).DB)
 
 	// 查询一级评论
 	var root models.CommentModel
-	if err := global.DB.Select("id", "article_id", "reply_id", "root_id", "reply_count").
+	if err := mustApp(c).DB.Select("id", "article_id", "reply_id", "root_id", "reply_count").
 		Take(&root, "id = ? and article_id = ? and status = ?", cr.RootID, cr.ArticleID, enum.CommentStatusPublished).Error; err != nil {
 		res.FailWithMsg("一级评论不存在", c)
 		return

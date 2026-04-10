@@ -2,7 +2,6 @@ package follow_api
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/service/follow_service"
@@ -22,7 +21,7 @@ func (f *FollowApi) FansListView(c *gin.Context) {
 	if cr.UserID != claims.UserID {
 		if cr.UserID != 0 {
 			var user models.UserConfModel
-			if err := global.DB.Take(&user, "user_id = ?", cr.UserID).Error; err != nil {
+			if err := mustApp(c).DB.Take(&user, "user_id = ?", cr.UserID).Error; err != nil {
 				res.FailWithMsg("用户配置信息不存在", c)
 				return
 			}
@@ -35,7 +34,7 @@ func (f *FollowApi) FansListView(c *gin.Context) {
 		}
 	}
 
-	queryService := follow_service.NewQueryService(global.DB)
+	queryService := follow_service.NewQueryService(mustApp(c).DB)
 	list, count, err := queryService.ListFans(cr.UserID, claims.UserID, cr.FansUserID, cr.PageInfo)
 	if err != nil {
 		res.FailWithError(err, c)

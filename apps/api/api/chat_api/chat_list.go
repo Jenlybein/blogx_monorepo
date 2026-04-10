@@ -3,7 +3,6 @@ package chat_api
 import (
 	"myblogx/common"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // ChatSessionListView 返回当前登录用户的会话列表。
@@ -34,7 +34,7 @@ func (a *ChatApi) ChatSessionListView(c *gin.Context) {
 		}
 	}
 
-	queryService := chat_service.NewQueryService(global.DB)
+	queryService := chat_service.NewQueryService(mustApp(c).DB)
 	list, count, err := queryService.ListSessions(chat_service.SessionListQuery{
 		PageInfo: cr.PageInfo,
 		UserID:   cr.UserID,
@@ -69,7 +69,7 @@ func (a *ChatApi) ChatMsgListView(c *gin.Context) {
 	}
 
 	var session models.ChatSessionModel
-	sessionQuery := global.DB.Select("session_id", "clear_before_msg_id")
+	sessionQuery := mustApp(c).DB.Select("session_id", "clear_before_msg_id")
 	if allowUnscoped {
 		sessionQuery = sessionQuery.Unscoped()
 	}
@@ -85,14 +85,14 @@ func (a *ChatApi) ChatMsgListView(c *gin.Context) {
 		PageInfo:     cr.PageInfo,
 		DefaultOrder: "send_time desc",
 		Unscoped:     allowUnscoped,
-		Where:        buildChatMsgVisibleWhere(cr.UserID, cr.SessionID, session.ClearBeforeMsgID, allowUnscoped),
+		Where:        buildChatMsgVisibleWhere(mustApp(c).DB, cr.UserID, cr.SessionID, session.ClearBeforeMsgID, allowUnscoped),
 	})
 	if err != nil {
 		res.FailWithError(err, c)
 		return
 	}
 
-	stateMap, err := loadChatMsgDeletedAtMap(cr.UserID, cr.SessionID, allowUnscoped, list)
+	stateMap, err := loadChatMsgDeletedAtMap(mustApp(c).DB, cr.UserID, cr.SessionID, allowUnscoped, list)
 	if err != nil {
 		res.FailWithError(err, c)
 		return
@@ -121,7 +121,7 @@ func (a *ChatApi) ChatMsgListView(c *gin.Context) {
 	res.OkWithList(respList, count, c)
 }
 
-func loadChatMsgDeletedAtMap(userID ctype.ID, sessionID string, allowUnscoped bool, msgList []models.ChatMsgModel) (map[ctype.ID]time.Time, error) {
+func loadChatMsgDeletedAtMap(db *gorm.DB, userID ctype.ID, sessionID string, allowUnscoped bool, msgList []models.ChatMsgModel) (map[ctype.ID]time.Time, error) {
 	if !allowUnscoped || len(msgList) == 0 {
 		return nil, nil
 	}
@@ -132,7 +132,7 @@ func loadChatMsgDeletedAtMap(userID ctype.ID, sessionID string, allowUnscoped bo
 	}
 
 	var stateList []models.ChatMsgUserStateModel
-	err := global.DB.Unscoped().
+	err := db.Unscoped().
 		Find(&stateList, "user_id = ? AND session_id = ? AND msg_id IN ? AND deleted_at IS NOT NULL", userID, sessionID, msgIDList).Error
 	if err != nil {
 		return nil, err

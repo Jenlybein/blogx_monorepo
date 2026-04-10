@@ -4,7 +4,6 @@ package comment_api
 import (
 	"myblogx/common"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -24,10 +23,10 @@ type CommentRootListResponse struct {
 
 func (CommentApi) CommentRootListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[CommentRootListRequest](c)
-	queryService := comment_service.NewQueryService(global.DB)
+	queryService := comment_service.NewQueryService(mustApp(c).DB)
 
 	var article models.ArticleModel
-	if err := global.DB.Select("id").Take(&article, cr.ArticleID).Error; err != nil {
+	if err := mustApp(c).DB.Select("id").Take(&article, cr.ArticleID).Error; err != nil {
 		res.FailWithMsg("文章不存在", c)
 		return
 	}

@@ -3,7 +3,6 @@ package chat_api
 import (
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -26,13 +25,13 @@ func (ChatApi) ChatSessionDeleteUserView(c *gin.Context) {
 	}
 
 	var list []models.ChatSessionModel
-	if err := global.DB.Find(&list, "user_id = ? and session_id IN ?", claims.UserID, cr.SessionIDList).Error; err != nil {
+	if err := mustApp(c).DB.Find(&list, "user_id = ? and session_id IN ?", claims.UserID, cr.SessionIDList).Error; err != nil {
 		res.FailWithError(err, c)
 		return
 	}
 
 	if len(list) > 0 {
-		err := global.DB.Transaction(func(tx *gorm.DB) error {
+		err := mustApp(c).DB.Transaction(func(tx *gorm.DB) error {
 			// 用户删除整个会话时，不逐条写消息删除状态，
 			// 而是把当前会话推进到“清空水位”，避免大会话删除时产生大量写入。
 			if err := clearChatSessions(tx, list); err != nil {

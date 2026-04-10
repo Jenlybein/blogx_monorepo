@@ -3,6 +3,8 @@
 package main
 
 import (
+	"myblogx/api"
+	"myblogx/appctx"
 	"myblogx/core"
 	"myblogx/flags"
 	"myblogx/global"
@@ -21,6 +23,7 @@ func main() {
 	if err := core.InitSnowflake(); err != nil {
 		panic(err)
 	}
+	
 	global.Logger = core.InitLogrus(&global.Config.Log)
 	global.Redis = core.InitRedis(&global.Config.Redis)
 	// global.KafkaMysqlClient = core.KafkaMysqlClientInit(&global.Config.Kafka)
@@ -40,5 +43,7 @@ func main() {
 	cron_service.Cron()
 
 	// 启动 Web 程序
-	router.Run()
+	ctx := appctx.New(global.Config, global.Logger, global.DB, global.Redis, global.ClickHouse, global.ESClient)
+	
+	router.Run(ctx, api.New(ctx))
 }

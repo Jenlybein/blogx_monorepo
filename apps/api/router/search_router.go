@@ -8,12 +8,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SearchRouter(r *gin.RouterGroup) {
+func SearchRouter(r *gin.RouterGroup, appContainer api.Api) {
 	group := r.Group("search")
 	// authGroup := group.Group("", mw.AuthMiddleware)
 	// adminGroup := authGroup.Group("", mw.AdminMiddleware)
 
-	app := api.App.SearchApi
+	app := appContainer.SearchApi
 
 	group.GET("articles", mw.BindQuery[search_service.ArticleSearchRequest], app.ArticleSearchView)
 }

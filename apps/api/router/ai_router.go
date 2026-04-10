@@ -8,8 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func AIRouter(r *gin.RouterGroup) {
-	app := api.App.AIApi
+func AIRouter(r *gin.RouterGroup, appContainer api.Api) {
+	app := appContainer.AIApi
 
 	group := r.Group("ai", mw.AuthMiddleware)
 	authGroup := group.Group("", mw.AuthMiddleware)

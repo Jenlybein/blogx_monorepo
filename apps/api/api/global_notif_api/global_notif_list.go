@@ -3,7 +3,6 @@ package global_notif_api
 import (
 	"myblogx/common"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -18,19 +17,19 @@ func (GlobalNotifApi) GlobalNotifListView(c *gin.Context) {
 	claims := jwts.MustGetClaimsByGin(c)
 
 	var (
-		whereQuery   = global.DB.Where("")
+		whereQuery   = mustApp(c).DB.Where("")
 		userNotifMap = map[ctype.ID]models.UserGlobalNotifModel{}
 	)
 
 	switch cr.Type {
 	case 1: // 普通用户能看，且未被删除的通知
-		state, err := LoadUserGlobalNotifState(claims.UserID, nil)
+		state, err := LoadUserGlobalNotifState(mustApp(c).DB, claims.UserID, nil)
 		if err != nil {
 			res.FailWithMsg("用户不存在", c)
 			return
 		}
 		userNotifMap = state.UserNotifMap
-		whereQuery = BuildUserVisibleGlobalNotifListQuery(state)
+		whereQuery = BuildUserVisibleGlobalNotifListQuery(mustApp(c).DB, state)
 	case 2:
 		if !claims.IsAdmin() {
 			res.FailWithMsg("权限不足", c)

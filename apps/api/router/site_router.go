@@ -10,12 +10,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SiteRouter(r *gin.RouterGroup) {
+func SiteRouter(r *gin.RouterGroup, appContainer api.Api) {
 	Group := r.Group("site")
 	authGroup := Group.Group("", mw.AuthMiddleware)
 	adminGroup := authGroup.Group("", mw.AdminMiddleware)
 
-	app := api.App.SiteApi
+	app := appContainer.SiteApi
 
 	Group.GET("qq_url", app.SiteInfoQQView)
 	Group.GET("seo", app.SiteSEOView)

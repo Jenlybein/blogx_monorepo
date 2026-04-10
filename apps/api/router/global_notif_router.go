@@ -2,19 +2,19 @@ package router
 
 import (
 	"myblogx/api"
-	global_notif_api "myblogx/api/global_msg_api"
+	"myblogx/api/global_notif_api"
 	mw "myblogx/middleware"
 	"myblogx/models"
 
 	"github.com/gin-gonic/gin"
 )
 
-func GlobalNotifRouter(r *gin.RouterGroup) {
+func GlobalNotifRouter(r *gin.RouterGroup, appContainer api.Api) {
 	Group := r.Group("global_notif")
 	authGroup := Group.Group("", mw.AuthMiddleware)
 	adminGroup := authGroup.Group("", mw.AdminMiddleware)
 
-	app := api.App.GlobalNotifApi
+	app := appContainer.GlobalNotifApi
 
 	authGroup.GET("", mw.BindQuery[global_notif_api.GlobalNotifListRequest], app.GlobalNotifListView)
 	authGroup.POST("read", mw.BindJson[models.IDListRequest], app.GlobalNotifReadView)

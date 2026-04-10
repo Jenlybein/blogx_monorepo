@@ -8,8 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func DataRouter(r *gin.RouterGroup) {
-	app := api.App.DataApi
+func DataRouter(r *gin.RouterGroup, appContainer api.Api) {
+	app := appContainer.DataApi
 
 	group := r.Group("data", mw.AuthMiddleware)
 	authGroup := group.Group("", mw.AuthMiddleware)

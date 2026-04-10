@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"myblogx/common"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -22,18 +21,18 @@ type FavoriteListQuery struct {
 }
 
 type FavoriteListItem struct {
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	ID            ctype.ID `json:"id"`
-	UserID        ctype.ID `json:"user_id"`
-	Title         string   `json:"title"`
-	Cover         string   `json:"cover"`
-	Abstract      string   `json:"abstract"`
-	IsDefault     bool     `json:"is_default"`
-	ArticleCount  int      `json:"article_count"`
-	Nickname      string   `json:"nickname,omitempty"`
-	Avatar        string   `json:"avatar,omitempty"`
-	HasArticle    bool     `json:"has_article"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	ID           ctype.ID  `json:"id"`
+	UserID       ctype.ID  `json:"user_id"`
+	Title        string    `json:"title"`
+	Cover        string    `json:"cover"`
+	Abstract     string    `json:"abstract"`
+	IsDefault    bool      `json:"is_default"`
+	ArticleCount int       `json:"article_count"`
+	Nickname     string    `json:"nickname,omitempty"`
+	Avatar       string    `json:"avatar,omitempty"`
+	HasArticle   bool      `json:"has_article"`
 }
 
 type FavoriteArticlesQuery struct {
@@ -69,8 +68,7 @@ func NewQueryService(db *gorm.DB) *QueryService {
 }
 
 func (s *QueryService) ListFavorites(query FavoriteListQuery) ([]FavoriteListItem, int, error) {
-	db := s.db()
-	base := db.Model(&models.FavoriteModel{}).Where("user_id = ?", query.UserID)
+	base := s.DB.Model(&models.FavoriteModel{}).Where("user_id = ?", query.UserID)
 	if query.PageInfo.Key != "" {
 		base = base.Where("title LIKE ?", "%"+query.PageInfo.Key+"%")
 	}
@@ -100,10 +98,10 @@ func (s *QueryService) ListFavorites(query FavoriteListQuery) ([]FavoriteListIte
 		return nil, 0, err
 	}
 
-	if err = hydrateFavoriteOwners(db, rows); err != nil {
+	if err = hydrateFavoriteOwners(s.DB, rows); err != nil {
 		return nil, 0, err
 	}
-	articleCountMap, err := loadFavoriteArticleCounts(db, rows)
+	articleCountMap, err := loadFavoriteArticleCounts(s.DB, rows)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -141,13 +139,12 @@ func (s *QueryService) ListFavorites(query FavoriteListQuery) ([]FavoriteListIte
 }
 
 func (s *QueryService) ListFavoriteArticles(query FavoriteArticlesQuery, orderMap map[string]string) ([]FavoriteArticleItem, int, error) {
-	db := s.db()
-	base := db.Model(&models.UserArticleFavorModel{}).
+	base := s.DB.Model(&models.UserArticleFavorModel{}).
 		Where("favor_id = ?", query.FavoriteID)
 
 	if query.PageInfo.Key != "" {
 		var articleIDs []ctype.ID
-		if err := db.Model(&models.ArticleModel{}).
+		if err := s.DB.Model(&models.ArticleModel{}).
 			Select("id").
 			Where("status = ? AND title LIKE ?", enum.ArticleStatusPublished, "%"+query.PageInfo.Key+"%").
 			Pluck("id", &articleIDs).Error; err != nil {
@@ -188,7 +185,7 @@ func (s *QueryService) ListFavoriteArticles(query FavoriteArticlesQuery, orderMa
 		return nil, 0, err
 	}
 
-	if err = hydrateFavoriteArticleSnapshots(db, rows); err != nil {
+	if err = hydrateFavoriteArticleSnapshots(s.DB, rows); err != nil {
 		return nil, 0, err
 	}
 
@@ -196,7 +193,7 @@ func (s *QueryService) ListFavoriteArticles(query FavoriteArticlesQuery, orderMa
 	for _, row := range rows {
 		articleIDs = append(articleIDs, row.ArticleID)
 	}
-	articleBaseMap, err := read_service.LoadArticleBaseMap(db, articleIDs)
+	articleBaseMap, err := read_service.LoadArticleBaseMap(s.DB, articleIDs)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -210,7 +207,7 @@ func (s *QueryService) ListFavoriteArticles(query FavoriteArticlesQuery, orderMa
 			authorIDs = append(authorIDs, articleBase.AuthorID)
 		}
 	}
-	authorMap, err := read_service.LoadUserDisplayMap(db, authorIDs)
+	authorMap, err := read_service.LoadUserDisplayMap(s.DB, authorIDs)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -388,7 +385,7 @@ func (s *QueryService) loadHasArticleMap(query FavoriteListQuery, rows []models.
 	}
 
 	var relationList []models.UserArticleFavorModel
-	if err := s.db().Select("favor_id").
+	if err := s.DB.Select("favor_id").
 		Where("user_id = ? AND article_id = ? AND favor_id IN ?", query.ViewerID, query.ArticleID, favoriteIDs).
 		Find(&relationList).Error; err != nil {
 		return result, err
@@ -398,11 +395,4 @@ func (s *QueryService) loadHasArticleMap(query FavoriteListQuery, rows []models.
 		result[relation.FavorID] = true
 	}
 	return result, nil
-}
-
-func (s *QueryService) db() *gorm.DB {
-	if s.DB != nil {
-		return s.DB
-	}
-	return global.DB
 }

@@ -10,12 +10,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func ImageRouter(r *gin.RouterGroup) {
+func ImageRouter(r *gin.RouterGroup, appContainer api.Api) {
 	Group := r.Group("images")
 	authGroup := Group.Group("", mw.AuthMiddleware)
 	adminGroup := authGroup.Group("", mw.AdminMiddleware)
 
-	app := api.App.ImageApi
+	app := appContainer.ImageApi
 
 	authGroup.POST("upload-tasks", mw.BindJson[image_api.CreateImageUploadTaskRequest], app.CreateUploadTaskView)
 	authGroup.POST("upload-tasks/complete", mw.BindJson[image_api.CompleteImageUploadTaskRequest], app.CompleteUploadTaskView)

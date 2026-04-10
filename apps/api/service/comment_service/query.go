@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"myblogx/common"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -72,8 +71,8 @@ type ManageCommentItem struct {
 }
 
 type QueryService struct {
-	DB             *gorm.DB
-	CounterReader  read_service.CommentCounterReader
+	DB            *gorm.DB
+	CounterReader read_service.CommentCounterReader
 }
 
 func NewQueryService(db *gorm.DB) *QueryService {
@@ -83,16 +82,11 @@ func NewQueryService(db *gorm.DB) *QueryService {
 	}
 }
 
-func ListPublishedRootComments(articleID ctype.ID, page common.PageInfo, viewerUserID ctype.ID) ([]RootCommentItem, bool, error) {
-	return NewQueryService(global.DB).ListPublishedRootComments(articleID, page, viewerUserID)
-}
-
 func (s *QueryService) ListPublishedRootComments(articleID ctype.ID, page common.PageInfo, viewerUserID ctype.ID) ([]RootCommentItem, bool, error) {
-	db := s.db()
 	limit := page.GetLimit()
 
 	var rows []models.CommentModel
-	if err := db.Select(
+	if err := s.DB.Select(
 		"id",
 		"created_at",
 		"content",
@@ -124,16 +118,11 @@ func (s *QueryService) ListPublishedRootComments(articleID ctype.ID, page common
 	return items, hasMore, err
 }
 
-func ListPublishedReplyComments(articleID, rootID ctype.ID, page common.PageInfo, viewerUserID ctype.ID) ([]ReplyCommentItem, bool, error) {
-	return NewQueryService(global.DB).ListPublishedReplyComments(articleID, rootID, page, viewerUserID)
-}
-
 func (s *QueryService) ListPublishedReplyComments(articleID, rootID ctype.ID, page common.PageInfo, viewerUserID ctype.ID) ([]ReplyCommentItem, bool, error) {
-	db := s.db()
 	limit := page.GetLimit()
 
 	var rows []models.CommentModel
-	if err := db.Select(
+	if err := s.DB.Select(
 		"id",
 		"created_at",
 		"content",
@@ -168,8 +157,7 @@ func (s *QueryService) ListPublishedReplyComments(articleID, rootID ctype.ID, pa
 }
 
 func (s *QueryService) ListManagedComments(query ManageCommentQuery) ([]ManageCommentItem, int, error) {
-	db := s.db()
-	commentQuery := db.Model(&models.CommentModel{})
+	commentQuery := s.DB.Model(&models.CommentModel{})
 
 	switch query.Type {
 	case 1:
@@ -242,7 +230,7 @@ func (s *QueryService) ListManagedComments(query ManageCommentQuery) ([]ManageCo
 	if query.Type == 1 {
 		relationMap = follow_service.CalUserRelationshipBatch(query.ViewerID, userIDs)
 	}
-	articleMap, err := read_service.LoadArticleBaseMap(db, articleIDs)
+	articleMap, err := read_service.LoadArticleBaseMap(s.DB, articleIDs)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -347,7 +335,6 @@ func (s *QueryService) hydrateCommentSnapshots(rows []models.CommentModel) error
 		return nil
 	}
 
-	db := s.db()
 	userIDs := make([]ctype.ID, 0, len(rows))
 	replyCommentIDs := make([]ctype.ID, 0, len(rows))
 	replyUserIDs := make([]ctype.ID, 0, len(rows))
@@ -367,7 +354,7 @@ func (s *QueryService) hydrateCommentSnapshots(rows []models.CommentModel) error
 	replyCommentMap := make(map[ctype.ID]models.CommentModel)
 	if len(replyCommentIDs) > 0 {
 		var replyRows []models.CommentModel
-		if err := db.Select("id", "user_id", "user_nickname").
+		if err := s.DB.Select("id", "user_id", "user_nickname").
 			Where("id IN ?", read_service.NormalizeIDs(replyCommentIDs)).
 			Find(&replyRows).Error; err != nil {
 			return err
@@ -380,7 +367,7 @@ func (s *QueryService) hydrateCommentSnapshots(rows []models.CommentModel) error
 		}
 	}
 
-	userMap, err := read_service.LoadUserDisplayMap(db, append(userIDs, replyUserIDs...))
+	userMap, err := read_service.LoadUserDisplayMap(s.DB, append(userIDs, replyUserIDs...))
 	if err != nil {
 		return err
 	}
@@ -425,7 +412,7 @@ func (s *QueryService) loadAuthorArticleIDs(authorID, articleID ctype.ID) ([]cty
 		return nil, nil
 	}
 
-	db := s.db().Model(&models.ArticleModel{}).Select("id").Where("author_id = ?", authorID)
+	db := s.DB.Model(&models.ArticleModel{}).Select("id").Where("author_id = ?", authorID)
 	if articleID != 0 {
 		db = db.Where("id = ?", articleID)
 	}
@@ -444,7 +431,7 @@ func (s *QueryService) buildCommentDiggMap(viewerUserID ctype.ID, commentIDs []c
 	}
 
 	var diggList []models.CommentDiggModel
-	if err := s.db().Select("comment_id").
+	if err := s.DB.Select("comment_id").
 		Where("user_id = ? AND comment_id IN ?", viewerUserID, commentIDs).
 		Find(&diggList).Error; err != nil {
 		return result
@@ -460,11 +447,4 @@ func (s *QueryService) buildCommentRelationMap(viewerUserID ctype.ID, userIDs []
 		return make(map[ctype.ID]relationship_enum.Relation, len(userIDs))
 	}
 	return follow_service.CalUserRelationshipBatch(viewerUserID, userIDs)
-}
-
-func (s *QueryService) db() *gorm.DB {
-	if s.DB != nil {
-		return s.DB
-	}
-	return global.DB
 }

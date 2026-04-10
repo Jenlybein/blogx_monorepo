@@ -3,7 +3,6 @@ package chat_api
 import (
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -28,7 +27,7 @@ func (ChatApi) ChatMsgDeleteUserView(c *gin.Context) {
 	}
 
 	var msgList []models.ChatMsgModel
-	if err := global.DB.Select("id", "session_id").
+	if err := mustApp(c).DB.Select("id", "session_id").
 		Find(&msgList, "id IN ? AND (sender_id = ? OR receiver_id = ?)", cr.MsgIDList, claims.UserID, claims.UserID).Error; err != nil {
 		res.FailWithError(err, c)
 		return
@@ -36,7 +35,7 @@ func (ChatApi) ChatMsgDeleteUserView(c *gin.Context) {
 
 	if len(msgList) > 0 {
 		// 单条消息删除保留“用户消息状态表”，只影响当前用户视图，不动原消息数据。
-		if err := insertChatMsgUserStates(global.DB, claims.UserID, msgList); err != nil {
+		if err := insertChatMsgUserStates(mustApp(c).DB, claims.UserID, msgList); err != nil {
 			res.FailWithError(err, c)
 			return
 		}
@@ -50,8 +49,8 @@ func (ChatApi) ChatMsgDeleteUserView(c *gin.Context) {
 // 1. 会话清空水位之前的旧消息
 // 2. 当前用户单独删除过的消息
 // 管理员查看时不做用户侧删除过滤，只保留会话范围条件。
-func buildChatMsgVisibleWhere(userID ctype.ID, sessionID string, clearBeforeMsgID ctype.ID, allowUnscoped bool) *gorm.DB {
-	query := global.DB
+func buildChatMsgVisibleWhere(db *gorm.DB, userID ctype.ID, sessionID string, clearBeforeMsgID ctype.ID, allowUnscoped bool) *gorm.DB {
+	query := db
 	if clearBeforeMsgID > 0 {
 		// 会话清空后，只返回水位之后的新消息。
 		query = query.Where("id > ?", clearBeforeMsgID)
@@ -60,7 +59,7 @@ func buildChatMsgVisibleWhere(userID ctype.ID, sessionID string, clearBeforeMsgI
 		return query
 	}
 	// 普通用户模式下，需要排除当前用户单独删除过的消息。
-	subQuery := global.DB.Unscoped().Model(&models.ChatMsgUserStateModel{}).
+	subQuery := db.Unscoped().Model(&models.ChatMsgUserStateModel{}).
 		Select("msg_id").
 		Where("user_id = ? AND session_id = ? AND deleted_at IS NOT NULL", userID, sessionID)
 	return query.Not("id IN (?)", subQuery)

@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"myblogx/common"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/follow_service"
@@ -42,7 +41,7 @@ func NewQueryService(db *gorm.DB) *QueryService {
 }
 
 func (s *QueryService) ListSessions(query SessionListQuery) ([]SessionListItem, int, error) {
-	db := s.db().Model(&models.ChatSessionModel{})
+	db := s.DB.Model(&models.ChatSessionModel{})
 	if query.Type == 2 {
 		db = db.Unscoped()
 	}
@@ -72,7 +71,7 @@ func (s *QueryService) ListSessions(query SessionListQuery) ([]SessionListItem, 
 		return nil, 0, err
 	}
 
-	if err = hydrateChatReceiverSnapshots(s.db(), rows); err != nil {
+	if err = hydrateChatReceiverSnapshots(s.DB, rows); err != nil {
 		return nil, 0, err
 	}
 
@@ -128,11 +127,4 @@ func hydrateChatReceiverSnapshots(db *gorm.DB, rows []models.ChatSessionModel) e
 		}
 	}
 	return nil
-}
-
-func (s *QueryService) db() *gorm.DB {
-	if s.DB != nil {
-		return s.DB
-	}
-	return global.DB
 }

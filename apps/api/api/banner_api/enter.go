@@ -2,6 +2,7 @@ package banner_api
 
 import (
 	"fmt"
+	"myblogx/appctx"
 	"myblogx/common"
 	"myblogx/common/res"
 	"myblogx/global"
@@ -14,6 +15,15 @@ import (
 )
 
 type BannerApi struct{}
+
+func New(ctx *appctx.AppContext) BannerApi {
+	_ = ctx
+	return BannerApi{}
+}
+
+func mustApp(c *gin.Context) *appctx.AppContext {
+	return appctx.MustFromGin(c)
+}
 
 type BannerCreateRequest struct {
 	Cover string `json:"cover" binding:"required"`

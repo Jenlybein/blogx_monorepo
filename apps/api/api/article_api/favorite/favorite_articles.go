@@ -3,7 +3,6 @@ package favorite
 import (
 	"errors"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -35,7 +34,7 @@ func (FavoriteApi) FavoriteArticlesView(c *gin.Context) {
 		return
 	}
 
-	queryService := favorite_service.NewQueryService(global.DB)
+	queryService := favorite_service.NewQueryService(mustApp(c).DB)
 	list, count, err := queryService.ListFavoriteArticles(favorite_service.FavoriteArticlesQuery{
 		PageInfo:   cr.PageInfo,
 		FavoriteID: favoriteModel.ID,
@@ -49,7 +48,7 @@ func (FavoriteApi) FavoriteArticlesView(c *gin.Context) {
 
 func getAccessibleFavorite(c *gin.Context, favoriteID ctype.ID, claims *jwts.MyClaims) (*models.FavoriteModel, error) {
 	var favoriteModel models.FavoriteModel
-	if err := global.DB.Take(&favoriteModel, "id = ?", favoriteID).Error; err != nil {
+	if err := mustApp(c).DB.Take(&favoriteModel, "id = ?", favoriteID).Error; err != nil {
 		res.FailWithMsg("收藏夹不存在", c)
 		return nil, err
 	}
@@ -61,7 +60,7 @@ func getAccessibleFavorite(c *gin.Context, favoriteID ctype.ID, claims *jwts.MyC
 	}
 
 	var userConf models.UserConfModel
-	if err := global.DB.Take(&userConf, "user_id = ?", favoriteModel.UserID).Error; err != nil {
+	if err := mustApp(c).DB.Take(&userConf, "user_id = ?", favoriteModel.UserID).Error; err != nil {
 		res.FailWithMsg("用户不存在", c)
 		return nil, err
 	}

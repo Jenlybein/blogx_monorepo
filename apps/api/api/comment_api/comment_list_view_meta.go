@@ -1,11 +1,7 @@
 package comment_api
 
 import (
-	"myblogx/global"
-	"myblogx/models"
 	"myblogx/models/ctype"
-	"myblogx/models/enum/relationship_enum"
-	"myblogx/service/follow_service"
 	"myblogx/utils/jwts"
 
 	"github.com/gin-gonic/gin"
@@ -18,44 +14,4 @@ func commentViewerIDFromGin(c *gin.Context) ctype.ID {
 		return claims.UserID
 	}
 	return 0
-}
-
-// buildCommentDiggMap 生成评论点赞 map
-func buildCommentDiggMap(viewerUserID ctype.ID, commentIDs []ctype.ID) map[ctype.ID]bool {
-	result := make(map[ctype.ID]bool, len(commentIDs))
-	if viewerUserID == 0 || len(commentIDs) == 0 {
-		return result
-	}
-
-	var diggList []models.CommentDiggModel
-	if err := global.DB.Select("comment_id").
-		Where("user_id = ? AND comment_id IN ?", viewerUserID, commentIDs).
-		Find(&diggList).Error; err != nil {
-		return result
-	}
-
-	for _, item := range diggList {
-		result[item.CommentID] = true
-	}
-	return result
-}
-
-// buildCommentRelationMap 生成评论点赞 map
-func buildCommentRelationMap(viewerUserID ctype.ID, userIDs []ctype.ID) map[ctype.ID]relationship_enum.Relation {
-	if viewerUserID == 0 {
-		return make(map[ctype.ID]relationship_enum.Relation, len(userIDs))
-	}
-	seen := make(map[ctype.ID]struct{}, len(userIDs))
-	deduped := make([]ctype.ID, 0, len(userIDs))
-	for _, userID := range userIDs {
-		if userID == 0 {
-			continue
-		}
-		if _, ok := seen[userID]; ok {
-			continue
-		}
-		seen[userID] = struct{}{}
-		deduped = append(deduped, userID)
-	}
-	return follow_service.CalUserRelationshipBatch(viewerUserID, deduped)
 }

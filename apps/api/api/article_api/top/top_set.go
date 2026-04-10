@@ -3,7 +3,6 @@ package top
 import (
 	"errors"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -22,9 +21,11 @@ const maxUserTopArticleCount = 3
 func (TopApi) ArticleTopSetView(c *gin.Context) {
 	cr := middleware.GetBindJson[ArticleTopSetRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
+	db := mustApp(c).DB
+	logger := mustApp(c).Logger
 
 	var article models.ArticleModel
-	if err := global.DB.Select("id", "author_id", "status").Take(&article, "id = ?", cr.ArticleID).Error; err != nil {
+	if err := db.Select("id", "author_id", "status").Take(&article, "id = ?", cr.ArticleID).Error; err != nil {
 		res.FailWithMsg("文章不存在", c)
 		return
 	}
@@ -49,7 +50,7 @@ func (TopApi) ArticleTopSetView(c *gin.Context) {
 		return
 	}
 
-	err := global.DB.Transaction(func(tx *gorm.DB) error {
+	err := db.Transaction(func(tx *gorm.DB) error {
 		// 用户级行锁用于串行化“置顶数量限制 + 当前文章置顶状态”这组组合判断。
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").Take(&models.UserModel{}, claims.UserID).Error; err != nil {
 			return err
@@ -87,13 +88,13 @@ func (TopApi) ArticleTopSetView(c *gin.Context) {
 		return nil
 	})
 	if err != nil {
-		global.Logger.Errorf("文章置顶失败: 文章ID=%d 用户ID=%d 类型=%d 错误=%v", article.ID, claims.UserID, cr.Type, err)
+		logger.Errorf("文章置顶失败: 文章ID=%d 用户ID=%d 类型=%d 错误=%v", article.ID, claims.UserID, cr.Type, err)
 		res.FailWithError(err, c)
 		return
 	}
 
 	if err := es_service.UpdateESDocsTop([]ctype.ID{article.ID}); err != nil {
-		global.Logger.Errorf("更新文章置顶后刷新 ES 失败: 文章ID=%d 错误=%v", article.ID, err)
+		logger.Errorf("更新文章置顶后刷新 ES 失败: 文章ID=%d 错误=%v", article.ID, err)
 	}
 
 	res.OkWithMsg("文章置顶成功", c)

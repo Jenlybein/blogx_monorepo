@@ -9,12 +9,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func BannerRouter(r *gin.RouterGroup) {
+func BannerRouter(r *gin.RouterGroup, appContainer api.Api) {
 	Group := r.Group("banners")
 	authGroup := Group.Group("", mw.AuthMiddleware)
 	adminGroup := authGroup.Group("", mw.AdminMiddleware)
 
-	app := api.App.BannerApi
+	app := appContainer.BannerApi
 
 	Group.GET("", mw.BindQuery[banner_api.BannerListRequest], app.BannerListView)
 	adminGroup.POST("", mw.CaptureLog(mw.ReqBody|mw.ReqHeader), mw.BindJson[banner_api.BannerCreateRequest], app.BannerCreateView)

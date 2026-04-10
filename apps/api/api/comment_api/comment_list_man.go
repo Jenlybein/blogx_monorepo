@@ -4,7 +4,6 @@ package comment_api
 import (
 	"myblogx/common"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -42,7 +41,7 @@ func (CommentApi) CommentManListView(c *gin.Context) {
 			return
 		}
 	}
-	queryService := comment_service.NewQueryService(global.DB)
+	queryService := comment_service.NewQueryService(mustApp(c).DB)
 	commentList, count, err := queryService.ListManagedComments(comment_service.ManageCommentQuery{
 		Type:      cr.Type,
 		Status:    cr.Status,

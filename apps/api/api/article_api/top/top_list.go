@@ -2,7 +2,6 @@ package top
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/service/top_service"
 
@@ -17,7 +16,7 @@ func (TopApi) ArticleTopListView(c *gin.Context) {
 		return
 	}
 
-	queryService := top_service.NewQueryService(global.DB)
+	queryService := top_service.NewQueryService(mustApp(c).DB)
 	list, err := queryService.ListArticles(cr.Type, cr.UserID)
 	if err != nil {
 		res.FailWithMsg("查询置顶文章失败", c)

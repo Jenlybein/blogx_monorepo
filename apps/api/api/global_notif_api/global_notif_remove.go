@@ -57,14 +57,14 @@ func (GlobalNotifApi) GlobalNotifUserRemoveView(c *gin.Context) {
 	cr := middleware.GetBindJson[models.IDListRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
 
-	state, err := LoadUserGlobalNotifState(claims.UserID, nil)
+	state, err := LoadUserGlobalNotifState(mustApp(c).DB, claims.UserID, nil)
 	if err != nil {
 		res.FailWithMsg("用户不存在", c)
 		return
 	}
 
 	var notifList []models.GlobalNotifModel
-	if err := BuildUserVisibleGlobalNotifListQuery(state).Where("id IN ?", cr.IDList).Find(&notifList).Error; err != nil {
+	if err := BuildUserVisibleGlobalNotifListQuery(mustApp(c).DB, state).Where("id IN ?", cr.IDList).Find(&notifList).Error; err != nil {
 		res.FailWithError(err, c)
 		return
 	}

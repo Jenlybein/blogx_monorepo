@@ -3,6 +3,7 @@ package log_api
 import (
 	"database/sql"
 
+	"myblogx/appctx"
 	"myblogx/common"
 	"myblogx/common/res"
 	"myblogx/middleware"
@@ -14,6 +15,15 @@ import (
 )
 
 type LogApi struct{}
+
+func New(ctx *appctx.AppContext) LogApi {
+	_ = ctx
+	return LogApi{}
+}
+
+func mustApp(c *gin.Context) *appctx.AppContext {
+	return appctx.MustFromGin(c)
+}
 
 type RuntimeLogListRequest struct {
 	common.PageInfo

@@ -9,11 +9,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func LogRouter(r *gin.RouterGroup) {
+func LogRouter(r *gin.RouterGroup, appContainer api.Api) {
 	group := r.Group("logs")
 	group.Use(mw.AuthMiddleware, mw.AdminMiddleware)
 
-	app := api.App.LogApi
+	app := appContainer.LogApi
 
 	group.GET("runtime", mw.BindQuery[log_api.RuntimeLogListRequest], app.RuntimeLogListView)
 	group.GET("runtime/:id", mw.BindUri[models.IDRequest], app.RuntimeLogDetailView)

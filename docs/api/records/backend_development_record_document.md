@@ -1740,3 +1740,74 @@ Worker 收到一条消息：
   - `/api/chat/sessions`
 - 本轮之后，高频读链路已经基本脱离“通用分页器 + preload + Redis 散补”的旧模式，后续若继续推进分库分表，主要改动会集中在 query service / reader 层。
 
+## 本轮后端修复记录 3（2026-04-10）
+
+### 修复范围
+
+本轮继续处理“全局单例依赖过重”的问题，目标不是一次性把全仓库所有 `global.*` 清零，而是先把依赖注入主干打通，让启动层、路由层、鉴权层和高频链路先稳定切到显式依赖模式。
+
+### 已完成调整
+
+- 新增 `AppContext`：
+  - 集中承载 `Config / Logger / DB / Redis / ClickHouse / ESClient`
+  - 入口见 `apps/api/appctx/context.go`
+- 新增 Gin 注入中间件：
+  - `apps/api/middleware/app_context.go`
+  - 请求进入后，会先把 `AppContext` 放入 Gin 上下文
+- 启动层改造：
+  - `apps/api/cmd/server/main.go` 现在会在初始化完全局资源后构造 `AppContext`
+  - `apps/api/router/enter.go` 改为显式接收 `ctx *appctx.AppContext` 和 `app api.Api`
+- API 装配改造：
+  - `apps/api/api/enter.go` 新增 `api.New(ctx)`
+  - 各 API 包的 `enter.go` 已补 `New(ctx)`，形成显式 API 装配链
+- 路由改造：
+  - 所有 `router/*.go` 都改为显式接收 `app api.Api`
+  - 不再从 `api.App` 这个静态单例里偷拿模块
+- 鉴权链路改造：
+  - `service/user_service/auth_session.go` 去掉默认 `global.DB/global.Logger` 回退
+  - Gin 请求里的鉴权统一通过 `AuthenticatorFromGin(c)` 读取依赖
+- 高频查询服务改造：
+  - `comment_service.QueryService`
+  - `follow_service.QueryService`
+  - `favorite_service.QueryService`
+  - `top_service.QueryService`
+  - `chat_service.QueryService`
+  以上都去掉了 `global.DB` 默认回退，改为显式 `NewQueryService(db)`
+- 高频 handler 改造：
+  - 评论、关注、收藏夹、置顶、聊天、全局通知、站内信相关 handler 已切到 `mustApp(c)` 读取 `DB / Logger`
+  - 这些链路不再继续在 handler 内部直接依赖 `global.DB / global.Logger`
+- 全局通知查询辅助函数改造：
+  - `LoadUserGlobalNotifState(...)`
+  - `BuildUserVisibleGlobalNotifQuery(...)`
+  - `BuildUserVisibleGlobalNotifListQuery(...)`
+  都改成显式接收 `db`
+
+### 兼容策略
+
+- 为了兼容仍直接 new `gin.Context` 调 handler / middleware 的旧测试，`appctx.MustFromGin(...)` 暂时保留一层集中兼容：
+  - 如果 Gin 上下文已有 `AppContext`，直接使用注入依赖
+  - 如果没有，但全局资源已经初始化，则临时用全局资源构造 `AppContext`
+- 这个兼容层只允许存在于 `appctx`，避免把 `global.*` 回退再次散回各个业务包
+
+### 当前结果
+
+- `apps/api` 下执行 `go test -run ^$ -p 1 ./...` 已通过
+- `apps/api` 下执行 `go test -p 1 ./...` 已通过
+- `apps/api/router` 非测试代码中的 `global.*` 直接引用已降为 0
+- 启动层、路由层、鉴权层和高频读取链路已经具备明确的依赖传递路径
+
+### 当前还未完成的部分
+
+- 仍有部分普通写路径、后台管理接口、认证写路径、消息/站点/图片/数据统计等模块直接依赖 `global.*`
+- 这轮解决的是“依赖注入主干已经成型”，不是“所有旧代码已经全部迁移完毕”
+
+### 下一阶段建议
+
+建议继续按包推进，而不是全仓库散点替换：
+
+1. `api/user_api/auth_api`
+2. `api/article_api` 其余写路径
+3. `api/image_api / api/data_api / api/sitemsg_api`
+4. `service/user_service` 的写操作服务
+5. `service/message_service / service/site_service / service/es_service`
+

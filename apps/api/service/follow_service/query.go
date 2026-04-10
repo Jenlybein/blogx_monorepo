@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"myblogx/common"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/relationship_enum"
@@ -14,21 +13,21 @@ import (
 )
 
 type FollowListItem struct {
-	FollowedUserID   ctype.ID `json:"followed_user_id"`
-	FollowedNickname string   `json:"followed_nickname"`
-	FollowedAvatar   string   `json:"followed_avatar"`
-	FollowedAbstract string   `json:"followed_abstract"`
+	FollowedUserID   ctype.ID  `json:"followed_user_id"`
+	FollowedNickname string    `json:"followed_nickname"`
+	FollowedAvatar   string    `json:"followed_avatar"`
+	FollowedAbstract string    `json:"followed_abstract"`
 	FollowTime       time.Time `json:"follow_time"`
-	Relation         int8     `json:"relation"`
+	Relation         int8      `json:"relation"`
 }
 
 type FansListItem struct {
-	FansUserID   ctype.ID `json:"fans_user_id"`
-	FansNickname string   `json:"fans_nickname"`
-	FansAvatar   string   `json:"fans_avatar"`
-	FansAbstract string   `json:"fans_abstract"`
+	FansUserID   ctype.ID  `json:"fans_user_id"`
+	FansNickname string    `json:"fans_nickname"`
+	FansAvatar   string    `json:"fans_avatar"`
+	FansAbstract string    `json:"fans_abstract"`
 	FollowTime   time.Time `json:"follow_time"`
-	Relation     int8     `json:"relation"`
+	Relation     int8      `json:"relation"`
 }
 
 type QueryService struct {
@@ -40,8 +39,7 @@ func NewQueryService(db *gorm.DB) *QueryService {
 }
 
 func (s *QueryService) ListFollowing(ownerUserID, viewerUserID, followedUserID ctype.ID, page common.PageInfo) ([]FollowListItem, int, error) {
-	db := s.db()
-	query := db.Model(&models.UserFollowModel{}).Where("fans_user_id = ?", ownerUserID)
+	query := s.DB.Model(&models.UserFollowModel{}).Where("fans_user_id = ?", ownerUserID)
 	if followedUserID != 0 {
 		query = query.Where("followed_user_id = ?", followedUserID)
 	}
@@ -65,7 +63,7 @@ func (s *QueryService) ListFollowing(ownerUserID, viewerUserID, followedUserID c
 		return nil, 0, err
 	}
 
-	if err = hydrateFollowedSnapshots(db, rows); err != nil {
+	if err = hydrateFollowedSnapshots(s.DB, rows); err != nil {
 		return nil, 0, err
 	}
 
@@ -94,8 +92,7 @@ func (s *QueryService) ListFollowing(ownerUserID, viewerUserID, followedUserID c
 }
 
 func (s *QueryService) ListFans(ownerUserID, viewerUserID, fansUserID ctype.ID, page common.PageInfo) ([]FansListItem, int, error) {
-	db := s.db()
-	query := db.Model(&models.UserFollowModel{}).Where("followed_user_id = ?", ownerUserID)
+	query := s.DB.Model(&models.UserFollowModel{}).Where("followed_user_id = ?", ownerUserID)
 	if fansUserID != 0 {
 		query = query.Where("fans_user_id = ?", fansUserID)
 	}
@@ -119,7 +116,7 @@ func (s *QueryService) ListFans(ownerUserID, viewerUserID, fansUserID ctype.ID, 
 		return nil, 0, err
 	}
 
-	if err = hydrateFansSnapshots(db, rows); err != nil {
+	if err = hydrateFansSnapshots(s.DB, rows); err != nil {
 		return nil, 0, err
 	}
 
@@ -203,11 +200,4 @@ func hydrateFansSnapshots(db *gorm.DB, rows []models.UserFollowModel) error {
 		}
 	}
 	return nil
-}
-
-func (s *QueryService) db() *gorm.DB {
-	if s.DB != nil {
-		return s.DB
-	}
-	return global.DB
 }

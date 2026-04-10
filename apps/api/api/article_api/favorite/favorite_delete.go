@@ -3,7 +3,6 @@ package favorite
 import (
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/utils/jwts"
@@ -20,7 +19,7 @@ func (FavoriteApi) FavoriteDeleteView(c *gin.Context) {
 		return
 	}
 
-	query := global.DB.Where("id IN ?", cr.IDList)
+	query := mustApp(c).DB.Where("id IN ?", cr.IDList)
 
 	claim := jwts.GetClaimsByGin(c)
 	if claim.IsAdmin() == false {
@@ -28,15 +27,15 @@ func (FavoriteApi) FavoriteDeleteView(c *gin.Context) {
 	}
 
 	var list []models.FavoriteModel
-	if err := global.DB.Where(query).Find(&list).Error; err != nil {
-		global.Logger.Errorf("查找对应收藏夹失败: 错误=%v", err)
+	if err := mustApp(c).DB.Where(query).Find(&list).Error; err != nil {
+		mustApp(c).Logger.Errorf("查找对应收藏夹失败: 错误=%v", err)
 		res.FailWithMsg("寻找对应的收藏夹失败", c)
 		return
 	}
 
 	if len(list) > 0 {
-		if err := global.DB.Delete(&list).Error; err != nil {
-			global.Logger.Errorf("删除对应收藏夹失败: 错误=%v", err)
+		if err := mustApp(c).DB.Delete(&list).Error; err != nil {
+			mustApp(c).Logger.Errorf("删除对应收藏夹失败: 错误=%v", err)
 			res.FailWithMsg("删除收藏夹失败", c)
 			return
 		}

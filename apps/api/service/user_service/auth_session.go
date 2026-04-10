@@ -5,7 +5,7 @@ package user_service
 import (
 	"time"
 
-	"myblogx/global"
+	"myblogx/appctx"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/redis_service/redis_jwt"
@@ -45,22 +45,9 @@ func NewAuthenticator(db *gorm.DB, logger *logrus.Logger) *Authenticator {
 	}
 }
 
-func defaultAuthenticator() *Authenticator {
-	return NewAuthenticator(global.DB, global.Logger)
-}
-
-func (a *Authenticator) db() *gorm.DB {
-	if a != nil && a.DB != nil {
-		return a.DB
-	}
-	return global.DB
-}
-
-func (a *Authenticator) logger() *logrus.Logger {
-	if a != nil && a.Logger != nil {
-		return a.Logger
-	}
-	return global.Logger
+func AuthenticatorFromGin(c *gin.Context) *Authenticator {
+	app := appctx.MustFromGin(c)
+	return NewAuthenticator(app.DB, app.Logger)
 }
 
 // BuildSessionMetaFromGin 从Gin上下文构建会话元数据
@@ -77,7 +64,7 @@ func BuildSessionMetaFromGin(c *gin.Context) SessionMeta {
 // AuthenticateAccessTokenByGin 从Gin上下文提取Token并完成认证
 func AuthenticateAccessTokenByGin(c *gin.Context) (*AuthResult, error) {
 	token := jwts.GetTokenByGin(c)
-	return defaultAuthenticator().AuthenticateAccessToken(token)
+	return AuthenticatorFromGin(c).AuthenticateAccessToken(token)
 }
 
 // MustAuthenticateAccessTokenByGin 尝试认证AccessToken
@@ -87,21 +74,15 @@ func MustAuthenticateAccessTokenByGin(c *gin.Context) *AuthResult {
 	if token == "" {
 		return nil
 	}
-	result, err := defaultAuthenticator().AuthenticateAccessToken(token)
+	result, err := AuthenticatorFromGin(c).AuthenticateAccessToken(token)
 	if err != nil {
 		return nil
 	}
 	return result
 }
 
-// AuthenticateAccessToken 核心方法：校验访问令牌（AccessToken）合法性
-// 流程：解析Token → 校验黑名单 → 查用户 → 校验状态 → 校验令牌版本 → 校验会话
-func AuthenticateAccessToken(token string) (*AuthResult, error) {
-	return defaultAuthenticator().AuthenticateAccessToken(token)
-}
-
 func (a *Authenticator) AuthenticateAccessToken(token string) (*AuthResult, error) {
-	logger := a.logger()
+	logger := a.Logger
 	if token == "" {
 		if logger != nil {
 			logger.Warn("访问令牌鉴权失败: 访问令牌为空")
@@ -193,14 +174,8 @@ func (a *Authenticator) AuthenticateAccessToken(token string) (*AuthResult, erro
 	}, nil
 }
 
-// AuthenticateSession 根据userID和sessionID直接校验会话合法性
-// 用于内部服务、跨服务鉴权
-func AuthenticateSession(userID, sessionID ctype.ID) (*AuthResult, error) {
-	return defaultAuthenticator().AuthenticateSession(userID, sessionID)
-}
-
 func (a *Authenticator) AuthenticateSession(userID, sessionID ctype.ID) (*AuthResult, error) {
-	logger := a.logger()
+	logger := a.Logger
 	if userID == 0 || sessionID == 0 {
 		if logger != nil {
 			logger.Warnf("会话鉴权失败: 用户ID或会话ID为空，用户ID=%s 会话ID=%s", userID.String(), sessionID.String())
@@ -249,13 +224,9 @@ func (a *Authenticator) AuthenticateSession(userID, sessionID ctype.ID) (*AuthRe
 	}, nil
 }
 
-func loadAuthUser(userID ctype.ID) (*models.UserModel, error) {
-	return defaultAuthenticator().loadAuthUser(userID)
-}
-
 func (a *Authenticator) loadAuthUser(userID ctype.ID) (*models.UserModel, error) {
 	var snapshot models.UserModel
-	if err := a.db().
+	if err := a.DB.
 		Select("id", "username", "role", "status", "token_version").
 		Take(&snapshot, userID).Error; err != nil {
 		return nil, err
@@ -264,14 +235,9 @@ func (a *Authenticator) loadAuthUser(userID ctype.ID) (*models.UserModel, error)
 	return &snapshot, nil
 }
 
-// 校验会话是否有效（未吊销、未过期、归属正确）
-func getSession(sessionID, userID ctype.ID) (*models.UserSessionModel, error) {
-	return defaultAuthenticator().getSession(sessionID, userID)
-}
-
 func (a *Authenticator) getSession(sessionID, userID ctype.ID) (*models.UserSessionModel, error) {
 	var session models.UserSessionModel
-	if err := a.db().
+	if err := a.DB.
 		Where("id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?", sessionID, userID, time.Now()).
 		Take(&session).Error; err != nil {
 		return nil, err

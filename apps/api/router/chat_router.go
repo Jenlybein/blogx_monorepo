@@ -8,11 +8,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func ChatRouter(r *gin.RouterGroup) {
+func ChatRouter(r *gin.RouterGroup, appContainer api.Api) {
 	group := r.Group("chat")
 	authGroup := group.Group("", mw.AuthMiddleware)
 
-	app := api.App.ChatApi
+	app := appContainer.ChatApi
 	authGroup.GET("sessions", mw.BindQuery[chat_api.ChatSessionListRequest], app.ChatSessionListView)
 	authGroup.DELETE("sessions", mw.BindJson[chat_api.ChatSessionDeleteUserRequest], app.ChatSessionDeleteUserView)
 	authGroup.GET("messages", mw.BindQuery[chat_api.ChatMsgListRequest], app.ChatMsgListView)

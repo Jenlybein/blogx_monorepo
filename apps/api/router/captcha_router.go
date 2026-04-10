@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func CaptchaRouter(r *gin.RouterGroup) {
-	api := api.App.ImageCaptchaApi
+func CaptchaRouter(r *gin.RouterGroup, appContainer api.Api) {
+	api := appContainer.ImageCaptchaApi
 	r.GET("/imagecaptcha", api.CaptchaView)
 }

@@ -14,12 +14,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func ArticleRouter(r *gin.RouterGroup) {
+func ArticleRouter(r *gin.RouterGroup, appContainer api.Api) {
 	group := r.Group("articles")
 	authGroup := group.Group("", mw.AuthMiddleware)
 	adminGroup := authGroup.Group("", mw.AdminMiddleware)
 
-	app := api.App.ArticleApi
+	app := appContainer.ArticleApi
 
 	// 文章操作
 	group.GET(":id", mw.BindUri[models.IDRequest], app.ArticleDetailView)

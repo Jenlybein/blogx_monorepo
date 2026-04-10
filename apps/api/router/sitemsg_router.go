@@ -8,12 +8,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SitemsgRouter(r *gin.RouterGroup) {
+func SitemsgRouter(r *gin.RouterGroup, appContainer api.Api) {
 	Group := r.Group("sitemsg")
 	authGroup := Group.Group("", mw.AuthMiddleware)
 	// adminGroup := authGroup.Group("", mw.AdminMiddleware)
 
-	app := api.App.SitemsgApi
+	app := appContainer.SitemsgApi
 	authGroup.GET("", mw.BindQuery[sitemsg_api.SitemsgListRequest], app.SitemsgListView)
 	authGroup.POST("", mw.BindJson[sitemsg_api.SitemsgReadRequest], app.SitemsgReadView)
 	authGroup.DELETE("", mw.BindJson[sitemsg_api.SitemsgRemoveRequest], app.SitemsgRemoveView)

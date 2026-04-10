@@ -3,7 +3,6 @@ package chat_api
 import (
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -21,6 +20,8 @@ import (
 func (ChatApi) ChatMsgReadUserView(c *gin.Context) {
 	cr := middleware.GetBindJson[ChatMsgReadUserRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
+	db := mustApp(c).DB
+	logger := mustApp(c).Logger
 
 	if len(cr.MsgIDList) == 0 {
 		res.FailWithMsg("请输入要标记已读的消息 id 列表", c)
@@ -28,7 +29,7 @@ func (ChatApi) ChatMsgReadUserView(c *gin.Context) {
 	}
 
 	var msgList []models.ChatMsgModel
-	if err := global.DB.Select("id", "session_id", "sender_id", "receiver_id").
+	if err := db.Select("id", "session_id", "sender_id", "receiver_id").
 		Find(&msgList, "id IN ? AND receiver_id = ? AND msg_status < ?", cr.MsgIDList, claims.UserID, chat_msg_enum.MsgStatusRead).Error; err != nil {
 		res.FailWithError(err, c)
 		return
@@ -51,7 +52,7 @@ func (ChatApi) ChatMsgReadUserView(c *gin.Context) {
 		sessionUnreadDelta[item.SessionID]++
 	}
 
-	err := global.DB.Transaction(func(tx *gorm.DB) error {
+	err := db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&models.ChatMsgModel{}).
 			Where("id IN ?", msgIDList).
 			Updates(map[string]any{
@@ -73,7 +74,7 @@ func (ChatApi) ChatMsgReadUserView(c *gin.Context) {
 		for _, push := range pushList {
 			successCount := res.SendWsMsg(push, chat_service.GetOnlineUserStore(), senderID)
 			if successCount == 0 {
-				global.Logger.Infof("聊天已读回执未推送到在线连接: 发送者ID=%d 会话ID=%s", senderID, push.SessionID)
+				logger.Infof("聊天已读回执未推送到在线连接: 发送者ID=%d 会话ID=%s", senderID, push.SessionID)
 			}
 		}
 	}

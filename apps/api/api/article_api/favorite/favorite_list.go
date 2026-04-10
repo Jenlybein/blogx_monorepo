@@ -2,7 +2,6 @@ package favorite
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -39,7 +38,7 @@ func (FavoriteApi) FavoriteListView(c *gin.Context) {
 		}
 		// 查询目标用户隐私设置，判断是否公开收藏夹
 		var userConf models.UserConfModel
-		if err := global.DB.Take(&userConf, "user_id = ?", cr.UserID).Error; err != nil {
+		if err := mustApp(c).DB.Take(&userConf, "user_id = ?", cr.UserID).Error; err != nil {
 			res.FailWithMsg("用户不存在", c)
 			return
 		}
@@ -58,7 +57,7 @@ func (FavoriteApi) FavoriteListView(c *gin.Context) {
 	if claim != nil {
 		viewerUserID = claim.UserID
 	}
-	queryService := favorite_service.NewQueryService(global.DB)
+	queryService := favorite_service.NewQueryService(mustApp(c).DB)
 	list, count, err := queryService.ListFavorites(favorite_service.FavoriteListQuery{
 		PageInfo:  cr.PageInfo,
 		UserID:    cr.UserID,
