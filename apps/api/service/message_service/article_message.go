@@ -1,7 +1,6 @@
 package message_service
 
 import (
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 
@@ -16,7 +15,7 @@ func InsertCommentMessage(content ArticleCommentMessage) {
 
 	nickname, avatar := getActionUserInfo(content.ActionUserID)
 
-	if err := global.DB.Create(&models.ArticleMessageModel{
+	if err := messageDB.Create(&models.ArticleMessageModel{
 		Type:               message_enum.CommentArticleType,
 		ReceiverID:         content.ReceiverID,
 		ActionUserID:       &content.ActionUserID,
@@ -29,7 +28,7 @@ func InsertCommentMessage(content ArticleCommentMessage) {
 		ArticleTitle: content.ArticleTitle,
 		CommentID:    content.CommentID,
 	}).Error; err != nil {
-		global.Logger.Errorf("创建评论消息失败: %v", err)
+		messageLogger.Errorf("创建评论消息失败: %v", err)
 		return
 	}
 }
@@ -42,7 +41,7 @@ func InsertReplyMessage(content ArticleReplyMessage) {
 
 	nickname, avatar := getActionUserInfo(content.ActionUserID)
 
-	if err := global.DB.Create(&models.ArticleMessageModel{
+	if err := messageDB.Create(&models.ArticleMessageModel{
 		Type:               message_enum.CommentReplyType,
 		ReceiverID:         content.ReceiverID,
 		ActionUserID:       &content.ActionUserID,
@@ -55,7 +54,7 @@ func InsertReplyMessage(content ArticleReplyMessage) {
 		ArticleTitle: content.ArticleTitle,
 		CommentID:    content.CommentID,
 	}).Error; err != nil {
-		global.Logger.Errorf("创建回复消息失败: %v", err)
+		messageLogger.Errorf("创建回复消息失败: %v", err)
 		return
 	}
 }
@@ -66,13 +65,13 @@ func InsertArticleDiggMessage(content ArticleDiggMessage) {
 	// 	return
 	// }
 
-	if err := global.DB.Take(&models.ArticleMessageModel{}, "action_user_id = ? and type = ? and article_id = ?", content.ActionUserID, message_enum.DiggArticleType, content.ArticleID).Error; err == nil {
+	if err := messageDB.Take(&models.ArticleMessageModel{}, "action_user_id = ? and type = ? and article_id = ?", content.ActionUserID, message_enum.DiggArticleType, content.ArticleID).Error; err == nil {
 		return
 	}
 
 	nickname, avatar := getActionUserInfo(content.ActionUserID)
 
-	if err := global.DB.Create(&models.ArticleMessageModel{
+	if err := messageDB.Create(&models.ArticleMessageModel{
 		Type:               message_enum.DiggArticleType,
 		ReceiverID:         content.ReceiverID,
 		ActionUserID:       &content.ActionUserID,
@@ -81,7 +80,7 @@ func InsertArticleDiggMessage(content ArticleDiggMessage) {
 		ArticleID:          content.ArticleID,
 		ArticleTitle:       content.ArticleTitle,
 	}).Error; err != nil {
-		global.Logger.Errorf("创建文章点赞消息失败: %v", err)
+		messageLogger.Errorf("创建文章点赞消息失败: %v", err)
 		return
 	}
 }
@@ -92,13 +91,13 @@ func InsertCommentDiggMessage(content CommentDiggMessage) {
 	// 	return
 	// }
 
-	if err := global.DB.Take(&models.ArticleMessageModel{}, "action_user_id = ? and type = ? and comment_id = ?", content.ActionUserID, message_enum.DiggCommentType, content.CommentID).Error; err == nil {
+	if err := messageDB.Take(&models.ArticleMessageModel{}, "action_user_id = ? and type = ? and comment_id = ?", content.ActionUserID, message_enum.DiggCommentType, content.CommentID).Error; err == nil {
 		return
 	}
 
 	nickname, avatar := getActionUserInfo(content.ActionUserID)
 
-	if err := global.DB.Create(&models.ArticleMessageModel{
+	if err := messageDB.Create(&models.ArticleMessageModel{
 		Type:               message_enum.DiggCommentType,
 		CommentID:          content.CommentID,
 		Content:            content.Content,
@@ -109,7 +108,7 @@ func InsertCommentDiggMessage(content CommentDiggMessage) {
 		ArticleID:          content.ArticleID,
 		ArticleTitle:       content.ArticleTitle,
 	}).Error; err != nil {
-		global.Logger.Errorf("创建评论点赞消息失败: %v", err)
+		messageLogger.Errorf("创建评论点赞消息失败: %v", err)
 		return
 	}
 }
@@ -120,13 +119,13 @@ func InsertArticleFavorMessage(content ArticleFavorMessage) {
 	// 	return
 	// }
 
-	if err := global.DB.Take(&models.ArticleMessageModel{}, "action_user_id = ? and type = ? and article_id = ?", content.ActionUserID, message_enum.FavorArticleType, content.ArticleID).Error; err == nil {
+	if err := messageDB.Take(&models.ArticleMessageModel{}, "action_user_id = ? and type = ? and article_id = ?", content.ActionUserID, message_enum.FavorArticleType, content.ArticleID).Error; err == nil {
 		return
 	}
 
 	nickname, avatar := getActionUserInfo(content.ActionUserID)
 
-	if err := global.DB.Create(&models.ArticleMessageModel{
+	if err := messageDB.Create(&models.ArticleMessageModel{
 		Type:               message_enum.FavorArticleType,
 		ReceiverID:         content.ReceiverID,
 		ActionUserID:       &content.ActionUserID,
@@ -135,7 +134,7 @@ func InsertArticleFavorMessage(content ArticleFavorMessage) {
 		ArticleID:          content.ArticleID,
 		ArticleTitle:       content.ArticleTitle,
 	}).Error; err != nil {
-		global.Logger.Errorf("创建评论收藏消息失败: %v", err)
+		messageLogger.Errorf("创建评论收藏消息失败: %v", err)
 		return
 	}
 }
@@ -143,7 +142,7 @@ func InsertArticleFavorMessage(content ArticleFavorMessage) {
 // 插入一条系统消息
 func InsertSystemMessage(content SystemMessage) {
 	if content.ReceiverID == 0 {
-		global.Logger.Errorf("创建系统消息失败: 接收者ID不能为空")
+		messageLogger.Errorf("创建系统消息失败: 接收者ID不能为空")
 		return
 	}
 
@@ -162,16 +161,16 @@ func InsertSystemMessage(content SystemMessage) {
 		msg.ActionUserAvatar = &avatar
 	}
 
-	if err := global.DB.Create(&msg).Error; err != nil {
-		global.Logger.Errorf("创建系统消息失败: %v", err)
+	if err := messageDB.Create(&msg).Error; err != nil {
+		messageLogger.Errorf("创建系统消息失败: %v", err)
 		return
 	}
 }
 
 func getActionUserInfo(actionUserID ctype.ID) (nickname string, avatar string) {
 	info := models.UserModel{}
-	if err := global.DB.Select("nickname", "avatar").Take(&info, "id = ?", actionUserID).Error; err != nil {
-		global.Logger.Errorf("获取用户信息失败: %v", err)
+	if err := messageDB.Select("nickname", "avatar").Take(&info, "id = ?", actionUserID).Error; err != nil {
+		messageLogger.Errorf("获取用户信息失败: %v", err)
 		return
 	}
 

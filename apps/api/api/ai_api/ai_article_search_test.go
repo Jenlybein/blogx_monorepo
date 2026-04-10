@@ -5,7 +5,6 @@ import (
 	"io"
 	"myblogx/api/ai_api"
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/service/ai_service"
@@ -197,9 +196,9 @@ func TestAIArticleSearchView(t *testing.T) {
 	if err != nil {
 		t.Fatalf("创建 ES 客户端失败: %v", err)
 	}
-	global.ESClient = esClient
+	testutil.SetESClient(esClient)
 
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		AI: conf.AI{
 			Enable:        true,
 			SecretKey:     "test-key",
@@ -210,7 +209,7 @@ func TestAIArticleSearchView(t *testing.T) {
 		ES: conf.ES{
 			Index: "article_index",
 		},
-	}
+	})
 
 	api := ai_api.AIApi{}
 	c, w := newAICtx()
@@ -274,14 +273,14 @@ func TestAIArticleSearchLLMViewForOtherIntent(t *testing.T) {
 	}))
 	defer aiServer.Close()
 
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		AI: conf.AI{
 			Enable:    true,
 			SecretKey: "test-key",
 			BaseURL:   aiServer.URL,
 			ChatModel: "test-model",
 		},
-	}
+	})
 
 	api := ai_api.AIApi{}
 	c, w := newAICtx()
@@ -428,9 +427,9 @@ func TestAIArticleSearchLLMViewForSearchIntent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("创建 ES 客户端失败: %v", err)
 	}
-	global.ESClient = esClient
+	testutil.SetESClient(esClient)
 
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		AI: conf.AI{
 			Enable:    true,
 			SecretKey: "test-key",
@@ -440,7 +439,7 @@ func TestAIArticleSearchLLMViewForSearchIntent(t *testing.T) {
 		ES: conf.ES{
 			Index: "article_index",
 		},
-	}
+	})
 
 	api := ai_api.AIApi{}
 	c, w := newAICtx()

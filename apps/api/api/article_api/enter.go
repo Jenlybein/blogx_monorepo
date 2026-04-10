@@ -7,6 +7,8 @@ import (
 	"myblogx/api/article_api/top"
 	"myblogx/api/article_api/view_history"
 	"myblogx/appctx"
+
+	"github.com/gin-gonic/gin"
 )
 
 type ArticleApi struct {
@@ -25,4 +27,8 @@ func New(ctx *appctx.AppContext) ArticleApi {
 		ViewHistoryApi: view_history.New(ctx),
 		TagsApi:        tags.New(ctx),
 	}
+}
+
+func mustApp(c *gin.Context) *appctx.AppContext {
+	return appctx.MustFromGin(c)
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 
-	"myblogx/global"
 	"myblogx/service/log_service"
 
 	"github.com/gin-gonic/gin"
@@ -15,6 +14,7 @@ import (
 // 参数：mode - 采集模式（是否采集头/体）
 func CaptureLog(mode log_service.CaptureLogMode) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		app := mustApp(c)
 		// 采集请求头（如果开启）
 		if c.Request != nil && mode.NeedRequestHeader() {
 			log_service.SetRawRequestHeader(c, log_service.PrepareCapturedHeaders(c.Request.Header.Clone()))
@@ -25,7 +25,7 @@ func CaptureLog(mode log_service.CaptureLogMode) gin.HandlerFunc {
 			// 读取原始请求体
 			rawRequestBody, err := io.ReadAll(c.Request.Body)
 			if err != nil {
-				global.Logger.Warnf("采集原始请求体失败: %v", err)
+				app.Logger.Warnf("采集原始请求体失败: %v", err)
 			} else {
 				// 将请求体存入上下文
 				log_service.SetRawRequestBody(c, log_service.PrepareCapturedBody(rawRequestBody, c.GetHeader("Content-Type")))

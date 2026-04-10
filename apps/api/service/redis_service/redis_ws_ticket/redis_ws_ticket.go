@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	"myblogx/global"
 	"myblogx/models/ctype"
+	"myblogx/service/redis_service"
 )
 
 // chatWSTicketPrefix Redis 中存储 WebSocket 票据的 key 前缀
@@ -33,19 +33,19 @@ func Store(ticket string, payload TicketPayload, ttl time.Duration) error {
 		return err
 	}
 	// 存入 Redis，设置过期时间
-	return global.Redis.Set(context.Background(), ticketKey(ticket), data, ttl).Err()
+	return redis_service.Client().Set(context.Background(), ticketKey(ticket), data, ttl).Err()
 }
 
 // Consume 消费票据（一次性使用，获取后立即删除）
 // 成功：返回票据中的用户信息
 // 失败：返回错误（票据不存在/已过期/非法）
 func Consume(ticket string) (*TicketPayload, error) {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return nil, fmt.Errorf("redis 未初始化")
 	}
 
 	// GetDel：获取并立即删除 key，保证票据只能使用一次
-	data, err := global.Redis.GetDel(context.Background(), ticketKey(ticket)).Bytes()
+	data, err := redis_service.Client().GetDel(context.Background(), ticketKey(ticket)).Bytes()
 	if err != nil {
 		return nil, err
 	}

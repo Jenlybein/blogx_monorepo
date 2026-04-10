@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"myblogx/common"
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -45,13 +44,13 @@ func setupFavoriteEnv(t *testing.T) *models.UserModel {
 		&models.ArticleModel{},
 		&models.ImageRefModel{},
 	)
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Jwt: conf.Jwt{
 			Expire: 1,
 			Secret: "favorite-secret",
 			Issuer: "favorite-test",
 		},
-	}
+	})
 
 	user := &models.UserModel{
 		Username: "favorite_user",
@@ -112,7 +111,7 @@ func TestFavoriteCRUD(t *testing.T) {
 	}
 
 	var fav models.FavoriteModel
-	if err := global.DB.Where("user_id = ? and title = ?", user.ID, "默认收藏组").First(&fav).Error; err != nil {
+	if err := testutil.DB().Where("user_id = ? and title = ?", user.ID, "默认收藏组").First(&fav).Error; err != nil {
 		t.Fatalf("查询收藏夹失败: %v", err)
 	}
 
@@ -165,10 +164,10 @@ func TestFavoriteCRUD(t *testing.T) {
 		AuthorID: user.ID,
 		Status:   enum.ArticleStatusPublished,
 	}
-	if err := global.DB.Create(&article).Error; err != nil {
+	if err := testutil.DB().Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)
 	}
-	if err := global.DB.Create(&models.UserArticleFavorModel{
+	if err := testutil.DB().Create(&models.UserArticleFavorModel{
 		ArticleID: article.ID,
 		UserID:    user.ID,
 		FavorID:   fav.ID,
@@ -212,7 +211,7 @@ func TestFavoriteCRUD(t *testing.T) {
 
 func TestFavoriteArticlesView(t *testing.T) {
 	owner := setupFavoriteEnv(t)
-	db := global.DB
+	db := testutil.DB()
 	api := FavoriteApi{}
 
 	visitor := &models.UserModel{
@@ -338,7 +337,7 @@ func TestFavoriteArticlesView(t *testing.T) {
 
 func TestFavoriteListViewType2Visibility(t *testing.T) {
 	owner := setupFavoriteEnv(t)
-	db := global.DB
+	db := testutil.DB()
 	api := FavoriteApi{}
 
 	favoriteModel := models.FavoriteModel{
@@ -405,7 +404,7 @@ func TestFavoriteListViewType2Visibility(t *testing.T) {
 
 func TestFavoriteRemovePatchView(t *testing.T) {
 	user := setupFavoriteEnv(t)
-	db := global.DB
+	db := testutil.DB()
 	api := FavoriteApi{}
 
 	otherUser := &models.UserModel{

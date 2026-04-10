@@ -3,7 +3,6 @@ package user_service
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/utils/hash"
 	"myblogx/utils/jwts"
@@ -30,11 +29,11 @@ func CreateLoginTokens(user *models.UserModel, meta SessionMeta) (accessToken st
 		Addr:             meta.Addr,                     // 登录地址
 		UA:               meta.UA,                       // 登录设备UA
 		LastSeenAt:       &now,                          // 最后活跃时间
-		ExpiresAt:        now.Add(time.Duration(global.Config.Jwt.RefreshExpire) * time.Hour),
+		ExpiresAt:        now.Add(time.Duration(userJWTConfig.RefreshExpire) * time.Hour),
 	}
 
 	// 将会话写入数据库
-	if err = global.DB.Create(session).Error; err != nil {
+	if err = userDB.Create(session).Error; err != nil {
 		return "", "", nil, err
 	}
 
@@ -62,7 +61,7 @@ func RefreshTokens(refreshToken string, meta SessionMeta) (accessToken string, n
 	now := time.Now()
 	// 根据refresh_token哈希查询有效会话
 	var currentSession models.UserSessionModel
-	if err = global.DB.
+	if err = userDB.
 		Where("refresh_token_hash = ? AND revoked_at IS NULL AND expires_at > ?", hash.SHA256Hash(refreshToken), now).
 		Take(&currentSession).Error; err != nil {
 		return "", "", nil, nil, ErrRefreshTokenInvalid
@@ -70,7 +69,7 @@ func RefreshTokens(refreshToken string, meta SessionMeta) (accessToken string, n
 
 	// 查询会话对应用户
 	var currentUser models.UserModel
-	if err = global.DB.Take(&currentUser, currentSession.UserID).Error; err != nil {
+	if err = userDB.Take(&currentUser, currentSession.UserID).Error; err != nil {
 		return "", "", nil, nil, ErrRefreshTokenInvalid
 	}
 	// 校验用户状态
@@ -87,13 +86,13 @@ func RefreshTokens(refreshToken string, meta SessionMeta) (accessToken string, n
 	// 更新会话信息：新令牌哈希、新过期时间、最新IP/UA/地址
 	updates := map[string]any{
 		"refresh_token_hash": hash.SHA256Hash(newRefreshToken),
-		"expires_at":         now.Add(time.Duration(global.Config.Jwt.RefreshExpire) * time.Hour),
+		"expires_at":         now.Add(time.Duration(userJWTConfig.RefreshExpire) * time.Hour),
 		"last_seen_at":       now,
 		"ip":                 meta.IP,
 		"addr":               meta.Addr,
 		"ua":                 meta.UA,
 	}
-	if err = global.DB.Model(&currentSession).Updates(updates).Error; err != nil {
+	if err = userDB.Model(&currentSession).Updates(updates).Error; err != nil {
 		return "", "", nil, nil, err
 	}
 
@@ -122,7 +121,7 @@ func SetRefreshTokenCookie(c *gin.Context, refreshToken string) {
 		HttpOnly: true,                 // 禁止JS读取，防止XSS窃取
 		SameSite: http.SameSiteLaxMode, // 防止CSRF
 		Secure:   isSecureCookie(),     // 生产环境HTTPS才发送
-		MaxAge:   int(time.Duration(global.Config.Jwt.RefreshExpire) * time.Hour / time.Second),
+		MaxAge:   int(time.Duration(userJWTConfig.RefreshExpire) * time.Hour / time.Second),
 	})
 }
 
@@ -153,10 +152,7 @@ func GetRefreshTokenByGin(c *gin.Context) string {
 // isSecureCookie 判断是否启用Secure Cookie
 // 生产环境才开启（HTTPS）
 func isSecureCookie() bool {
-	if global.Config == nil {
-		return false
-	}
-	return global.Config.System.Env == "prod"
+	return userEnv == "prod"
 }
 
 // generateRefreshToken 生成安全的随机刷新令牌

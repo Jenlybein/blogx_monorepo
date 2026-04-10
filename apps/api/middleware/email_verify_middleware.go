@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	redis_email "myblogx/service/redis_service/redis_email"
 	"myblogx/utils/io_util"
 
@@ -15,10 +14,11 @@ type EmailVerifyMiddlewareRequest struct {
 }
 
 func EmailVerifyMiddleware(c *gin.Context) {
+	app := mustApp(c)
 	// 读取并恢复请求体
 	var cr EmailVerifyMiddlewareRequest
 	if err := io_util.ShouldBindJSONWithRecover(c, &cr); err != nil {
-		global.Logger.Errorf("邮箱验证失败：请求体绑定失败：%v", err)
+		app.Logger.Errorf("邮箱验证失败：请求体绑定失败：%v", err)
 		res.FailWithMsg("邮箱验证失败：请求体读取失败", c)
 		c.Abort()
 		return
@@ -26,7 +26,7 @@ func EmailVerifyMiddleware(c *gin.Context) {
 
 	email, ok, err := redis_email.Verify(cr.EmailID, cr.EmailCode)
 	if err != nil {
-		global.Logger.Errorf("邮箱验证失败：校验异常：%v", err)
+		app.Logger.Errorf("邮箱验证失败：校验异常：%v", err)
 		res.FailWithMsg("邮箱验证失败", c)
 		c.Abort()
 		return

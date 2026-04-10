@@ -5,7 +5,6 @@ import (
 	"fmt"
 	api2 "myblogx/api"
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/models/enum/global_notif_enum"
@@ -28,13 +27,13 @@ func setupGlobalNotifRouterEnv(t *testing.T) (*models.UserModel, string, *models
 		&models.GlobalNotifModel{},
 		&models.UserGlobalNotifModel{},
 	)
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Jwt: conf.Jwt{
 			Expire: 1,
 			Secret: "router-test-secret",
 			Issuer: "blogx-test",
 		},
-	}
+	})
 
 	admin := &models.UserModel{
 		Username: "router_admin",
@@ -104,7 +103,7 @@ func TestGlobalNotifRouterAdminCreateAndUserList(t *testing.T) {
 
 func TestGlobalNotifRouterDeletePaths(t *testing.T) {
 	admin, adminToken, user, userToken := setupGlobalNotifRouterEnv(t)
-	db := global.DB
+	db := testutil.DB()
 	engine := newGlobalNotifRouterEngine()
 
 	registerAt := time.Now().Add(-2 * time.Hour).Round(time.Second)
@@ -174,7 +173,7 @@ func TestGlobalNotifRouterDeletePaths(t *testing.T) {
 
 func TestGlobalNotifRouterReadPath(t *testing.T) {
 	admin, _, user, userToken := setupGlobalNotifRouterEnv(t)
-	db := global.DB
+	db := testutil.DB()
 	engine := newGlobalNotifRouterEngine()
 
 	notif := models.GlobalNotifModel{

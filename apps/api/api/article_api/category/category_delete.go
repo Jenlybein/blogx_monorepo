@@ -3,7 +3,6 @@ package category
 import (
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -23,7 +22,7 @@ func (CategoryApi) CategoryDeleteView(c *gin.Context) {
 		return
 	}
 
-	query := global.DB.Where("id IN ?", cr.IDList)
+	query := mustApp(c).DB.Where("id IN ?", cr.IDList)
 
 	claim := jwts.GetClaimsByGin(c)
 	if claim.IsAdmin() == false {
@@ -31,15 +30,15 @@ func (CategoryApi) CategoryDeleteView(c *gin.Context) {
 	}
 
 	var list []models.CategoryModel
-	if err := global.DB.Where(query).Find(&list).Error; err != nil {
-		global.Logger.Errorf("查找对应分类失败: 错误=%v", err)
+	if err := mustApp(c).DB.Where(query).Find(&list).Error; err != nil {
+		mustApp(c).Logger.Errorf("查找对应分类失败: 错误=%v", err)
 		res.FailWithMsg("寻找对应的分类失败", c)
 		return
 	}
 
 	if len(list) > 0 {
-		if err := global.DB.Delete(&list).Error; err != nil {
-			global.Logger.Errorf("删除对应分类失败: 错误=%v", err)
+		if err := mustApp(c).DB.Delete(&list).Error; err != nil {
+			mustApp(c).Logger.Errorf("删除对应分类失败: 错误=%v", err)
 			res.FailWithMsg("删除分类失败", c)
 			return
 		}
@@ -48,7 +47,7 @@ func (CategoryApi) CategoryDeleteView(c *gin.Context) {
 			categoryIDs = append(categoryIDs, item.ID)
 		}
 		if err := es_service.SyncESDocsByCategoryIDs(categoryIDs); err != nil {
-			global.Logger.Errorf("删除分类后同步相关文章 ES 文档失败: 分类ID列表=%v 错误=%v", categoryIDs, err)
+			mustApp(c).Logger.Errorf("删除分类后同步相关文章 ES 文档失败: 分类ID列表=%v 错误=%v", categoryIDs, err)
 		}
 	} else {
 		res.FailWithMsg("未找到需删除的分类", c)

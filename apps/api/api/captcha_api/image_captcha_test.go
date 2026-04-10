@@ -5,7 +5,6 @@ import (
 	"myblogx/api/captcha_api"
 	"myblogx/conf"
 	confsite "myblogx/conf/site"
-	"myblogx/global"
 	"myblogx/test/testutil"
 	"net/http/httptest"
 	"testing"
@@ -37,11 +36,11 @@ func readCaptchaResp(t *testing.T, w *httptest.ResponseRecorder) captchaResp {
 
 func setupCaptchaConfig(enable bool) {
 	testutil.InitGlobals()
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Site: conf.Site{
 			Login: confsite.Login{Captcha: enable},
 		},
-	}
+	})
 }
 
 func TestCaptchaViewDisabled(t *testing.T) {

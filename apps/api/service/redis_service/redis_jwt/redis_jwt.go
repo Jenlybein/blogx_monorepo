@@ -3,7 +3,7 @@ package redis_jwt
 import (
 	"context"
 	"fmt"
-	"myblogx/global"
+	"myblogx/service/redis_service"
 	"myblogx/utils/jwts"
 	"strconv"
 	"time"
@@ -49,7 +49,7 @@ func BlackTypeFromRedisValue(str string) (BlackType, error) {
 
 // SetTokenBlack 将 token 放入 Redis 的黑名单中。
 func SetTokenBlack(token string, blackType BlackType) {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return
 	}
 
@@ -58,43 +58,53 @@ func SetTokenBlack(token string, blackType BlackType) {
 	// 获取 token 原本的过期时间
 	claims, err := jwts.ParseToken(token)
 	if err != nil || claims == nil {
-		global.Logger.Errorf("将令牌放入黑名单时解析失败: 错误=%v", err)
+		if redis_service.Logger() != nil {
+			redis_service.Logger().Errorf("将令牌放入黑名单时解析失败: 错误=%v", err)
+		}
 		return
 	}
 
 	// 计算 token 剩余过期时间
 	expire := claims.ExpiresAt - time.Now().Unix()
 	if expire <= 0 {
-		global.Logger.Errorf("令牌已过期，无法放入黑名单")
+		if redis_service.Logger() != nil {
+			redis_service.Logger().Errorf("令牌已过期，无法放入黑名单")
+		}
 		return
 	}
 
-	_, err = global.Redis.Set(context.Background(), key, blackType.RedisValue(), time.Duration(expire)*time.Second).Result()
+	_, err = redis_service.Client().Set(context.Background(), key, blackType.RedisValue(), time.Duration(expire)*time.Second).Result()
 	if err != nil {
-		global.Logger.Errorf("将令牌放入黑名单时出错: 错误=%v", err)
+		if redis_service.Logger() != nil {
+			redis_service.Logger().Errorf("将令牌放入黑名单时出错: 错误=%v", err)
+		}
 		return
 	}
 }
 
 // HasTokenBlack 检查 token 是否在 Redis 的黑名单中。
 func HasTokenBlack(token string) (blackType BlackType, ok bool) {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return 0, true
 	}
 
 	key := fmt.Sprintf("token_blacklist_%s", token)
-	has, err := global.Redis.Get(context.Background(), key).Result()
+	has, err := redis_service.Client().Get(context.Background(), key).Result()
 	if err != nil {
 		if err == redis.Nil {
 			return 0, true
 		}
-		global.Logger.Errorf("检查令牌是否在黑名单时出错: 错误=%v", err)
+		if redis_service.Logger() != nil {
+			redis_service.Logger().Errorf("检查令牌是否在黑名单时出错: 错误=%v", err)
+		}
 		return 0, false
 	}
 
 	blackType, err = BlackTypeFromRedisValue(has)
 	if err != nil {
-		global.Logger.Errorf("字符串转换为黑名单类型失败: %v", err)
+		if redis_service.Logger() != nil {
+			redis_service.Logger().Errorf("字符串转换为黑名单类型失败: %v", err)
+		}
 		return 0, false
 	}
 

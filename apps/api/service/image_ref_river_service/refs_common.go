@@ -4,7 +4,6 @@ import (
 	"net/url"
 	"strings"
 
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/image_ref_enum"
@@ -20,14 +19,14 @@ type refCandidate struct {
 
 func DeleteOwnerRefs(tx *gorm.DB, refType image_ref_enum.RefType, ownerID ctype.ID) error {
 	if tx == nil {
-		tx = global.DB
+		tx = imageRefDB
 	}
 	return tx.Unscoped().Where("ref_type = ? AND owner_id = ?", refType, ownerID).Delete(&models.ImageRefModel{}).Error
 }
 
 func DeleteImageRefsByImageIDs(tx *gorm.DB, imageIDs []ctype.ID) error {
 	if tx == nil {
-		tx = global.DB
+		tx = imageRefDB
 	}
 	if len(imageIDs) == 0 {
 		return nil
@@ -101,7 +100,7 @@ func extractObjectKey(raw string) string {
 	if raw == "" {
 		return ""
 	}
-	prefix := strings.Trim(global.Config.QiNiu.Prefix, "/")
+	prefix := strings.Trim(imageRefQiNiuConfig.Prefix, "/")
 	if prefix == "" {
 		prefix = "images"
 	}

@@ -3,8 +3,8 @@ package redis_comment
 import (
 	"context"
 	"fmt"
-	"myblogx/global"
 	"myblogx/models/ctype"
+	"myblogx/service/redis_service"
 	"strconv"
 )
 
@@ -37,7 +37,7 @@ func GetAllCacheReply() map[ctype.ID]int {
 }
 
 func ClearAllCacheReply() error {
-	return global.Redis.Del(context.Background(), ReplyCountCacheKey).Err()
+	return redis_service.Client().Del(context.Background(), ReplyCountCacheKey).Err()
 }
 
 func SetCacheDigg(commentID ctype.ID, increase int) error {
@@ -61,7 +61,7 @@ func GetBatchCounters(commentIDs []ctype.ID) BatchCounters {
 		ReplyMap: make(map[ctype.ID]int),
 		DiggMap:  make(map[ctype.ID]int),
 	}
-	if global.Redis == nil || len(commentIDs) == 0 {
+	if redis_service.Client() == nil || len(commentIDs) == 0 {
 		return counters
 	}
 
@@ -71,7 +71,7 @@ func GetBatchCounters(commentIDs []ctype.ID) BatchCounters {
 	}
 
 	ctx := context.Background()
-	pipe := global.Redis.Pipeline()
+	pipe := redis_service.Client().Pipeline()
 	defer pipe.Close()
 
 	replyCmd := pipe.HMGet(ctx, ReplyCountCacheKey, fields...)
@@ -95,20 +95,20 @@ func GetAllCacheDigg() map[ctype.ID]int {
 }
 
 func ClearAllCacheDigg() error {
-	return global.Redis.Del(context.Background(), DiggCountCacheKey).Err()
+	return redis_service.Client().Del(context.Background(), DiggCountCacheKey).Err()
 }
 
 func set(key string, commentID ctype.ID, increase int) error {
-	return global.Redis.HIncrBy(context.Background(), key, commentID.String(), int64(increase)).Err()
+	return redis_service.Client().HIncrBy(context.Background(), key, commentID.String(), int64(increase)).Err()
 }
 
 func get(key string, commentID ctype.ID) int {
-	num, _ := global.Redis.HGet(context.Background(), key, commentID.String()).Int()
+	num, _ := redis_service.Client().HGet(context.Background(), key, commentID.String()).Int()
 	return num
 }
 
 func del(key string, commentID ctype.ID) error {
-	return global.Redis.HDel(context.Background(), key, commentID.String()).Err()
+	return redis_service.Client().HDel(context.Background(), key, commentID.String()).Err()
 }
 
 func getBatch(key string, commentIDs []ctype.ID) map[ctype.ID]int {
@@ -122,7 +122,7 @@ func getBatch(key string, commentIDs []ctype.ID) map[ctype.ID]int {
 		fields = append(fields, commentID.String())
 	}
 
-	values, err := global.Redis.HMGet(context.Background(), key, fields...).Result()
+	values, err := redis_service.Client().HMGet(context.Background(), key, fields...).Result()
 	if err != nil {
 		return result
 	}
@@ -131,7 +131,7 @@ func getBatch(key string, commentIDs []ctype.ID) map[ctype.ID]int {
 }
 
 func getAll(key string) map[ctype.ID]int {
-	res, err := global.Redis.HGetAll(context.Background(), key).Result()
+	res, err := redis_service.Client().HGetAll(context.Background(), key).Result()
 	if err != nil {
 		return nil
 	}

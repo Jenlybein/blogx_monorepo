@@ -3,7 +3,6 @@ package tags
 import (
 	"myblogx/common"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -18,7 +17,7 @@ func (TagsApi) TagListView(c *gin.Context) {
 
 	var query *gorm.DB
 	if cr.IsEnabled != nil {
-		query = global.DB.Where("is_enabled = ?", *cr.IsEnabled)
+		query = mustApp(c).DB.Where("is_enabled = ?", *cr.IsEnabled)
 	}
 
 	list, count, err := common.ListQuery(models.TagModel{}, common.Options{

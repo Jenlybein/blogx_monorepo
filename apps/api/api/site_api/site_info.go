@@ -2,7 +2,6 @@ package site_api
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/service/redis_service/redis_site"
 	"myblogx/service/site_service"
@@ -21,7 +20,7 @@ func (s SiteApi) SiteInfoView(c *gin.Context) {
 	case "site":
 		redis_site.SetFlow()
 		rep := site_service.GetRuntimeSite()
-		rep.About.Version = global.Version
+		rep.About.Version = mustApp(c).Version
 		data = rep
 	case "seo":
 		site := site_service.GetRuntimeSite()
@@ -50,7 +49,7 @@ func (s SiteApi) SiteInfoAdminView(c *gin.Context) {
 	switch cr.Name {
 	case "site":
 		rep := site_service.GetRuntimeSite()
-		rep.About.Version = global.Version
+		rep.About.Version = mustApp(c).Version
 		data = rep
 	case "ai":
 		rep := site_service.GetRuntimeAI()

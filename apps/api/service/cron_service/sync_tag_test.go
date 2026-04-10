@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/cron_service"
@@ -70,7 +69,7 @@ func TestSyncTagNotBelowZeroAndLockSkip(t *testing.T) {
 	if err := setupTagCounter(tag.ID, 9); err != nil {
 		t.Fatalf("设置标签缓存失败: %v", err)
 	}
-	if err := global.Redis.Set(context.Background(), "cron:sync_tag:lock", "manual-lock", 0).Err(); err != nil {
+	if err := testutil.Redis().Set(context.Background(), "cron:sync_tag:lock", "manual-lock", 0).Err(); err != nil {
 		t.Fatalf("设置锁失败: %v", err)
 	}
 	cron_service.SyncTag()
@@ -87,5 +86,5 @@ func TestSyncTagNotBelowZeroAndLockSkip(t *testing.T) {
 }
 
 func setupTagCounter(tagID ctype.ID, delta int) error {
-	return global.Redis.HIncrBy(context.Background(), "tag_article_count", tagID.String(), int64(delta)).Err()
+	return testutil.Redis().HIncrBy(context.Background(), "tag_article_count", tagID.String(), int64(delta)).Err()
 }

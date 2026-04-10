@@ -3,11 +3,11 @@ package comment_api
 import (
 	"encoding/json"
 	"myblogx/common"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/models/enum/relationship_enum"
 	"myblogx/service/redis_service/redis_comment"
+	"myblogx/test/testutil"
 	"myblogx/utils/jwts"
 	"testing"
 )
@@ -16,7 +16,7 @@ func TestCommentManListView(t *testing.T) {
 	owner := setupCommentEnv(t)
 	api := CommentApi{}
 
-	if err := global.DB.Model(owner).Updates(map[string]any{
+	if err := testutil.DB().Model(owner).Updates(map[string]any{
 		"nickname": "owner",
 		"avatar":   "/owner.png",
 	}).Error; err != nil {
@@ -24,35 +24,35 @@ func TestCommentManListView(t *testing.T) {
 	}
 
 	user2 := &models.UserModel{Username: "u2", Nickname: "u2", Avatar: "/u2.png", Password: "x", Role: enum.RoleUser}
-	if err := global.DB.Create(user2).Error; err != nil {
+	if err := testutil.DB().Create(user2).Error; err != nil {
 		t.Fatalf("创建 user2 失败: %v", err)
 	}
 	user3 := &models.UserModel{Username: "u3", Nickname: "u3", Avatar: "/u3.png", Password: "x", Role: enum.RoleUser}
-	if err := global.DB.Create(user3).Error; err != nil {
+	if err := testutil.DB().Create(user3).Error; err != nil {
 		t.Fatalf("创建 user3 失败: %v", err)
 	}
 	admin := &models.UserModel{Username: "admin", Nickname: "admin", Avatar: "/admin.png", Password: "x", Role: enum.RoleAdmin}
-	if err := global.DB.Create(admin).Error; err != nil {
+	if err := testutil.DB().Create(admin).Error; err != nil {
 		t.Fatalf("创建 admin 失败: %v", err)
 	}
 	followRows := []models.UserFollowModel{
 		{FollowedUserID: owner.ID, FansUserID: user2.ID},
 		{FollowedUserID: user3.ID, FansUserID: owner.ID},
 	}
-	if err := global.DB.Create(&followRows).Error; err != nil {
+	if err := testutil.DB().Create(&followRows).Error; err != nil {
 		t.Fatalf("创建关注关系失败: %v", err)
 	}
 
 	articleMine1 := models.ArticleModel{Title: "mine-1", Content: "c", AuthorID: owner.ID, CommentsToggle: true}
 	articleMine2 := models.ArticleModel{Title: "mine-2", Content: "c", AuthorID: owner.ID, CommentsToggle: true}
 	articleOther := models.ArticleModel{Title: "other", Content: "c", AuthorID: user2.ID, CommentsToggle: true}
-	if err := global.DB.Create(&articleMine1).Error; err != nil {
+	if err := testutil.DB().Create(&articleMine1).Error; err != nil {
 		t.Fatalf("创建 articleMine1 失败: %v", err)
 	}
-	if err := global.DB.Create(&articleMine2).Error; err != nil {
+	if err := testutil.DB().Create(&articleMine2).Error; err != nil {
 		t.Fatalf("创建 articleMine2 失败: %v", err)
 	}
-	if err := global.DB.Create(&articleOther).Error; err != nil {
+	if err := testutil.DB().Create(&articleOther).Error; err != nil {
 		t.Fatalf("创建 articleOther 失败: %v", err)
 	}
 
@@ -64,7 +64,7 @@ func TestCommentManListView(t *testing.T) {
 
 	for _, item := range []models.CommentModel{minePublished1, minePublished2, mineExaminingByOwner, otherPublished, ownerOnOther} {
 		it := item
-		if err := global.DB.Create(&it).Error; err != nil {
+		if err := testutil.DB().Create(&it).Error; err != nil {
 			t.Fatalf("创建评论失败: %v", err)
 		}
 		if it.Content == "mine_p1" {

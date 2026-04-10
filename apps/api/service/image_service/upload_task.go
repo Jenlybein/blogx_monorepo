@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -25,7 +24,7 @@ var (
 // 入参：用户ID、文件名、文件大小、MIME类型、文件哈希
 // 出参：任务结果（含秒传/上传凭证）、错误
 func CreateUploadTask(userID ctype.ID, fileName string, size int64, mimeType string, hash string) (*CreateUploadTaskResult, error) {
-	q := global.Config.QiNiu
+	q := imageQiNiuConfig
 	// 校验七牛上传配置
 	if !q.Enable || q.Size <= 0 || q.Expiry <= 0 || strings.TrimSpace(q.Bucket) == "" {
 		return nil, ErrInvalidUploadConfig
@@ -47,13 +46,13 @@ func CreateUploadTask(userID ctype.ID, fileName string, size int64, mimeType str
 	if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(mimeType)), "image/") {
 		return nil, errors.New("仅支持图片上传")
 	}
-	if !containsString(global.Config.Upload.Whitelist, suffix) {
+	if !containsString(imageUploadConfig.Whitelist, suffix) {
 		return nil, fmt.Errorf("图片后缀 %s 不在服务器允许上传的图片格式白名单中", suffix)
 	}
 
 	// 根据文件哈希查询数据库是否已存在相同图片
 	var existing models.ImageModel
-	if err := global.DB.Where("hash = ?", hash).Take(&existing).Error; err == nil {
+	if err := imageDB.Where("hash = ?", hash).Take(&existing).Error; err == nil {
 		// 图片已存在，直接返回结果
 		return &CreateUploadTaskResult{
 			Image:      &existing,
@@ -169,7 +168,7 @@ func GetUploadTaskStatusByUser(taskID, userID ctype.ID) (*ConfirmUploadTaskResul
 			return result, nil
 		}
 		var image models.ImageModel
-		if err = global.DB.Take(&image, "id = ?", *task.ImageID).Error; err == nil {
+		if err = imageDB.Take(&image, "id = ?", *task.ImageID).Error; err == nil {
 			result.Image = &image
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
@@ -203,7 +202,7 @@ func confirmUploadTask(taskID ctype.ID, objectMeta *uploadedObjectMeta, validate
 	// 校验：任务已完成
 	if task.Status == enum.ImageUploadTaskReady && task.ImageID != nil {
 		var image models.ImageModel
-		if err = global.DB.Take(&image, "id = ?", *task.ImageID).Error; err != nil {
+		if err = imageDB.Take(&image, "id = ?", *task.ImageID).Error; err != nil {
 			return nil, err
 		}
 		return &ConfirmUploadTaskResult{Task: task, Image: &image}, nil
@@ -225,7 +224,7 @@ func confirmUploadTask(taskID ctype.ID, objectMeta *uploadedObjectMeta, validate
 		task.ErrorMsg = err.Error()
 		// 保存失败状态
 		if saveErr := saveUploadTask(task, finalizedTaskKeepAlive); saveErr != nil {
-			global.Logger.Warnf("保存失败的图片上传任务状态失败: 任务ID=%s 错误=%v", task.ID.String(), saveErr)
+			imageLogger.Warnf("保存失败的图片上传任务状态失败: 任务ID=%s 错误=%v", task.ID.String(), saveErr)
 		}
 		return nil, err
 	}
@@ -239,7 +238,7 @@ func confirmUploadTask(taskID ctype.ID, objectMeta *uploadedObjectMeta, validate
 	// 如果是重复文件，删除七牛上多余的对象
 	if verified.ShouldDeleteUpload {
 		if delErr := DeleteObject(task.Bucket, task.ObjectKey); delErr != nil {
-			global.Logger.Warnf("删除重复上传的七牛对象失败: 对象键=%s 错误=%v", task.ObjectKey, delErr)
+			imageLogger.Warnf("删除重复上传的七牛对象失败: 对象键=%s 错误=%v", task.ObjectKey, delErr)
 		}
 	}
 	return result, nil
@@ -287,7 +286,7 @@ func verifyUploadedObject(task *ImageUploadTask, objectMeta *uploadedObjectMeta)
 	}
 	// 校验图片格式在白名单内
 	format := strings.ToLower(strings.TrimSpace(imageInfo.Format))
-	if !containsString(global.Config.Upload.Whitelist, format) {
+	if !containsString(imageUploadConfig.Whitelist, format) {
 		return nil, fmt.Errorf("图片后缀 %s 不在服务器允许上传的图片格式白名单中", format)
 	}
 
@@ -312,7 +311,7 @@ func persistConfirmedTask(task *ImageUploadTask, verified *verifiedImage) (*Conf
 	var result ConfirmUploadTaskResult
 
 	// 开启数据库事务
-	err := global.DB.Transaction(func(tx *gorm.DB) error {
+	err := imageDB.Transaction(func(tx *gorm.DB) error {
 		now := time.Now()
 
 		// 根据哈希查询图片
@@ -373,10 +372,10 @@ func persistConfirmedTask(task *ImageUploadTask, verified *verifiedImage) (*Conf
 
 	// 保存完成状态的任务到缓存
 	if saveErr := saveUploadTask(task, finalizedTaskKeepAlive); saveErr != nil {
-		global.Logger.Warnf("保存成功的图片上传任务状态失败: 任务ID=%s 错误=%v", task.ID.String(), saveErr)
+		imageLogger.Warnf("保存成功的图片上传任务状态失败: 任务ID=%s 错误=%v", task.ID.String(), saveErr)
 	}
 	if err = applyPendingAuditStatusIfAny(result.Image); err != nil {
-		global.Logger.Warnf("应用七牛审核结果失败: 图片ID=%s 对象键=%s 错误=%v", result.Image.ID.String(), result.Image.ObjectKey, err)
+		imageLogger.Warnf("应用七牛审核结果失败: 图片ID=%s 对象键=%s 错误=%v", result.Image.ID.String(), result.Image.ObjectKey, err)
 	}
 	return &result, nil
 }
@@ -384,7 +383,7 @@ func persistConfirmedTask(task *ImageUploadTask, verified *verifiedImage) (*Conf
 // buildObjectKey 构建七牛存储对象Key
 // 格式：前缀/日期/文件哈希
 func buildObjectKey(hash string) string {
-	prefix := strings.Trim(global.Config.QiNiu.Prefix, "/")
+	prefix := strings.Trim(imageQiNiuConfig.Prefix, "/")
 	if prefix == "" {
 		prefix = "images"
 	}

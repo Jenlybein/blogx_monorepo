@@ -1,7 +1,6 @@
 package follow_service
 
 import (
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/relationship_enum"
@@ -28,7 +27,7 @@ func CalUserRelationshipBatch(user ctype.ID, userList []ctype.ID) map[ctype.ID]r
 	}
 
 	var rows []models.UserFollowModel
-	if err := global.DB.
+	if err := followDB.
 		Where("(followed_user_id = ? AND fans_user_id IN ?) OR (followed_user_id IN ? AND fans_user_id = ?)",
 			user, userList, userList, user).
 		Find(&rows).Error; err != nil {

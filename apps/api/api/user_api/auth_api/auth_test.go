@@ -5,7 +5,6 @@ import (
 	"myblogx/api/user_api/auth_api"
 	"myblogx/conf"
 	confsite "myblogx/conf/site"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/test/testutil"
@@ -40,7 +39,7 @@ func readCode(t *testing.T, w *httptest.ResponseRecorder) int {
 func setupAuthEnv(t *testing.T) {
 	t.Helper()
 	testutil.InitGlobals()
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Jwt: conf.Jwt{
 			Expire: 1,
 			Secret: "test-secret",
@@ -60,7 +59,7 @@ func setupAuthEnv(t *testing.T) {
 				EmailSendPerIPMax:     10,
 			},
 		},
-	}
+	})
 }
 
 func TestAuthFeatureDisabledBranches(t *testing.T) {

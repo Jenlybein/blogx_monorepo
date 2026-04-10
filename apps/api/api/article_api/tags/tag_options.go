@@ -2,7 +2,6 @@ package tags
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 
@@ -11,7 +10,7 @@ import (
 
 func (TagsApi) ArticleTagOptionsView(c *gin.Context) {
 	var list []models.OptionsResponse[ctype.ID]
-	if err := global.DB.Model(&models.TagModel{}).
+	if err := mustApp(c).DB.Model(&models.TagModel{}).
 		Where("is_enabled = ?", true).
 		Order("sort desc, id asc").
 		Select("id as value", "title as label").

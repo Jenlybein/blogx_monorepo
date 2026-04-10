@@ -1,32 +1,34 @@
 {
   "name": "myblogx read api guide",
   "updated_at": "2026-04-10",
-  "purpose": "说明当前高频读取接口的推荐调用方式，以及请求进入后端后依赖是如何通过 AppContext 注入下去的。文章读取统一走 /api/search/articles，评论、关注、收藏夹、置顶、聊天会话虽然外部路径不变，但内部已切到专用 query service、统一计数读层和显式依赖注入。",
+  "purpose": "说明当前高频读取接口的推荐调用方式，以及请求进入后端后依赖如何通过 AppContext 注入。文章读取统一走 /api/search/articles，评论、关注、收藏夹、置顶、聊天会话虽然外部路径不变，但内部已切到专用 query service、统一计数读层和显式依赖注入。",
   "important_changes": [
     "GET /api/articles 已下线，不再用于文章读取。",
     "文章列表、文章搜索、作者文章、我的文章、管理员文章查询统一走 GET /api/search/articles。",
     "评论、关注、收藏夹、置顶、聊天会话这几条高频读取链路，内部已经不再走 handler + ListQuery + preload + Redis 拼装。",
     "文章计数和评论计数都通过统一 reader 补偿，外部调用方不需要自己处理 Redis 增量。",
     "评论、关注、收藏关系、聊天会话等高频展示字段已经写入冗余快照；昵称、头像、文章标题、封面、状态变更后会同步刷新。",
-    "API 启动层现在会构造 AppContext，并通过 Gin 中间件注入到请求上下文；高频 handler / query service / 鉴权链路优先从 AppContext 读取 DB、Logger、Config。",
-    "router 层不再依赖 api.App 静态单例，而是显式接收 api.New(ctx) 组装出的 API 实例。"
+    "API 启动层现在会构造 AppContext，并通过 Gin 中间件注入到请求上下文；handler / query service / 鉴权链路从 AppContext 读取 DB、Logger、Config。",
+    "router 层不再依赖 api.App 静态单例，而是显式接收 api.New(ctx) 组装出的 API 实例。",
+    "apps/api 内已清理所有 global.* 调用（含测试代码）；新代码禁止回退全局单例。"
   ],
   "dependency_injection_usage": {
-    "summary": "现在推荐把依赖注入理解为三层：启动层组装、路由层传递、handler/service 按需读取。",
+    "summary": "依赖注入分三层：启动层组装、路由层传递、handler/service 按需读取。生产与测试都按这套路径执行。",
     "how_request_flows": [
       "程序启动时，在 cmd/server/main.go 初始化 Config、Logger、DB、Redis、ESClient 等资源。",
       "这些资源会被组装成 AppContext。",
       "router.Run(ctx, api.New(ctx)) 会把 AppContext 放入 Gin 中间件，同时把 API 实例显式传给各个 Router。",
-      "进入 handler 后，推荐通过 mustApp(c) 或 appctx.MustFromGin(c) 读取 DB、Logger、Config，而不是再直接访问 global.DB / global.Logger / global.Config。",
-      "进入鉴权或 query service 后，依赖由构造函数显式传入，例如 NewQueryService(db) 或 AuthenticatorFromGin(c)。"
+      "进入 handler 后，通过 mustApp(c) 或 appctx.MustFromGin(c) 读取 DB、Logger、Config，不再允许访问 global.DB / global.Logger / global.Config。",
+      "进入鉴权或 query service 后，依赖由构造函数显式传入，例如 NewQueryService(db) 或 AuthenticatorFromGin(c)。",
+      "测试环境通过 testutil.SetConfig / SetupSQLite / SetupMiniRedis 组装依赖，再通过各模块 Configure(...) 注入。"
     ],
     "recommended_rules": [
       "新增 handler 时，优先使用 mustApp(c).DB / Logger / Config。",
       "新增查询服务时，构造函数必须显式接收 db，不要在 service 内部回退 global.DB。",
       "新增路由时，不要继续从 api.App 取模块，直接使用 router 传入的 app api.Api。",
-      "只有启动装配层和 appctx 兼容兜底层允许感知 global.*；业务入口层不要继续扩散全局依赖。"
+      "禁止新增 global.* 回退逻辑；依赖必须由启动层或测试容器显式装配。"
     ],
-    "compatibility_note": "为了兼容仍直接调用 handler 的旧测试，appctx.MustFromGin(...) 当前保留了一层集中兜底：当 Gin 上下文里没有 AppContext，但全局资源已初始化时，会临时用全局资源构造 AppContext。新代码不要依赖这层兼容路径。"
+    "compatibility_note": "appctx.MustFromGin(...) 不再提供 global 兼容兜底。未注入 AppContext 的请求会直接 panic，目的是强制保证依赖边界清晰。"
   },
   "article_read": {
     "endpoint": {

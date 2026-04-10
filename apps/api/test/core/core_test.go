@@ -33,7 +33,7 @@ jwt:
 	}
 
 	cfg.System.Port = 9090
-	core.SetCfg(cfg, &cfgFile)
+	core.SetCfg(cfg, &cfgFile, testutil.Logger())
 	cfg2 := core.ReadCfg(&cfgFile)
 	if cfg2.System.Port != 9090 {
 		t.Fatalf("SetCfg 写回失败: %d", cfg2.System.Port)
@@ -118,7 +118,7 @@ func TestInitLogrusCreatesDailyFile(t *testing.T) {
 		App:   "blogx-test",
 		Dir:   dir,
 		Level: "info",
-	})
+	}, &conf.System{ServerID: 1})
 	logger.Info("hello-log")
 
 	logFile := filepath.Join(dir, "runtime_logs", time.Now().Format("2006-01-02"), "blogx-test.log")

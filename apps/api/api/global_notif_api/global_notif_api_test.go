@@ -3,7 +3,6 @@ package global_notif_api_test
 import (
 	"encoding/json"
 	"myblogx/api/global_notif_api"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -108,7 +107,7 @@ func TestGlobalNotifCreateViewDefaultsAndPermission(t *testing.T) {
 	}
 
 	var notif models.GlobalNotifModel
-	if err := global.DB.Take(&notif, "title = ?", "hello").Error; err != nil {
+	if err := testutil.DB().Take(&notif, "title = ?", "hello").Error; err != nil {
 		t.Fatalf("查询通知失败: %v", err)
 	}
 	if notif.ActionUser != admin.ID {
@@ -125,7 +124,7 @@ func TestGlobalNotifCreateViewDefaultsAndPermission(t *testing.T) {
 func TestGlobalNotifListViewAndUserRemove(t *testing.T) {
 	_, user := setupGlobalNotifEnv(t)
 	api := global_notif_api.GlobalNotifApi{}
-	db := global.DB
+	db := testutil.DB()
 
 	registerAt := time.Now().Add(-24 * time.Hour).Round(time.Second)
 	if err := db.Model(user).Update("created_at", registerAt).Error; err != nil {
@@ -236,7 +235,7 @@ func TestGlobalNotifListViewAndUserRemove(t *testing.T) {
 func TestGlobalNotifReadView(t *testing.T) {
 	_, user := setupGlobalNotifEnv(t)
 	api := global_notif_api.GlobalNotifApi{}
-	db := global.DB
+	db := testutil.DB()
 
 	registerAt := time.Now().Add(-24 * time.Hour).Round(time.Second)
 	if err := db.Model(user).Update("created_at", registerAt).Error; err != nil {
@@ -316,7 +315,7 @@ func TestGlobalNotifReadView(t *testing.T) {
 
 func TestUserGlobalNotifStateUniqueIndex(t *testing.T) {
 	_, user := setupGlobalNotifEnv(t)
-	db := global.DB
+	db := testutil.DB()
 
 	notif := models.GlobalNotifModel{
 		Title:           "unique-state",

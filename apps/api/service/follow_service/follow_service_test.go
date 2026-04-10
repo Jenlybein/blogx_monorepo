@@ -3,7 +3,6 @@ package follow_service
 import (
 	"testing"
 
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/relationship_enum"
@@ -124,7 +123,7 @@ func createFollowUser(t *testing.T, username string) models.UserModel {
 		Username: username,
 		Nickname: username + "_nick",
 	}
-	if err := global.DB.Create(&user).Error; err != nil {
+	if err := testutil.DB().Create(&user).Error; err != nil {
 		t.Fatalf("创建用户失败: %v", err)
 	}
 	return user
@@ -137,7 +136,7 @@ func createFollow(t *testing.T, fansUserID, followedUserID ctype.ID) {
 		FansUserID:     fansUserID,
 		FollowedUserID: followedUserID,
 	}
-	if err := global.DB.Create(&row).Error; err != nil {
+	if err := testutil.DB().Create(&row).Error; err != nil {
 		t.Fatalf("创建关注关系失败 fans=%d followed=%d err=%v", fansUserID, followedUserID, err)
 	}
 }

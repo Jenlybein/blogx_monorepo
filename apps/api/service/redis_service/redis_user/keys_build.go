@@ -3,14 +3,14 @@ package redis_user
 import (
 	"context"
 	"fmt"
-	"myblogx/global"
 	"myblogx/models/ctype"
+	"myblogx/service/redis_service"
 	"time"
 )
 
 // keyExists 检查Redis Key是否存在
 func keyExists(ctx context.Context, key string) bool {
-	exists, err := global.Redis.Exists(ctx, key).Result()
+	exists, err := redis_service.Client().Exists(ctx, key).Result()
 	return err == nil && exists > 0
 }
 

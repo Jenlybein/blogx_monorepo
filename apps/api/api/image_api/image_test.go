@@ -8,7 +8,6 @@ import (
 	"myblogx/api/image_api"
 	"myblogx/common"
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -80,14 +79,14 @@ func TestImageListView(t *testing.T) {
 func TestCreateUploadTaskViewInvalidConfig(t *testing.T) {
 	testutil.SetupMiniRedis(t)
 	testutil.InitGlobals()
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Upload: conf.Upload{
 			Whitelist: []string{"png", "jpg", "jpeg", "webp"},
 		},
 		QiNiu: conf.QiNiu{
 			Enable: false,
 		},
-	}
+	})
 
 	api := image_api.ImageApi{}
 	c, w := newCtx()

@@ -2,7 +2,6 @@ package profile_api
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -28,6 +27,7 @@ type AdminUserInfoUpdateRequest struct {
 }
 
 func (ProfileApi) AdminUserInfoUpdateView(c *gin.Context) {
+	app := mustApp(c)
 	cr := middleware.GetBindJson[AdminUserInfoUpdateRequest](c)
 
 	userMap, err := maps.FieldsStructToMap(&cr, &models.UserModel{})
@@ -37,23 +37,23 @@ func (ProfileApi) AdminUserInfoUpdateView(c *gin.Context) {
 	}
 
 	var userModel models.UserModel
-	if err = global.DB.Take(&userModel, cr.UserID).Error; err != nil {
+	if err = app.DB.Take(&userModel, cr.UserID).Error; err != nil {
 		res.FailWithMsg("用户不存在", c)
 		return
 	}
 
-	if err = global.DB.Model(&userModel).Updates(userMap).Error; err != nil {
+	if err = app.DB.Model(&userModel).Updates(userMap).Error; err != nil {
 		res.FailWithMsg("用户信息更新失败", c)
 		return
 	}
 	if cr.Nickname != nil || cr.Avatar != nil {
 		if err = es_service.SyncESDocsByAuthorIDs([]ctype.ID{cr.UserID}); err != nil {
-			global.Logger.Errorf("同步用户文章 ES 文档失败: 用户ID=%d 错误=%v", cr.UserID, err)
+			app.Logger.Errorf("同步用户文章 ES 文档失败: 用户ID=%d 错误=%v", cr.UserID, err)
 		}
 	}
 	if cr.Nickname != nil || cr.Avatar != nil || cr.Abstract != nil {
-		if err = read_service.SyncUserDisplaySnapshots(global.DB, cr.UserID); err != nil {
-			global.Logger.Errorf("同步用户展示快照失败: 用户ID=%d 错误=%v", cr.UserID, err)
+		if err = read_service.SyncUserDisplaySnapshots(app.DB, cr.UserID); err != nil {
+			app.Logger.Errorf("同步用户展示快照失败: 用户ID=%d 错误=%v", cr.UserID, err)
 		}
 	}
 

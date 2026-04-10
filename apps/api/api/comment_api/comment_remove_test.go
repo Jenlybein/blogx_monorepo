@@ -1,12 +1,12 @@
 package comment_api
 
 import (
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
 	"myblogx/service/redis_service/redis_article"
 	"myblogx/service/redis_service/redis_comment"
+	"myblogx/test/testutil"
 	"myblogx/utils/jwts"
 	"testing"
 )
@@ -16,24 +16,24 @@ func TestCommentRemoveView(t *testing.T) {
 	api := CommentApi{}
 
 	commenter := &models.UserModel{Username: "commenter", Password: "x", Role: enum.RoleUser}
-	if err := global.DB.Create(commenter).Error; err != nil {
+	if err := testutil.DB().Create(commenter).Error; err != nil {
 		t.Fatalf("创建 commenter 失败: %v", err)
 	}
 	other := &models.UserModel{Username: "other", Password: "x", Role: enum.RoleUser}
-	if err := global.DB.Create(other).Error; err != nil {
+	if err := testutil.DB().Create(other).Error; err != nil {
 		t.Fatalf("创建 other 失败: %v", err)
 	}
 	admin := &models.UserModel{Username: "admin", Password: "x", Role: enum.RoleAdmin}
-	if err := global.DB.Create(admin).Error; err != nil {
+	if err := testutil.DB().Create(admin).Error; err != nil {
 		t.Fatalf("创建 admin 失败: %v", err)
 	}
 
 	articleOwner := models.ArticleModel{Title: "owner-article", Content: "c", AuthorID: owner.ID, CommentsToggle: true}
-	if err := global.DB.Create(&articleOwner).Error; err != nil {
+	if err := testutil.DB().Create(&articleOwner).Error; err != nil {
 		t.Fatalf("创建 owner 文章失败: %v", err)
 	}
 	articleOther := models.ArticleModel{Title: "other-article", Content: "c", AuthorID: other.ID, CommentsToggle: true}
-	if err := global.DB.Create(&articleOther).Error; err != nil {
+	if err := testutil.DB().Create(&articleOther).Error; err != nil {
 		t.Fatalf("创建 other 文章失败: %v", err)
 	}
 
@@ -44,7 +44,7 @@ func TestCommentRemoveView(t *testing.T) {
 			ArticleID: articleOwner.ID,
 			Status:    enum.CommentStatusPublished,
 		}
-		if err := global.DB.Create(&root).Error; err != nil {
+		if err := testutil.DB().Create(&root).Error; err != nil {
 			t.Fatalf("创建根评论失败: %v", err)
 		}
 		reply := models.CommentModel{
@@ -55,7 +55,7 @@ func TestCommentRemoveView(t *testing.T) {
 			RootID:    root.ID,
 			Status:    enum.CommentStatusPublished,
 		}
-		if err := global.DB.Create(&reply).Error; err != nil {
+		if err := testutil.DB().Create(&reply).Error; err != nil {
 			t.Fatalf("创建二级评论失败: %v", err)
 		}
 		pendingReply := models.CommentModel{
@@ -66,7 +66,7 @@ func TestCommentRemoveView(t *testing.T) {
 			RootID:    root.ID,
 			Status:    enum.CommentStatusExamining,
 		}
-		if err := global.DB.Create(&pendingReply).Error; err != nil {
+		if err := testutil.DB().Create(&pendingReply).Error; err != nil {
 			t.Fatalf("创建待审核二级评论失败: %v", err)
 		}
 
@@ -84,7 +84,7 @@ func TestCommentRemoveView(t *testing.T) {
 		}
 
 		var count int64
-		if err := global.DB.Model(&models.CommentModel{}).
+		if err := testutil.DB().Model(&models.CommentModel{}).
 			Where("id IN ?", []ctype.ID{root.ID, reply.ID, pendingReply.ID}).
 			Count(&count).Error; err != nil {
 			t.Fatalf("查询删除结果失败: %v", err)
@@ -105,7 +105,7 @@ func TestCommentRemoveView(t *testing.T) {
 			ArticleID: articleOther.ID,
 			Status:    enum.CommentStatusPublished,
 		}
-		if err := global.DB.Create(&selfComment).Error; err != nil {
+		if err := testutil.DB().Create(&selfComment).Error; err != nil {
 			t.Fatalf("创建自评论失败: %v", err)
 		}
 		if err := redis_article.SetCacheComment(articleOther.ID, 2); err != nil {
@@ -122,7 +122,7 @@ func TestCommentRemoveView(t *testing.T) {
 		}
 
 		var count int64
-		if err := global.DB.Model(&models.CommentModel{}).Where("id = ?", selfComment.ID).Count(&count).Error; err != nil {
+		if err := testutil.DB().Model(&models.CommentModel{}).Where("id = ?", selfComment.ID).Count(&count).Error; err != nil {
 			t.Fatalf("查询删除结果失败: %v", err)
 		}
 		if count != 0 {
@@ -140,7 +140,7 @@ func TestCommentRemoveView(t *testing.T) {
 			ArticleID: articleOther.ID,
 			Status:    enum.CommentStatusPublished,
 		}
-		if err := global.DB.Create(&root).Error; err != nil {
+		if err := testutil.DB().Create(&root).Error; err != nil {
 			t.Fatalf("创建根评论失败: %v", err)
 		}
 		reply := models.CommentModel{
@@ -151,7 +151,7 @@ func TestCommentRemoveView(t *testing.T) {
 			RootID:    root.ID,
 			Status:    enum.CommentStatusPublished,
 		}
-		if err := global.DB.Create(&reply).Error; err != nil {
+		if err := testutil.DB().Create(&reply).Error; err != nil {
 			t.Fatalf("创建二级评论失败: %v", err)
 		}
 		if err := redis_comment.SetCacheReply(root.ID, 3); err != nil {
@@ -167,7 +167,7 @@ func TestCommentRemoveView(t *testing.T) {
 		}
 
 		var count int64
-		if err := global.DB.Model(&models.CommentModel{}).Where("id = ?", reply.ID).Count(&count).Error; err != nil {
+		if err := testutil.DB().Model(&models.CommentModel{}).Where("id = ?", reply.ID).Count(&count).Error; err != nil {
 			t.Fatalf("查询删除结果失败: %v", err)
 		}
 		if count != 0 {
@@ -185,7 +185,7 @@ func TestCommentRemoveView(t *testing.T) {
 			ArticleID: articleOwner.ID,
 			Status:    enum.CommentStatusPublished,
 		}
-		if err := global.DB.Create(&target).Error; err != nil {
+		if err := testutil.DB().Create(&target).Error; err != nil {
 			t.Fatalf("创建管理员删除目标失败: %v", err)
 		}
 		before := redis_article.GetCacheComment(articleOwner.ID)
@@ -200,7 +200,7 @@ func TestCommentRemoveView(t *testing.T) {
 		}
 
 		var count int64
-		if err := global.DB.Model(&models.CommentModel{}).Where("id = ?", target.ID).Count(&count).Error; err != nil {
+		if err := testutil.DB().Model(&models.CommentModel{}).Where("id = ?", target.ID).Count(&count).Error; err != nil {
 			t.Fatalf("查询删除结果失败: %v", err)
 		}
 		if count != 0 {
@@ -218,7 +218,7 @@ func TestCommentRemoveView(t *testing.T) {
 			ArticleID: articleOther.ID,
 			Status:    enum.CommentStatusPublished,
 		}
-		if err := global.DB.Create(&target).Error; err != nil {
+		if err := testutil.DB().Create(&target).Error; err != nil {
 			t.Fatalf("创建无权限删除目标失败: %v", err)
 		}
 
@@ -232,7 +232,7 @@ func TestCommentRemoveView(t *testing.T) {
 		}
 
 		var count int64
-		if err := global.DB.Model(&models.CommentModel{}).Where("id = ?", target.ID).Count(&count).Error; err != nil {
+		if err := testutil.DB().Model(&models.CommentModel{}).Where("id = ?", target.ID).Count(&count).Error; err != nil {
 			t.Fatalf("查询删除结果失败: %v", err)
 		}
 		if count != 1 {

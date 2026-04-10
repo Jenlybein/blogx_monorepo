@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"myblogx/common"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -49,7 +48,7 @@ func TestChatSessionDeleteUserView(t *testing.T) {
 		{SessionID: "chat:1:2", SenderID: users.friendA.ID, ReceiverID: users.owner.ID, Content: "b"},
 		{SessionID: "chat:1:3", SenderID: users.owner.ID, ReceiverID: users.friendB.ID, Content: "c"},
 	}
-	if err := global.DB.Create(&msgs).Error; err != nil {
+	if err := testutil.DB().Create(&msgs).Error; err != nil {
 		t.Fatalf("创建消息数据失败: %v", err)
 	}
 
@@ -59,7 +58,7 @@ func TestChatSessionDeleteUserView(t *testing.T) {
 		{SessionID: "chat:1:3", UserID: users.owner.ID, ReceiverID: users.friendB.ID},
 		{SessionID: "chat:4:2", UserID: users.other.ID, ReceiverID: users.friendA.ID},
 	}
-	if err := global.DB.Create(&rows).Error; err != nil {
+	if err := testutil.DB().Create(&rows).Error; err != nil {
 		t.Fatalf("创建会话数据失败: %v", err)
 	}
 
@@ -74,7 +73,7 @@ func TestChatSessionDeleteUserView(t *testing.T) {
 	}
 
 	var ownerVisibleCount int64
-	if err := global.DB.Model(&models.ChatSessionModel{}).
+	if err := testutil.DB().Model(&models.ChatSessionModel{}).
 		Where("user_id = ?", users.owner.ID).
 		Count(&ownerVisibleCount).Error; err != nil {
 		t.Fatalf("统计用户可见会话失败: %v", err)
@@ -84,7 +83,7 @@ func TestChatSessionDeleteUserView(t *testing.T) {
 	}
 
 	var ownerDeleted models.ChatSessionModel
-	if err := global.DB.Unscoped().
+	if err := testutil.DB().Unscoped().
 		Take(&ownerDeleted, "user_id = ? and session_id = ?", users.owner.ID, "chat:1:2").Error; err != nil {
 		t.Fatalf("查询被删会话失败: %v", err)
 	}
@@ -96,17 +95,17 @@ func TestChatSessionDeleteUserView(t *testing.T) {
 	}
 
 	var peerSession models.ChatSessionModel
-	if err := global.DB.Take(&peerSession, "user_id = ? and session_id = ?", users.friendA.ID, "chat:1:2").Error; err != nil {
+	if err := testutil.DB().Take(&peerSession, "user_id = ? and session_id = ?", users.friendA.ID, "chat:1:2").Error; err != nil {
 		t.Fatalf("对端会话不应被删除: %v", err)
 	}
 
 	var otherUserSession models.ChatSessionModel
-	if err := global.DB.Take(&otherUserSession, "user_id = ? and session_id = ?", users.other.ID, "chat:4:2").Error; err != nil {
+	if err := testutil.DB().Take(&otherUserSession, "user_id = ? and session_id = ?", users.other.ID, "chat:4:2").Error; err != nil {
 		t.Fatalf("他人会话不应被删除: %v", err)
 	}
 
 	var stateCount int64
-	if err := global.DB.Unscoped().Model(&models.ChatMsgUserStateModel{}).
+	if err := testutil.DB().Unscoped().Model(&models.ChatMsgUserStateModel{}).
 		Where("user_id = ? and session_id = ?", users.owner.ID, "chat:1:2").
 		Count(&stateCount).Error; err != nil {
 		t.Fatalf("统计消息用户态失败: %v", err)
@@ -162,7 +161,7 @@ func TestChatSessionListView(t *testing.T) {
 			LastMsgTime:    timePtr(now),
 		},
 	}
-	if err := global.DB.Create(&rows).Error; err != nil {
+	if err := testutil.DB().Create(&rows).Error; err != nil {
 		t.Fatalf("创建会话数据失败: %v", err)
 	}
 
@@ -223,7 +222,7 @@ func TestChatMsgListView(t *testing.T) {
 		{SessionID: sessionID, UserID: users.owner.ID, ReceiverID: users.friendA.ID},
 		{SessionID: sessionID, UserID: users.friendA.ID, ReceiverID: users.owner.ID},
 	}
-	if err := global.DB.Create(&sessions).Error; err != nil {
+	if err := testutil.DB().Create(&sessions).Error; err != nil {
 		t.Fatalf("创建会话失败: %v", err)
 	}
 
@@ -258,7 +257,7 @@ func TestChatMsgListView(t *testing.T) {
 			MsgStatus:  chat_msg_enum.MsgStatusSend,
 		},
 	}
-	if err := global.DB.Create(&msgs).Error; err != nil {
+	if err := testutil.DB().Create(&msgs).Error; err != nil {
 		t.Fatalf("创建消息失败: %v", err)
 	}
 
@@ -307,7 +306,7 @@ func TestChatMsgListViewFiltersDeletedByUserState(t *testing.T) {
 		{SessionID: sessionID, UserID: users.owner.ID, ReceiverID: users.friendA.ID},
 		{SessionID: sessionID, UserID: users.friendA.ID, ReceiverID: users.owner.ID},
 	}
-	if err := global.DB.Create(&sessions).Error; err != nil {
+	if err := testutil.DB().Create(&sessions).Error; err != nil {
 		t.Fatalf("创建会话失败: %v", err)
 	}
 
@@ -331,10 +330,10 @@ func TestChatMsgListViewFiltersDeletedByUserState(t *testing.T) {
 			MsgStatus:  chat_msg_enum.MsgStatusSend,
 		},
 	}
-	if err := global.DB.Create(&msgs).Error; err != nil {
+	if err := testutil.DB().Create(&msgs).Error; err != nil {
 		t.Fatalf("创建消息失败: %v", err)
 	}
-	if err := global.DB.Create(&models.ChatMsgUserStateModel{
+	if err := testutil.DB().Create(&models.ChatMsgUserStateModel{
 		Model: models.Model{
 			DeletedAt: gorm.DeletedAt{Time: sendTimeB.Add(time.Minute), Valid: true},
 		},
@@ -374,7 +373,7 @@ func TestChatMsgDeleteUserView(t *testing.T) {
 		{SessionID: sessionID, SenderID: users.friendA.ID, ReceiverID: users.owner.ID, Content: "b"},
 		{SessionID: "chat:4:5", SenderID: users.other.ID, ReceiverID: users.friendB.ID, Content: "c"},
 	}
-	if err := global.DB.Create(&msgs).Error; err != nil {
+	if err := testutil.DB().Create(&msgs).Error; err != nil {
 		t.Fatalf("创建消息失败: %v", err)
 	}
 
@@ -389,7 +388,7 @@ func TestChatMsgDeleteUserView(t *testing.T) {
 	}
 
 	var stateList []models.ChatMsgUserStateModel
-	if err := global.DB.Unscoped().Find(&stateList, "user_id = ? and deleted_at is not null", users.owner.ID).Error; err != nil {
+	if err := testutil.DB().Unscoped().Find(&stateList, "user_id = ? and deleted_at is not null", users.owner.ID).Error; err != nil {
 		t.Fatalf("查询消息用户态失败: %v", err)
 	}
 	if len(stateList) != 2 {
@@ -405,7 +404,7 @@ func TestChatMsgReadUserView(t *testing.T) {
 		{SessionID: "chat:1:2", UserID: users.owner.ID, ReceiverID: users.friendA.ID, UnreadCount: 2},
 		{SessionID: "chat:1:3", UserID: users.owner.ID, ReceiverID: users.friendB.ID, UnreadCount: 1},
 	}
-	if err := global.DB.Create(&sessions).Error; err != nil {
+	if err := testutil.DB().Create(&sessions).Error; err != nil {
 		t.Fatalf("创建会话失败: %v", err)
 	}
 
@@ -416,7 +415,7 @@ func TestChatMsgReadUserView(t *testing.T) {
 		{SessionID: "chat:1:3", SenderID: users.friendB.ID, ReceiverID: users.owner.ID, Content: "m3", MsgStatus: chat_msg_enum.MsgStatusSend},
 		{SessionID: "chat:4:5", SenderID: users.other.ID, ReceiverID: users.friendB.ID, Content: "other", MsgStatus: chat_msg_enum.MsgStatusSend},
 	}
-	if err := global.DB.Create(&msgs).Error; err != nil {
+	if err := testutil.DB().Create(&msgs).Error; err != nil {
 		t.Fatalf("创建消息失败: %v", err)
 	}
 
@@ -431,7 +430,7 @@ func TestChatMsgReadUserView(t *testing.T) {
 	}
 
 	var readMsgs []models.ChatMsgModel
-	if err := global.DB.Find(&readMsgs, "id IN ?", []ctype.ID{msgs[0].ID, msgs[3].ID}).Error; err != nil {
+	if err := testutil.DB().Find(&readMsgs, "id IN ?", []ctype.ID{msgs[0].ID, msgs[3].ID}).Error; err != nil {
 		t.Fatalf("查询已读消息失败: %v", err)
 	}
 	for _, item := range readMsgs {
@@ -441,7 +440,7 @@ func TestChatMsgReadUserView(t *testing.T) {
 	}
 
 	var selfMsg models.ChatMsgModel
-	if err := global.DB.Take(&selfMsg, "id = ?", msgs[1].ID).Error; err != nil {
+	if err := testutil.DB().Take(&selfMsg, "id = ?", msgs[1].ID).Error; err != nil {
 		t.Fatalf("查询自己发送的消息失败: %v", err)
 	}
 	if selfMsg.MsgStatus != chat_msg_enum.MsgStatusSend || selfMsg.ReadAt != nil {
@@ -449,7 +448,7 @@ func TestChatMsgReadUserView(t *testing.T) {
 	}
 
 	var sessionA models.ChatSessionModel
-	if err := global.DB.Take(&sessionA, "user_id = ? and session_id = ?", users.owner.ID, "chat:1:2").Error; err != nil {
+	if err := testutil.DB().Take(&sessionA, "user_id = ? and session_id = ?", users.owner.ID, "chat:1:2").Error; err != nil {
 		t.Fatalf("查询会话A失败: %v", err)
 	}
 	if sessionA.UnreadCount != 1 {
@@ -457,7 +456,7 @@ func TestChatMsgReadUserView(t *testing.T) {
 	}
 
 	var sessionB models.ChatSessionModel
-	if err := global.DB.Take(&sessionB, "user_id = ? and session_id = ?", users.owner.ID, "chat:1:3").Error; err != nil {
+	if err := testutil.DB().Take(&sessionB, "user_id = ? and session_id = ?", users.owner.ID, "chat:1:3").Error; err != nil {
 		t.Fatalf("查询会话B失败: %v", err)
 	}
 	if sessionB.UnreadCount != 0 {
@@ -487,7 +486,7 @@ func TestChatMsgReadUserViewPushesReadReceiptToSender(t *testing.T) {
 		LastMsgID:      1,
 		LastMsgContent: "m1",
 	}
-	if err := global.DB.Create(&session).Error; err != nil {
+	if err := testutil.DB().Create(&session).Error; err != nil {
 		t.Fatalf("创建会话失败: %v", err)
 	}
 
@@ -499,7 +498,7 @@ func TestChatMsgReadUserViewPushesReadReceiptToSender(t *testing.T) {
 		MsgStatus:  chat_msg_enum.MsgStatusSend,
 		SendTime:   time.Now(),
 	}
-	if err := global.DB.Create(&msg).Error; err != nil {
+	if err := testutil.DB().Create(&msg).Error; err != nil {
 		t.Fatalf("创建消息失败: %v", err)
 	}
 
@@ -560,7 +559,7 @@ func TestChatMsgReadUserViewDecreasesUnreadCountByMatchedMessages(t *testing.T) 
 		{SessionID: sessionID, SenderID: users.friendA.ID, ReceiverID: users.owner.ID, Content: "deleted", MsgStatus: chat_msg_enum.MsgStatusSend},
 		{SessionID: sessionID, SenderID: users.friendA.ID, ReceiverID: users.owner.ID, Content: "visible", MsgStatus: chat_msg_enum.MsgStatusSend},
 	}
-	if err := global.DB.Create(&msgs).Error; err != nil {
+	if err := testutil.DB().Create(&msgs).Error; err != nil {
 		t.Fatalf("创建消息失败: %v", err)
 	}
 
@@ -571,10 +570,10 @@ func TestChatMsgReadUserViewDecreasesUnreadCountByMatchedMessages(t *testing.T) 
 		ClearBeforeMsgID: msgs[0].ID,
 		UnreadCount:      3,
 	}
-	if err := global.DB.Create(&session).Error; err != nil {
+	if err := testutil.DB().Create(&session).Error; err != nil {
 		t.Fatalf("创建会话失败: %v", err)
 	}
-	if err := global.DB.Create(&models.ChatMsgUserStateModel{
+	if err := testutil.DB().Create(&models.ChatMsgUserStateModel{
 		Model: models.Model{
 			DeletedAt: gorm.DeletedAt{Time: time.Now(), Valid: true},
 		},
@@ -596,7 +595,7 @@ func TestChatMsgReadUserViewDecreasesUnreadCountByMatchedMessages(t *testing.T) 
 	}
 
 	var updated models.ChatSessionModel
-	if err := global.DB.Take(&updated, "user_id = ? and session_id = ?", users.owner.ID, sessionID).Error; err != nil {
+	if err := testutil.DB().Take(&updated, "user_id = ? and session_id = ?", users.owner.ID, sessionID).Error; err != nil {
 		t.Fatalf("查询会话失败: %v", err)
 	}
 	if updated.UnreadCount != 2 {
@@ -631,7 +630,7 @@ func TestChatMsgListViewFiltersByClearBeforeMsgID(t *testing.T) {
 			MsgStatus:  chat_msg_enum.MsgStatusSend,
 		},
 	}
-	if err := global.DB.Create(&msgs).Error; err != nil {
+	if err := testutil.DB().Create(&msgs).Error; err != nil {
 		t.Fatalf("创建消息失败: %v", err)
 	}
 
@@ -639,7 +638,7 @@ func TestChatMsgListViewFiltersByClearBeforeMsgID(t *testing.T) {
 		{SessionID: sessionID, UserID: users.owner.ID, ReceiverID: users.friendA.ID, ClearBeforeMsgID: msgs[0].ID},
 		{SessionID: sessionID, UserID: users.friendA.ID, ReceiverID: users.owner.ID},
 	}
-	if err := global.DB.Create(&sessions).Error; err != nil {
+	if err := testutil.DB().Create(&sessions).Error; err != nil {
 		t.Fatalf("创建会话失败: %v", err)
 	}
 
@@ -710,10 +709,10 @@ func TestChatSessionListViewAdmin(t *testing.T) {
 			LastMsgTime:    timePtr(now.Add(-time.Hour)),
 		},
 	}
-	if err := global.DB.Create(&rows).Error; err != nil {
+	if err := testutil.DB().Create(&rows).Error; err != nil {
 		t.Fatalf("创建会话数据失败: %v", err)
 	}
-	if err := global.DB.Where("session_id = ? and user_id = ?", "chat:1:3", users.owner.ID).
+	if err := testutil.DB().Where("session_id = ? and user_id = ?", "chat:1:3", users.owner.ID).
 		Delete(&models.ChatSessionModel{}).Error; err != nil {
 		t.Fatalf("软删会话失败: %v", err)
 	}
@@ -770,10 +769,10 @@ func TestChatMsgListViewAdmin(t *testing.T) {
 		{SessionID: sessionID, UserID: users.owner.ID, ReceiverID: users.friendA.ID},
 		{SessionID: sessionID, UserID: users.friendA.ID, ReceiverID: users.owner.ID},
 	}
-	if err := global.DB.Create(&sessions).Error; err != nil {
+	if err := testutil.DB().Create(&sessions).Error; err != nil {
 		t.Fatalf("创建会话失败: %v", err)
 	}
-	if err := global.DB.Where("session_id = ? and user_id = ?", sessionID, users.owner.ID).
+	if err := testutil.DB().Where("session_id = ? and user_id = ?", sessionID, users.owner.ID).
 		Delete(&models.ChatSessionModel{}).Error; err != nil {
 		t.Fatalf("软删会话失败: %v", err)
 	}
@@ -798,10 +797,10 @@ func TestChatMsgListViewAdmin(t *testing.T) {
 			MsgStatus:  chat_msg_enum.MsgStatusRead,
 		},
 	}
-	if err := global.DB.Create(&msgs).Error; err != nil {
+	if err := testutil.DB().Create(&msgs).Error; err != nil {
 		t.Fatalf("创建消息失败: %v", err)
 	}
-	if err := global.DB.Create(&models.ChatMsgUserStateModel{
+	if err := testutil.DB().Create(&models.ChatMsgUserStateModel{
 		Model: models.Model{
 			DeletedAt: gorm.DeletedAt{Time: sendTimeB.Add(time.Minute), Valid: true},
 		},
@@ -876,10 +875,10 @@ func setupChatListEnv(t *testing.T) chatUsers {
 		friendB: createChatUser(t, "chat_friend_b"),
 		other:   createChatUser(t, "chat_other"),
 	}
-	if err := global.DB.Create(&models.UserFollowModel{FollowedUserID: users.friendA.ID, FansUserID: users.owner.ID}).Error; err != nil {
+	if err := testutil.DB().Create(&models.UserFollowModel{FollowedUserID: users.friendA.ID, FansUserID: users.owner.ID}).Error; err != nil {
 		t.Fatalf("创建 owner->friendA 关注关系失败: %v", err)
 	}
-	if err := global.DB.Create(&models.UserFollowModel{FollowedUserID: users.owner.ID, FansUserID: users.friendB.ID}).Error; err != nil {
+	if err := testutil.DB().Create(&models.UserFollowModel{FollowedUserID: users.owner.ID, FansUserID: users.friendB.ID}).Error; err != nil {
 		t.Fatalf("创建 friendB->owner 关注关系失败: %v", err)
 	}
 	return users
@@ -893,7 +892,7 @@ func createChatUser(t *testing.T, username string) models.UserModel {
 		Avatar:   username + ".png",
 		Abstract: username + "_abstract",
 	}
-	if err := global.DB.Create(&user).Error; err != nil {
+	if err := testutil.DB().Create(&user).Error; err != nil {
 		t.Fatalf("创建用户失败: %v", err)
 	}
 	return user
@@ -1106,12 +1105,12 @@ type chatWSPermissionUsers struct {
 func TestValidateChatSendPermissionStrangerDependsOnReceiverConfig(t *testing.T) {
 	users := setupChatWSPermissionEnv(t)
 
-	if err := global.DB.Model(&models.UserConfModel{}).
+	if err := testutil.DB().Model(&models.UserConfModel{}).
 		Where("user_id = ?", users.receiver.ID).
 		Update("stranger_chat_enabled", false).Error; err != nil {
 		t.Fatalf("更新陌生人私信配置失败: %v", err)
 	}
-	if err := global.DB.Preload("UserConfModel").Take(&users.receiver, users.receiver.ID).Error; err != nil {
+	if err := testutil.DB().Preload("UserConfModel").Take(&users.receiver, users.receiver.ID).Error; err != nil {
 		t.Fatalf("查询接收人失败: %v", err)
 	}
 
@@ -1123,12 +1122,12 @@ func TestValidateChatSendPermissionStrangerDependsOnReceiverConfig(t *testing.T)
 		t.Fatal("受限时不应返回预占对象")
 	}
 
-	if err := global.DB.Model(&models.UserConfModel{}).
+	if err := testutil.DB().Model(&models.UserConfModel{}).
 		Where("user_id = ?", users.receiver.ID).
 		Update("stranger_chat_enabled", true).Error; err != nil {
 		t.Fatalf("恢复陌生人私信配置失败: %v", err)
 	}
-	if err := global.DB.Preload("UserConfModel").Take(&users.receiver, users.receiver.ID).Error; err != nil {
+	if err := testutil.DB().Preload("UserConfModel").Take(&users.receiver, users.receiver.ID).Error; err != nil {
 		t.Fatalf("查询接收人失败: %v", err)
 	}
 
@@ -1272,10 +1271,10 @@ func createChatWSPermissionUser(t *testing.T, username string) models.UserModel 
 		Username: username,
 		Nickname: username + "_nick",
 	}
-	if err := global.DB.Create(&user).Error; err != nil {
+	if err := testutil.DB().Create(&user).Error; err != nil {
 		t.Fatalf("创建用户失败: %v", err)
 	}
-	if err := global.DB.Preload("UserConfModel").Take(&user, user.ID).Error; err != nil {
+	if err := testutil.DB().Preload("UserConfModel").Take(&user, user.ID).Error; err != nil {
 		t.Fatalf("查询用户配置失败: %v", err)
 	}
 	return user
@@ -1288,7 +1287,7 @@ func createFollowRelation(t *testing.T, fansUserID, followedUserID ctype.ID) {
 		FansUserID:     fansUserID,
 		FollowedUserID: followedUserID,
 	}
-	if err := global.DB.Create(&row).Error; err != nil {
+	if err := testutil.DB().Create(&row).Error; err != nil {
 		t.Fatalf("创建关注关系失败: %v", err)
 	}
 }

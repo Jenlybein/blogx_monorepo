@@ -1,23 +1,24 @@
 package core
 
 import (
-	"myblogx/global"
+	"myblogx/appctx"
 	"myblogx/service/image_ref_river_service"
 )
 
-func InitImageRefRiver() {
-	if !global.Config.ImageRefRiver.Enabled {
-		global.Logger.Infof("配置中未启用图片引用监听")
+func InitImageRefRiver(ctx *appctx.AppContext) {
+	if !ctx.Config.ImageRefRiver.Enabled {
+		ctx.Logger.Infof("配置中未启用图片引用监听")
 		return
 	}
 
+	image_ref_river_service.Configure(ctx.Config.ImageRefRiver, ctx.Config.QiNiu, ctx.Logger, ctx.DB)
 	r, err := image_ref_river_service.NewRiver()
 	if err != nil {
-		global.Logger.Fatal(err)
+		ctx.Logger.Fatal(err)
 	}
 	go func() {
 		if err := r.Run(); err != nil {
-			global.Logger.Errorf("图片引用监听运行失败: %v", err)
+			ctx.Logger.Errorf("图片引用监听运行失败: %v", err)
 		}
 	}()
 }

@@ -3,7 +3,6 @@ package article_api
 import (
 	"errors"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -19,7 +18,7 @@ import (
 func (ArticleApi) ArticleCreateView(c *gin.Context) {
 	cr := middleware.GetBindJson[ArticleCreateRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
-	writer := newArticleWriteService(global.DB, global.Logger)
+	writer := newArticleWriteService(mustApp(c).DB, mustApp(c).Logger)
 
 	if claims.Role != enum.RoleAdmin && site_service.GetRuntimeSite().SiteInfo.Mode == enum.SiteModeBlog {
 		res.FailWithMsg("站点处于个人博客模式，普通用户无法创建文章", c)
@@ -40,7 +39,7 @@ func (ArticleApi) ArticleCreateView(c *gin.Context) {
 	applyTagArticleCountDelta(buildTagArticleCountDelta(nil, tagIDs))
 	if len(tagIDs) > 0 {
 		if err := es_service.UpdateESDocsTags([]ctype.ID{article.ID}); err != nil {
-			global.Logger.Errorf("创建文章后刷新 ES 标签失败: 文章ID=%d 错误=%v", article.ID, err)
+			mustApp(c).Logger.Errorf("创建文章后刷新 ES 标签失败: 文章ID=%d 错误=%v", article.ID, err)
 		}
 	}
 

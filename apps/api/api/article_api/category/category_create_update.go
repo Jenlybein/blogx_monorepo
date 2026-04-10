@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -25,7 +24,7 @@ func (CategoryApi) CategoryCreateUpdateView(c *gin.Context) {
 	// 创建
 	if cr.ID == 0 {
 		// 分类创建改为直接创建新记录，不再恢复同名软删数据。
-		if err := global.DB.Create(&models.CategoryModel{
+		if err := mustApp(c).DB.Create(&models.CategoryModel{
 			Title:  cr.Title,
 			UserID: claims.UserID,
 		}).Error; err != nil {
@@ -50,12 +49,12 @@ func (CategoryApi) CategoryCreateUpdateView(c *gin.Context) {
 
 	// 编辑
 	var category models.CategoryModel
-	if err := global.DB.Take(&category, "user_id = ? and id = ?", claims.UserID, cr.ID).Error; err != nil {
+	if err := mustApp(c).DB.Take(&category, "user_id = ? and id = ?", claims.UserID, cr.ID).Error; err != nil {
 		res.FailWithMsg("分类不存在", c)
 		return
 	}
 
-	if err := global.DB.Model(&category).Update("title", cr.Title).Error; err != nil {
+	if err := mustApp(c).DB.Model(&category).Update("title", cr.Title).Error; err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			res.FailWithMsg("分类名称重复", c)
 			return
@@ -64,7 +63,7 @@ func (CategoryApi) CategoryCreateUpdateView(c *gin.Context) {
 		return
 	}
 	if err := es_service.SyncESDocsByCategoryIDs([]ctype.ID{category.ID}); err != nil {
-		global.Logger.Errorf("同步分类相关文章 ES 文档失败: 分类ID=%d 错误=%v", category.ID, err)
+		mustApp(c).Logger.Errorf("同步分类相关文章 ES 文档失败: 分类ID=%d 错误=%v", category.ID, err)
 	}
 	res.OkWithMsg("更新分类成功", c)
 	log_service.EmitActionAuditFromGin(c, log_service.GinAuditInput{

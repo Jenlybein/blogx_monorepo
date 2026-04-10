@@ -4,9 +4,9 @@ import (
 	"errors"
 	"time"
 
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_tag"
 
 	"gorm.io/gorm"
@@ -108,7 +108,7 @@ func applyTagArticleCountDelta(deltaMap map[ctype.ID]int) {
 			continue
 		}
 		if err := redis_tag.SetCacheArticleCount(tagID, delta); err != nil {
-			global.Logger.Errorf("标签文章数缓存更新失败: 标签ID=%d 增量=%d 错误=%v", tagID, delta, err)
+			redis_service.Logger().Errorf("标签文章数缓存更新失败: 标签ID=%d 增量=%d 错误=%v", tagID, delta, err)
 		}
 	}
 }

@@ -2,7 +2,6 @@ package data_api
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/enum"
@@ -13,6 +12,7 @@ import (
 )
 
 func (DataApi) GrowthDataView(c *gin.Context) {
+	app := mustApp(c)
 	cr := middleware.GetBindQuery[GrowthDataRequest](c)
 	var resp GrowthDataResponse
 
@@ -34,7 +34,7 @@ func (DataApi) GrowthDataView(c *gin.Context) {
 			})
 		}
 	case 2:
-		err = global.DB.
+		err = app.DB.
 			Table("article_models").
 			Select("DATE(created_at) AS date, COUNT(*) AS count").
 			Where("status = ? AND created_at >= ? AND created_at < ?", enum.ArticleStatusPublished, rangeStart, tomorrowStart).
@@ -42,7 +42,7 @@ func (DataApi) GrowthDataView(c *gin.Context) {
 			Order("DATE(created_at) ASC").
 			Scan(&statList).Error
 	case 3:
-		err = global.DB.
+		err = app.DB.
 			Model(&models.UserModel{}).
 			Select("DATE(created_at) AS date, COUNT(*) AS count").
 			Where("created_at >= ? AND created_at < ?", rangeStart, tomorrowStart).
@@ -51,7 +51,7 @@ func (DataApi) GrowthDataView(c *gin.Context) {
 			Scan(&statList).Error
 	}
 	if err != nil {
-		global.Logger.Errorf("获取增长数据失败 type=%d: %v", cr.Type, err)
+		app.Logger.Errorf("获取增长数据失败 type=%d: %v", cr.Type, err)
 		res.FailWithMsg("获取增长数据失败", c)
 		return
 	}

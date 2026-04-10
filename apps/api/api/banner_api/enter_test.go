@@ -3,7 +3,6 @@ package banner_api_test
 import (
 	"encoding/json"
 	"myblogx/api/banner_api"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/test/testutil"
@@ -87,7 +86,7 @@ func TestBannerCreateListUpdateRemove(t *testing.T) {
 	}
 
 	var cnt int64
-	_ = global.DB.Model(&models.BannerModel{}).Count(&cnt).Error
+	_ = testutil.DB().Model(&models.BannerModel{}).Count(&cnt).Error
 	if cnt != 0 {
 		t.Fatalf("删除后数量异常: %d", cnt)
 	}

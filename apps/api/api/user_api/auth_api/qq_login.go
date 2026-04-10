@@ -3,7 +3,6 @@ package auth_api
 import (
 	"errors"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/enum"
@@ -23,6 +22,7 @@ type QQLoginRequest struct {
 }
 
 func (AuthApi) QQLoginView(c *gin.Context) {
+	app := mustApp(c)
 	if !site_service.GetRuntimeLogin().QQLogin {
 		log_service.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, "", 0, "站点未启用QQ登录", nil)
 		res.FailWithMsg("站点未启用qq登录功能", c)
@@ -39,7 +39,7 @@ func (AuthApi) QQLoginView(c *gin.Context) {
 	}
 
 	var user models.UserModel
-	err = global.DB.Take(&user, "open_id = ?", userInfoResp.OpenID).Error
+	err = app.DB.Take(&user, "open_id = ?", userInfoResp.OpenID).Error
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			log_service.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, userInfoResp.NickName, 0, "qq登录失败 "+err.Error(), map[string]any{
@@ -52,7 +52,7 @@ func (AuthApi) QQLoginView(c *gin.Context) {
 		for range 5 {
 			username, usernameErr := redis_user.NextAutoUsername()
 			if usernameErr != nil {
-				global.Logger.Errorf("QQ 登录生成用户名失败: %v", usernameErr)
+				app.Logger.Errorf("QQ 登录生成用户名失败: %v", usernameErr)
 				log_service.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, userInfoResp.NickName, 0, "qq登录失败", map[string]any{
 					"open_id": userInfoResp.OpenID,
 				})
@@ -70,7 +70,7 @@ func (AuthApi) QQLoginView(c *gin.Context) {
 				Role:           enum.RoleUser,
 			}
 			var resultRows int64
-			err = global.DB.Transaction(func(tx *gorm.DB) error {
+			err = app.DB.Transaction(func(tx *gorm.DB) error {
 				result := tx.Clauses(clause.OnConflict{
 					Columns:   []clause.Column{{Name: "open_id"}},
 					DoNothing: true,
@@ -90,7 +90,7 @@ func (AuthApi) QQLoginView(c *gin.Context) {
 			}{Error: err, RowsAffected: resultRows}
 			if result.Error == nil {
 				if result.RowsAffected == 0 {
-					if err = global.DB.Take(&user, "open_id = ?", userInfoResp.OpenID).Error; err != nil {
+					if err = app.DB.Take(&user, "open_id = ?", userInfoResp.OpenID).Error; err != nil {
 						log_service.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, userInfoResp.NickName, 0, "qq登录失败 "+err.Error(), map[string]any{
 							"open_id": userInfoResp.OpenID,
 						})

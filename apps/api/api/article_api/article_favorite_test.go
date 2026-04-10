@@ -3,7 +3,6 @@ package article_api
 import (
 	"myblogx/api/article_api/favorite"
 	"myblogx/common"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -16,7 +15,7 @@ import (
 
 func TestGetOrCreateFavoriteIDBranches(t *testing.T) {
 	user := setupArticleEnv(t)
-	db := global.DB
+	db := testutil.DB()
 
 	fav, err := getOrCreateFavoriteID(db, 0, user.ID)
 	if err != nil {
@@ -41,7 +40,7 @@ func TestGetOrCreateFavoriteIDBranches(t *testing.T) {
 
 func TestFavoriteCreateUpdateListDelete(t *testing.T) {
 	user := setupArticleEnv(t)
-	db := global.DB
+	db := testutil.DB()
 	api := ArticleApi{}
 	claims := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: enum.RoleUser, Username: user.Username}}
 

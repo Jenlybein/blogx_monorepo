@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"mime/multipart"
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/test/testutil"
@@ -19,13 +18,13 @@ import (
 
 func TestCreateUploadToken(t *testing.T) {
 	testutil.InitGlobals()
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		QiNiu: conf.QiNiu{
 			AccessKey: "ak",
 			SecretKey: "sk",
 			Bucket:    "bucket",
 		},
-	}
+	})
 
 	ret, err := CreateUploadToken(UploadPolicy{
 		Bucket:      "bucket",
@@ -48,13 +47,13 @@ func TestCreateUploadToken(t *testing.T) {
 
 func TestCreateUploadTokenWithoutCallback(t *testing.T) {
 	testutil.InitGlobals()
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		QiNiu: conf.QiNiu{
 			AccessKey: "ak",
 			SecretKey: "sk",
 			Bucket:    "bucket",
 		},
-	}
+	})
 
 	ret, err := CreateUploadToken(UploadPolicy{
 		Bucket:    "bucket",
@@ -73,13 +72,13 @@ func TestCreateUploadTokenWithoutCallback(t *testing.T) {
 
 func TestCreateUploadTokenInvalidPolicy(t *testing.T) {
 	testutil.InitGlobals()
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		QiNiu: conf.QiNiu{
 			AccessKey: "ak",
 			SecretKey: "sk",
 			Bucket:    "bucket",
 		},
-	}
+	})
 
 	ret, err := CreateUploadToken(UploadPolicy{
 		Bucket:      "",

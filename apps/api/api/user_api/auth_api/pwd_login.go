@@ -2,7 +2,6 @@ package auth_api
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -23,6 +22,7 @@ type PwdLoginRequest struct {
 }
 
 func (AuthApi) PwdLoginView(c *gin.Context) {
+	app := mustApp(c)
 	if !site_service.GetRuntimeLogin().UsernamePwdLogin {
 		log_service.EmitLoginEventFromGin(c, "login_fail", enum.PasswordLoginType, false, "", 0, "站点未启用密码登录", nil)
 		res.FailWithMsg("站点未启用密码登录功能", c)
@@ -43,7 +43,7 @@ func (AuthApi) PwdLoginView(c *gin.Context) {
 	}
 
 	var user models.UserModel
-	if err := global.DB.Take(
+	if err := app.DB.Take(
 		&user,
 		"(username = ? OR email = ?) and (password <> '')",
 		account, account,

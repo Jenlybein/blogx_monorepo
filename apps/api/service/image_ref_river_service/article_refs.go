@@ -3,7 +3,6 @@ package image_ref_river_service
 import (
 	"strings"
 
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/enum/image_ref_enum"
 
@@ -12,7 +11,7 @@ import (
 
 func RebuildArticleRefs(tx *gorm.DB, article *models.ArticleModel) error {
 	if tx == nil {
-		tx = global.DB
+		tx = imageRefDB
 	}
 	return replaceOwnerRefs(tx, image_ref_enum.RefTypeArticle, article.ID, parseArticleRefCandidates(article))
 }
@@ -23,7 +22,7 @@ func RebuildArticleRefsByRow(snapshot rowSnapshot) error {
 		return err
 	}
 	if snapshot.IsDeleted() {
-		return DeleteOwnerRefs(global.DB, image_ref_enum.RefTypeArticle, articleID)
+		return DeleteOwnerRefs(imageRefDB, image_ref_enum.RefTypeArticle, articleID)
 	}
 	content, err := snapshot.RequireString("content")
 	if err != nil {
@@ -33,7 +32,7 @@ func RebuildArticleRefsByRow(snapshot rowSnapshot) error {
 	if err != nil {
 		return err
 	}
-	return RebuildArticleRefs(global.DB, &models.ArticleModel{
+	return RebuildArticleRefs(imageRefDB, &models.ArticleModel{
 		Model:   models.Model{ID: articleID},
 		Content: content,
 		Cover:   cover,

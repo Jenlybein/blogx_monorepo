@@ -1,8 +1,8 @@
 package models
 
 import (
-	"myblogx/global"
 	"myblogx/models/ctype"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_tag"
 
 	"gorm.io/gorm"
@@ -31,9 +31,9 @@ func (t *TagModel) BeforeDelete(tx *gorm.DB) (err error) {
 	if err = tx.Delete(&relationList).Error; err != nil {
 		return err
 	}
-	if global.Redis != nil {
+	if redis_service.Client() != nil {
 		if err = redis_tag.SetCacheArticleCount(t.ID, -len(relationList)); err != nil {
-			global.Logger.Errorf("标签文章数缓存减少失败: 标签ID=%d 错误=%v", t.ID, err)
+			redis_service.Logger().Errorf("标签文章数缓存减少失败: 标签ID=%d 错误=%v", t.ID, err)
 		}
 	}
 	return nil

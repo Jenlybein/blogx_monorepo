@@ -3,7 +3,6 @@ package auth_api
 import (
 	"errors"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/utils/jwts"
 
@@ -12,6 +11,7 @@ import (
 )
 
 func (AuthApi) BindEmailView(c *gin.Context) {
+	app := mustApp(c)
 	email := c.GetString("email")
 	if email == "" {
 		res.FailWithMsg("邮箱验证失败：邮箱不存在", c)
@@ -21,12 +21,12 @@ func (AuthApi) BindEmailView(c *gin.Context) {
 	claims := jwts.MustGetClaimsByGin(c)
 
 	var user models.UserModel
-	if err := global.DB.Take(&user, claims.UserID).Error; err != nil {
+	if err := app.DB.Take(&user, claims.UserID).Error; err != nil {
 		res.FailWithMsg("用户不存在", c)
 		return
 	}
 
-	if err := global.DB.Model(&user).Update("email", email).Error; err != nil {
+	if err := app.DB.Model(&user).Update("email", email).Error; err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			res.FailWithMsg("邮箱已被使用", c)
 			return

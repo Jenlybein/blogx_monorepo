@@ -3,7 +3,6 @@ package image_api
 import (
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -16,10 +15,11 @@ import (
 )
 
 func (ImageApi) ImageRemoveView(c *gin.Context) {
+	app := mustApp(c)
 	cr := middleware.GetBindJson[models.IDListRequest](c)
 
 	var list []models.ImageModel
-	if err := global.DB.Find(&list, "id IN ?", cr.IDList).Error; err != nil {
+	if err := app.DB.Find(&list, "id IN ?", cr.IDList).Error; err != nil {
 		res.FailWithError(err, c)
 		return
 	}
@@ -39,7 +39,7 @@ func (ImageApi) ImageRemoveView(c *gin.Context) {
 	for _, item := range list {
 		imageIDs = append(imageIDs, item.ID)
 	}
-	if err := global.DB.Transaction(func(tx *gorm.DB) error {
+	if err := app.DB.Transaction(func(tx *gorm.DB) error {
 		if err := image_ref_river_service.DeleteImageRefsByImageIDs(tx, imageIDs); err != nil {
 			return err
 		}

@@ -12,3 +12,7 @@ func WithAppContext(ctx *appctx.AppContext) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func mustApp(c *gin.Context) *appctx.AppContext {
+	return appctx.MustFromGin(c)
+}

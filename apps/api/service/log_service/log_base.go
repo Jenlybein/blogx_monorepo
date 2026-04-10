@@ -1,7 +1,6 @@
 package log_service
 
 import (
-	"myblogx/global"
 	"myblogx/models/ctype"
 	"myblogx/service/db_service"
 	"os"
@@ -55,10 +54,18 @@ func newBaseEvent(logKind, level, message string) baseEvent {
 		TS:         time.Now().Format(clickhouseTimeLayout),
 		LogKind:    logKind,
 		Service:    ResolveLogApp(""),
-		Env:        global.Config.System.Env,
+		Env:        runtimeEnv(),
 		Host:       host,
-		InstanceID: strconv.Itoa(int(global.Config.System.ServerID)),
+		InstanceID: strconv.Itoa(int(runtimeServerID())),
 		Level:      level,
 		Message:    message,
 	}
+}
+
+func runtimeEnv() string {
+	return logSystemSettings.Env
+}
+
+func runtimeServerID() uint32 {
+	return logSystemSettings.ServerID
 }

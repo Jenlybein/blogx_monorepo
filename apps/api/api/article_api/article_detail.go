@@ -2,7 +2,6 @@ package article_api
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -19,7 +18,7 @@ func (ArticleApi) ArticleDetailView(c *gin.Context) {
 	cr := middleware.GetBindUri[models.IDRequest](c)
 
 	var article models.ArticleModel
-	if err := global.DB.Select(
+	if err := mustApp(c).DB.Select(
 		"ID",
 		"CreatedAt",
 		"UpdatedAt",
@@ -70,14 +69,14 @@ func (ArticleApi) ArticleDetailView(c *gin.Context) {
 	isFavor := false
 	if claims != nil {
 		var diggCount int64
-		if err := global.DB.Model(&models.ArticleDiggModel{}).
+		if err := mustApp(c).DB.Model(&models.ArticleDiggModel{}).
 			Where("article_id = ? AND user_id = ?", article.ID, claims.UserID).
 			Count(&diggCount).Error; err == nil {
 			isDigg = diggCount > 0
 		}
 
 		var favorCount int64
-		if err := global.DB.Model(&models.UserArticleFavorModel{}).
+		if err := mustApp(c).DB.Model(&models.UserArticleFavorModel{}).
 			Where("article_id = ? AND user_id = ?", article.ID, claims.UserID).
 			Count(&favorCount).Error; err == nil {
 			isFavor = favorCount > 0

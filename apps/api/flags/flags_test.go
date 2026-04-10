@@ -6,7 +6,6 @@ import (
 	"flag"
 	"io"
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/test/testutil"
@@ -80,9 +79,9 @@ func TestFlagDB(t *testing.T) {
 
 func TestFlagESIndexNoOp(t *testing.T) {
 	testutil.InitGlobals()
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		ES: conf.ES{Index: "article_idx"},
-	}
+	})
 
 	withStdin(t, "3\n3\n", func() {
 		FlagESIndex()
@@ -137,10 +136,10 @@ func setupMockESClient(t *testing.T, handler http.HandlerFunc) {
 		t.Fatalf("创建 mock ES 客户端失败: %v", err)
 	}
 
-	oldClient := global.ESClient
-	global.ESClient = client
+	oldClient := testutil.ESClient()
+	testutil.SetESClient(client)
 	t.Cleanup(func() {
-		global.ESClient = oldClient
+		testutil.SetESClient(oldClient)
 		server.Close()
 	})
 }
@@ -220,10 +219,10 @@ func TestBuildArticleESDocument(t *testing.T) {
 func TestSyncArticleDocuments(t *testing.T) {
 	db := testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{}, &models.ArticleModel{}, &models.TagModel{}, &models.ArticleTagModel{}, &models.UserTopArticleModel{})
 	testutil.InitGlobals()
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		ES:    conf.ES{Index: "article_index"},
 		River: conf.River{BulkSize: 2},
-	}
+	})
 
 	admin := models.UserModel{Username: "admin", Password: "x", Role: enum.RoleAdmin}
 	author1 := models.UserModel{Username: "author1", Password: "x", Role: enum.RoleUser}

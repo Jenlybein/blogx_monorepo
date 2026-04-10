@@ -3,7 +3,6 @@ package article_api
 import (
 	"errors"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -23,12 +22,12 @@ func (ArticleApi) ArticleFavoriteSaveView(c *gin.Context) {
 	claims := jwts.MustGetClaimsByGin(c)
 
 	var article models.ArticleModel
-	if err := global.DB.Select("id", "author_id", "title", "abstract", "cover", "status").
+	if err := mustApp(c).DB.Select("id", "author_id", "title", "abstract", "cover", "status").
 		Take(&article, "id = ? and status = ?", cr.ArticleID, enum.ArticleStatusPublished).Error; err != nil {
 		res.FailWithMsg("查询文章失败", c)
 		return
 	}
-	userMap, err := read_service.LoadUserDisplayMap(global.DB, []ctype.ID{claims.UserID, article.AuthorID})
+	userMap, err := read_service.LoadUserDisplayMap(mustApp(c).DB, []ctype.ID{claims.UserID, article.AuthorID})
 	if err != nil {
 		res.FailWithMsg("查询用户信息失败", c)
 		return
@@ -37,7 +36,7 @@ func (ArticleApi) ArticleFavoriteSaveView(c *gin.Context) {
 	authorUser := userMap[article.AuthorID]
 
 	var isFavorited bool
-	if err := global.DB.Transaction(func(tx *gorm.DB) error {
+	if err := mustApp(c).DB.Transaction(func(tx *gorm.DB) error {
 		favorite, err := getOrCreateFavoriteWithOwner(tx, cr.FavorID, claims.UserID, actionUser)
 		if err != nil {
 			return err
@@ -59,12 +58,12 @@ func (ArticleApi) ArticleFavoriteSaveView(c *gin.Context) {
 		})
 
 		if err := redis_article.SetCacheFavorite(cr.ArticleID, 1); err != nil {
-			global.Logger.Errorf("文章收藏数据加一失败: 错误=%v", err)
+			mustApp(c).Logger.Errorf("文章收藏数据加一失败: 错误=%v", err)
 		}
 		res.OkWithMsg("收藏成功", c)
 	} else {
 		if err := redis_article.SetCacheFavorite(cr.ArticleID, -1); err != nil {
-			global.Logger.Errorf("文章收藏数据减一失败: 错误=%v", err)
+			mustApp(c).Logger.Errorf("文章收藏数据减一失败: 错误=%v", err)
 		}
 		res.OkWithMsg("取消收藏成功", c)
 	}

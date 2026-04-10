@@ -1,10 +1,10 @@
 package comment_api
 
 import (
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/service/redis_service/redis_comment"
+	"myblogx/test/testutil"
 	"myblogx/utils/jwts"
 	"testing"
 )
@@ -19,7 +19,7 @@ func TestCommentDiggView(t *testing.T) {
 		AuthorID:       user.ID,
 		CommentsToggle: true,
 	}
-	if err := global.DB.Create(&article).Error; err != nil {
+	if err := testutil.DB().Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)
 	}
 
@@ -29,7 +29,7 @@ func TestCommentDiggView(t *testing.T) {
 		ArticleID: article.ID,
 		Status:    enum.CommentStatusPublished,
 	}
-	if err := global.DB.Create(&published).Error; err != nil {
+	if err := testutil.DB().Create(&published).Error; err != nil {
 		t.Fatalf("创建已发布评论失败: %v", err)
 	}
 
@@ -39,7 +39,7 @@ func TestCommentDiggView(t *testing.T) {
 		ArticleID: article.ID,
 		Status:    enum.CommentStatusExamining,
 	}
-	if err := global.DB.Create(&examining).Error; err != nil {
+	if err := testutil.DB().Create(&examining).Error; err != nil {
 		t.Fatalf("创建审核中评论失败: %v", err)
 	}
 
@@ -55,7 +55,7 @@ func TestCommentDiggView(t *testing.T) {
 		}
 
 		var cnt int64
-		if err := global.DB.Model(&models.CommentDiggModel{}).
+		if err := testutil.DB().Model(&models.CommentDiggModel{}).
 			Where("comment_id = ? and user_id = ?", published.ID, user.ID).
 			Count(&cnt).Error; err != nil {
 			t.Fatalf("查询点赞记录失败: %v", err)
@@ -74,7 +74,7 @@ func TestCommentDiggView(t *testing.T) {
 		if code := readBizCode(t, w2); code != 0 {
 			t.Fatalf("取消点赞应成功 body=%s", w2.Body.String())
 		}
-		if err := global.DB.Model(&models.CommentDiggModel{}).
+		if err := testutil.DB().Model(&models.CommentDiggModel{}).
 			Where("comment_id = ? and user_id = ?", published.ID, user.ID).
 			Count(&cnt).Error; err != nil {
 			t.Fatalf("查询点赞记录失败: %v", err)
@@ -93,7 +93,7 @@ func TestCommentDiggView(t *testing.T) {
 		if code := readBizCode(t, w3); code != 0 {
 			t.Fatalf("软删后重新点赞应成功 body=%s", w3.Body.String())
 		}
-		if err := global.DB.Unscoped().Model(&models.CommentDiggModel{}).
+		if err := testutil.DB().Unscoped().Model(&models.CommentDiggModel{}).
 			Where("comment_id = ? and user_id = ?", published.ID, user.ID).
 			Count(&cnt).Error; err != nil {
 			t.Fatalf("查询点赞记录失败: %v", err)

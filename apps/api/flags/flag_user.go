@@ -2,7 +2,6 @@ package flags
 
 import (
 	"fmt"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/utils/pwd"
@@ -75,5 +74,5 @@ func (u *FlagUser) Create(db *gorm.DB) {
 		return
 	}
 	msg := fmt.Sprintf("用户 %s 创建成功\n", username)
-	global.Logger.Info(msg)
+	flagLogger.Info(msg)
 }

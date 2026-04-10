@@ -3,7 +3,6 @@ package comment_api
 import (
 	"encoding/json"
 	"myblogx/common"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/models/enum/relationship_enum"
@@ -17,7 +16,7 @@ func TestCommentReplyListView(t *testing.T) {
 	user := setupCommentEnv(t)
 	api := CommentApi{}
 
-	if err := global.DB.Model(user).Updates(map[string]any{
+	if err := testutil.DB().Model(user).Updates(map[string]any{
 		"nickname": "u1",
 		"avatar":   "/u1.png",
 	}).Error; err != nil {
@@ -25,17 +24,17 @@ func TestCommentReplyListView(t *testing.T) {
 	}
 
 	user2 := &models.UserModel{Username: "reply_u", Nickname: "u2", Avatar: "/u2.png", Password: "x", Role: enum.RoleUser}
-	if err := global.DB.Create(user2).Error; err != nil {
+	if err := testutil.DB().Create(user2).Error; err != nil {
 		t.Fatalf("创建第二个用户失败: %v", err)
 	}
 	viewer := &models.UserModel{Username: "reply_viewer", Nickname: "viewer", Avatar: "/v.png", Password: "x", Role: enum.RoleUser}
-	if err := global.DB.Create(viewer).Error; err != nil {
+	if err := testutil.DB().Create(viewer).Error; err != nil {
 		t.Fatalf("创建访客用户失败: %v", err)
 	}
-	if err := global.DB.Create(&models.UserFollowModel{FollowedUserID: viewer.ID, FansUserID: user.ID}).Error; err != nil {
+	if err := testutil.DB().Create(&models.UserFollowModel{FollowedUserID: viewer.ID, FansUserID: user.ID}).Error; err != nil {
 		t.Fatalf("创建 user->viewer 关注关系失败: %v", err)
 	}
-	if err := global.DB.Create(&models.UserFollowModel{FollowedUserID: user2.ID, FansUserID: viewer.ID}).Error; err != nil {
+	if err := testutil.DB().Create(&models.UserFollowModel{FollowedUserID: user2.ID, FansUserID: viewer.ID}).Error; err != nil {
 		t.Fatalf("创建 viewer->user2 关注关系失败: %v", err)
 	}
 
@@ -45,29 +44,29 @@ func TestCommentReplyListView(t *testing.T) {
 		AuthorID:       user.ID,
 		CommentsToggle: true,
 	}
-	if err := global.DB.Create(&article).Error; err != nil {
+	if err := testutil.DB().Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)
 	}
 
 	root := models.CommentModel{Content: "root", UserID: user.ID, ArticleID: article.ID, ReplyCount: 2, Status: enum.CommentStatusPublished}
-	if err := global.DB.Create(&root).Error; err != nil {
+	if err := testutil.DB().Create(&root).Error; err != nil {
 		t.Fatalf("创建一级评论失败: %v", err)
 	}
 	reply1 := models.CommentModel{Content: "reply1", UserID: user2.ID, ArticleID: article.ID, ReplyId: root.ID, RootID: root.ID, Status: enum.CommentStatusPublished}
-	if err := global.DB.Create(&reply1).Error; err != nil {
+	if err := testutil.DB().Create(&reply1).Error; err != nil {
 		t.Fatalf("创建二级评论1失败: %v", err)
 	}
 	reply2 := models.CommentModel{Content: "reply2", UserID: user.ID, ArticleID: article.ID, ReplyId: reply1.ID, RootID: root.ID, Status: enum.CommentStatusPublished}
-	if err := global.DB.Create(&reply2).Error; err != nil {
+	if err := testutil.DB().Create(&reply2).Error; err != nil {
 		t.Fatalf("创建二级评论2失败: %v", err)
 	}
 	replyPending := models.CommentModel{Content: "reply-pending", UserID: user.ID, ArticleID: article.ID, ReplyId: root.ID, RootID: root.ID, Status: enum.CommentStatusExamining}
-	if err := global.DB.Create(&replyPending).Error; err != nil {
+	if err := testutil.DB().Create(&replyPending).Error; err != nil {
 		t.Fatalf("创建待审核二级评论失败: %v", err)
 	}
 
 	unpublishedRoot := models.CommentModel{Content: "root-pending", UserID: user.ID, ArticleID: article.ID, Status: enum.CommentStatusExamining}
-	if err := global.DB.Create(&unpublishedRoot).Error; err != nil {
+	if err := testutil.DB().Create(&unpublishedRoot).Error; err != nil {
 		t.Fatalf("创建待审核一级评论失败: %v", err)
 	}
 
@@ -80,7 +79,7 @@ func TestCommentReplyListView(t *testing.T) {
 	if err := redis_comment.SetCacheDigg(reply1.ID, 3); err != nil {
 		t.Fatalf("写入二级评论点赞缓存失败: %v", err)
 	}
-	if err := global.DB.Create(&models.CommentDiggModel{CommentID: reply1.ID, UserID: viewer.ID}).Error; err != nil {
+	if err := testutil.DB().Create(&models.CommentDiggModel{CommentID: reply1.ID, UserID: viewer.ID}).Error; err != nil {
 		t.Fatalf("创建评论点赞关系失败: %v", err)
 	}
 

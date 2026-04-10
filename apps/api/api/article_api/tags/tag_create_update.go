@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -35,7 +34,7 @@ func (TagsApi) TagCreateUpdateView(c *gin.Context) {
 
 	if cr.ID == 0 {
 		// 标签创建改为直接创建新记录，不再恢复同名软删数据。
-		if err := global.DB.Create(&models.TagModel{
+		if err := mustApp(c).DB.Create(&models.TagModel{
 			Title:       title,
 			Sort:        cr.Sort,
 			Description: cr.Description,
@@ -62,7 +61,7 @@ func (TagsApi) TagCreateUpdateView(c *gin.Context) {
 	}
 
 	var tag models.TagModel
-	if err := global.DB.Take(&tag, cr.ID).Error; err != nil {
+	if err := mustApp(c).DB.Take(&tag, cr.ID).Error; err != nil {
 		res.FailWithMsg("标签不存在", c)
 		return
 	}
@@ -73,13 +72,13 @@ func (TagsApi) TagCreateUpdateView(c *gin.Context) {
 		isEnabled = tag.IsEnabled
 	}
 
-	if err := ensureTagUnique(tag.ID, title); err != nil {
+	if err := ensureTagUnique(mustApp(c).DB, tag.ID, title); err != nil {
 		res.FailWithMsg(err.Error(), c)
 		return
 	}
 
 	var affectedArticleIDs []ctype.ID
-	if err := global.DB.Transaction(func(tx *gorm.DB) error {
+	if err := mustApp(c).DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&tag).Updates(map[string]any{
 			"title":       title,
 			"sort":        cr.Sort,
@@ -103,7 +102,7 @@ func (TagsApi) TagCreateUpdateView(c *gin.Context) {
 	}
 	if len(affectedArticleIDs) > 0 {
 		if err := es_service.UpdateESDocsTags(affectedArticleIDs); err != nil {
-			global.Logger.Errorf("标签改名后刷新 ES 标签失败: 标签ID=%d 错误=%v", tag.ID, err)
+			mustApp(c).Logger.Errorf("标签改名后刷新 ES 标签失败: 标签ID=%d 错误=%v", tag.ID, err)
 		}
 	}
 	res.OkWithMsg("更新标签成功", c)
@@ -118,9 +117,9 @@ func (TagsApi) TagCreateUpdateView(c *gin.Context) {
 	})
 }
 
-func ensureTagUnique(currentID ctype.ID, title string) error {
+func ensureTagUnique(db *gorm.DB, currentID ctype.ID, title string) error {
 	var count int64
-	if err := global.DB.Model(&models.TagModel{}).
+	if err := db.Model(&models.TagModel{}).
 		Where("title = ? AND id <> ?", title, currentID).
 		Count(&count).Error; err != nil {
 		return err

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	api2 "myblogx/api"
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/models/enum/global_notif_enum"
@@ -43,13 +42,13 @@ func setupSitemsgRouterEnv(t *testing.T) (*models.UserModel, string) {
 		&models.GlobalNotifModel{},
 		&models.UserGlobalNotifModel{},
 	)
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Jwt: conf.Jwt{
 			Expire: 1,
 			Secret: "router-test-secret",
 			Issuer: "blogx-test",
 		},
-	}
+	})
 
 	user := &models.UserModel{
 		Username: "msg_user",
@@ -76,13 +75,13 @@ func newSitemsgRouterEngine() *gin.Engine {
 func TestSitemsgRouterPutConfBindsJSON(t *testing.T) {
 	testutil.SetupMiniRedis(t)
 	db := testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{})
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Jwt: conf.Jwt{
 			Expire: 1,
 			Secret: "router-test-secret",
 			Issuer: "blogx-test",
 		},
-	}
+	})
 
 	user := models.UserModel{
 		Username: "msg_user",
@@ -132,7 +131,7 @@ func TestSitemsgRouterPutConfBindsJSON(t *testing.T) {
 
 func TestSitemsgRouterPostSupportsReadByID(t *testing.T) {
 	user, token := setupSitemsgRouterEnv(t)
-	db := global.DB
+	db := testutil.DB()
 
 	msg := models.ArticleMessageModel{
 		ReceiverID: user.ID,
@@ -164,7 +163,7 @@ func TestSitemsgRouterPostSupportsReadByID(t *testing.T) {
 
 func TestSitemsgRouterPostSupportsBatchReadByType(t *testing.T) {
 	user, token := setupSitemsgRouterEnv(t)
-	db := global.DB
+	db := testutil.DB()
 
 	msgs := []models.ArticleMessageModel{
 		{ReceiverID: user.ID, Type: message_enum.DiggArticleType, Content: "d1"},
@@ -199,7 +198,7 @@ func TestSitemsgRouterPostSupportsBatchReadByType(t *testing.T) {
 
 func TestSitemsgRouterDeleteSupportsRemoveByID(t *testing.T) {
 	user, token := setupSitemsgRouterEnv(t)
-	db := global.DB
+	db := testutil.DB()
 
 	msg := models.ArticleMessageModel{
 		ReceiverID: user.ID,
@@ -231,7 +230,7 @@ func TestSitemsgRouterDeleteSupportsRemoveByID(t *testing.T) {
 
 func TestSitemsgRouterDeleteSupportsBatchRemoveByType(t *testing.T) {
 	user, token := setupSitemsgRouterEnv(t)
-	db := global.DB
+	db := testutil.DB()
 
 	msgs := []models.ArticleMessageModel{
 		{ReceiverID: user.ID, Type: message_enum.DiggArticleType, Content: "d1"},
@@ -263,7 +262,7 @@ func TestSitemsgRouterDeleteSupportsBatchRemoveByType(t *testing.T) {
 
 func TestSitemsgRouterGetUserSummary(t *testing.T) {
 	user, token := setupSitemsgRouterEnv(t)
-	db := global.DB
+	db := testutil.DB()
 
 	registerAt := time.Now().Add(-24 * time.Hour).Round(time.Second)
 	if err := db.Model(user).Update("created_at", registerAt).Error; err != nil {

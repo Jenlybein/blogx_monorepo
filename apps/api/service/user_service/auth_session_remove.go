@@ -1,7 +1,6 @@
 package user_service
 
 import (
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"time"
@@ -13,7 +12,7 @@ import (
 // 用于：退出登录、指定设备下线
 func RevokeSessionByID(userID, sessionID ctype.ID) error {
 	now := time.Now()
-	return global.DB.
+	return userDB.
 		Model(&models.UserSessionModel{}).
 		Where("id = ? AND user_id = ? AND revoked_at IS NULL", sessionID, userID).
 		Updates(map[string]any{
@@ -26,7 +25,7 @@ func RevokeSessionByID(userID, sessionID ctype.ID) error {
 // 用于：用户修改密码、管理员强制踢人、全局注销
 func RevokeAllUserSessions(userID ctype.ID) error {
 	now := time.Now()
-	return global.DB.
+	return userDB.
 		Model(&models.UserSessionModel{}).
 		Where("user_id = ? AND revoked_at IS NULL", userID).
 		Updates(map[string]any{
@@ -41,7 +40,7 @@ func UpdatePasswordAndRevokeSessions(user *models.UserModel, hashedPassword stri
 	now := time.Now()
 	nextVersion := user.TokenVersion + 1 // 令牌版本+1，使所有旧AccessToken失效
 
-	return global.DB.Transaction(func(tx *gorm.DB) error {
+	return userDB.Transaction(func(tx *gorm.DB) error {
 		// 更新用户密码、令牌版本、密码修改时间
 		if err := tx.Model(user).Updates(map[string]any{
 			"password":                 hashedPassword,
@@ -76,7 +75,7 @@ func InvalidateUserAuthState(user *models.UserModel) error {
 	now := time.Now()
 	nextVersion := user.TokenVersion + 1
 
-	return global.DB.Transaction(func(tx *gorm.DB) error {
+	return userDB.Transaction(func(tx *gorm.DB) error {
 		// 升级令牌版本，使所有旧AccessToken失效
 		if err := tx.Model(user).Updates(map[string]any{
 			"token_version": nextVersion,

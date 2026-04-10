@@ -3,7 +3,6 @@ package global_notif_api
 import (
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/enum/global_notif_enum"
@@ -15,6 +14,7 @@ import (
 )
 
 func (GlobalNotifApi) GlobalNotifCreateView(c *gin.Context) {
+	app := mustApp(c)
 	cr := middleware.GetBindJson[GlobalNotifCreateRequest](c)
 
 	claims := jwts.MustGetClaimsByGin(c)
@@ -43,13 +43,13 @@ func (GlobalNotifApi) GlobalNotifCreateView(c *gin.Context) {
 
 	// 检测是否有重复
 	var model models.GlobalNotifModel
-	if err := global.DB.Take(&model, "title = ?", cr.Title).Error; err == nil {
+	if err := app.DB.Take(&model, "title = ?", cr.Title).Error; err == nil {
 		res.FailWithMsg("全局通知标题重复", c)
 		return
 	}
 
 	// 执行创建
-	if err := global.DB.Create(&models.GlobalNotifModel{
+	if err := app.DB.Create(&models.GlobalNotifModel{
 		ActionUser:      claims.UserID,
 		ExpireTime:      *cr.ExpireTime,
 		UserVisibleRule: cr.UserVisibleRule,

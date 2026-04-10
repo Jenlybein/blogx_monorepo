@@ -2,7 +2,6 @@ package data_api
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/models/enum"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 )
 
 func (DataApi) ArticleYearDataView(c *gin.Context) {
+	app := mustApp(c)
 	var resp ArticleYearDataResponse
 
 	now := time.Now()
@@ -18,7 +18,7 @@ func (DataApi) ArticleYearDataView(c *gin.Context) {
 	nextMonthStart := currentMonthStart.AddDate(0, 1, 0)
 
 	var statList []DateCountItem
-	err := global.DB.
+	err := app.DB.
 		Table("article_models").
 		Select("DATE_FORMAT(created_at, '%Y-%m') AS date, COUNT(*) AS count").
 		Where("status = ? AND created_at >= ? AND created_at < ?", enum.ArticleStatusPublished, rangeStart, nextMonthStart).
@@ -26,7 +26,7 @@ func (DataApi) ArticleYearDataView(c *gin.Context) {
 		Order("DATE_FORMAT(created_at, '%Y-%m') ASC").
 		Scan(&statList).Error
 	if err != nil {
-		global.Logger.Errorf("获取年度文章数据失败: %v", err)
+		app.Logger.Errorf("获取年度文章数据失败: %v", err)
 		res.FailWithMsg("获取年度文章数据失败", c)
 		return
 	}

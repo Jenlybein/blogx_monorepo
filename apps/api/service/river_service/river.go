@@ -3,7 +3,6 @@ package river_service
 import (
 	"context"
 	"fmt"
-	"myblogx/global"
 	"myblogx/service/river_service/rule"
 	"regexp"
 	"strings"
@@ -41,7 +40,7 @@ func NewRiver() (*River, error) {
 	r.ctx, r.cancel = context.WithCancel(context.Background())
 
 	var err error
-	if r.master, err = loadMasterInfo(global.Config.River.DataDir); err != nil {
+	if r.master, err = loadMasterInfo(riverConfig.DataDir); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -69,23 +68,23 @@ func NewRiver() (*River, error) {
 func (r *River) newCanal() error {
 	cfg := canal.NewDefaultConfig()
 
-	// // 配置日志记录器，使用 global.Logger
-	cfg.Logger = logrusToSlogAdapter(global.Logger)
+	// 配置日志记录器
+	cfg.Logger = logrusToSlogAdapter(riverLogger)
 
 	// 配置mysql连接信息
-	cfg.Addr = global.Config.River.Mysql.Addr
-	cfg.User = global.Config.River.Mysql.User
-	cfg.Password = global.Config.River.Mysql.Password
-	cfg.Charset = global.Config.River.Charset
-	cfg.Flavor = global.Config.River.Flavor
+	cfg.Addr = riverConfig.Mysql.Addr
+	cfg.User = riverConfig.Mysql.User
+	cfg.Password = riverConfig.Mysql.Password
+	cfg.Charset = riverConfig.Charset
+	cfg.Flavor = riverConfig.Flavor
 
-	cfg.ServerID = global.Config.River.ServerID
-	cfg.Dump.ExecutionPath = global.Config.River.DumpExec
+	cfg.ServerID = riverConfig.ServerID
+	cfg.Dump.ExecutionPath = riverConfig.DumpExec
 	cfg.Dump.DiscardErr = false
-	cfg.Dump.SkipMasterData = global.Config.River.SkipMasterData
+	cfg.Dump.SkipMasterData = riverConfig.SkipMasterData
 
 	// 配置需要同步的数据库表，添加正则表达式 "schema\\.table"
-	for _, s := range global.Config.River.Sources {
+	for _, s := range riverConfig.Sources {
 		for _, t := range s.Tables {
 			cfg.IncludeTableRegex = append(cfg.IncludeTableRegex, s.Schema+"\\."+t)
 		}
@@ -157,10 +156,10 @@ func (r *River) updateRule(schema, table string) error {
 // parseSource 解析数据源
 func (r *River) parseSource() (map[string][]string, error) {
 	// 存储通配符表的映射关系，key为 schema.table，value为匹配的表名列表
-	wildTables := make(map[string][]string, len(global.Config.River.Sources))
+	wildTables := make(map[string][]string, len(riverConfig.Sources))
 
 	// 解析数据源，获取通配符表的映射关系
-	for _, s := range global.Config.River.Sources {
+	for _, s := range riverConfig.Sources {
 		if !isValidTables(s.Tables) {
 			return nil, errors.Errorf("不允许在多个表中使用通配符 *")
 		}
@@ -225,9 +224,9 @@ func (r *River) prepareRule() error {
 	}
 
 	// 如果配置了自定义规则，则应用这些规则
-	if global.Config.River.Rules != nil {
+	if riverConfig.Rules != nil {
 		// 遍历所有自定义规则
-		for _, rule := range global.Config.River.Rules {
+		for _, rule := range riverConfig.Rules {
 			// 检查规则的数据库名是否为空
 			if len(rule.Schema) == 0 {
 				return errors.Errorf("自定义规则中不允许为空的数据库名")
@@ -285,7 +284,9 @@ func (r *River) prepareRule() error {
 
 		// 检查表是否有主键，没有主键的表会被忽略（因为无法进行有效的同步）
 		if len(rule.TableInfo.PKColumns) == 0 {
-			global.Logger.Errorf("忽略未配置主键的数据表: %s", rule.TableInfo.Name)
+			if riverLogger != nil {
+				riverLogger.Errorf("忽略未配置主键的数据表: %s", rule.TableInfo.Name)
+			}
 		} else {
 			// 只保留有主键的表规则
 			rules[key] = rule
@@ -309,7 +310,9 @@ func (r *River) Run() error {
 
 	pos := r.master.Position()
 	if err := r.canal.RunFrom(pos); err != nil {
-		global.Logger.Errorf("启动 Canal 同步失败: %v", err)
+		if riverLogger != nil {
+			riverLogger.Errorf("启动 Canal 同步失败: %v", err)
+		}
 		return errors.Trace(err)
 	}
 
@@ -323,7 +326,9 @@ func (r *River) Ctx() context.Context {
 
 // Close 关闭River
 func (r *River) Close() {
-	global.Logger.Infof("开始关闭 River 同步服务")
+	if riverLogger != nil {
+		riverLogger.Infof("开始关闭 River 同步服务")
+	}
 
 	r.cancel()
 

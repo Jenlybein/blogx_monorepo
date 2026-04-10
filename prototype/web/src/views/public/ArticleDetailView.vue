@@ -5,14 +5,86 @@ import {
   NCard,
   NGrid,
   NGridItem,
-  NList,
-  NListItem,
+  NInput,
   NSpace,
   NTag,
-  NThing,
   NTimeline,
   NTimelineItem,
 } from "naive-ui";
+
+type ReplyItem = {
+  author: string;
+  avatar: string;
+  time: string;
+  content: string;
+  likes: number;
+  highlight?: string;
+};
+
+type CommentItem = {
+  author: string;
+  avatar: string;
+  time: string;
+  content: string;
+  likes: number;
+  replies: ReplyItem[];
+};
+
+const quickCommentTags = ["接口设计", "数据流", "分页", "鉴权", "错误处理"];
+
+const commentThreads: CommentItem[] = [
+  {
+    author: "River",
+    avatar: "RV",
+    time: "2026-04-09 21:18",
+    content:
+      "这一版把 store 只放跨页面状态说得很清楚，特别适合避免把每个列表都塞进 Pinia 的常见误区。要是能再补一段 route query 和查询状态怎么同步，就更完整了。",
+    likes: 18,
+    replies: [
+      {
+        author: "Aster",
+        avatar: "AS",
+        time: "2026-04-09 21:36",
+        content:
+          "这个点很关键，我后面准备把列表筛选和 URL 同步单独拉一段出来，避免页面刷新后状态丢失。",
+        likes: 6,
+        highlight: "作者回复",
+      },
+      {
+        author: "Louis",
+        avatar: "LO",
+        time: "2026-04-09 22:04",
+        content:
+          "我也踩过这个坑，尤其是后台列表页，一旦筛选条件不进 URL，协作排查会很痛苦。",
+        likes: 3,
+      },
+      {
+        author: "Nina",
+        avatar: "NI",
+        time: "2026-04-09 22:18",
+        content: "如果后面补这段，我建议顺手把 query 和分页参数的关系一起讲透，会更完整。",
+        likes: 2,
+      },
+    ],
+  },
+  {
+    author: "Louis",
+    avatar: "LO",
+    time: "2026-04-09 20:47",
+    content:
+      "建议再强调一下 OpenAPI 不完全准确时，为什么不要全量依赖自动生成 runtime client。否则团队会默认 schema 永远可信，最后把错误处理散在页面里。",
+    likes: 9,
+    replies: [
+      {
+        author: "River",
+        avatar: "RV",
+        time: "2026-04-09 21:02",
+        content: "同意，尤其是业务失败仍然返回 200 这种接口，前端不自己 unwrap 很容易越写越乱。",
+        likes: 4,
+      },
+    ],
+  },
+];
 </script>
 
 <template>
@@ -56,24 +128,77 @@ packages/shared/
         </NCard>
 
         <NCard title="评论区" size="large">
-          <NList>
-            <NListItem>
-              <NThing title="River" description="这一版把 store 只放跨页面状态说得很清楚，特别适合避免把每个列表都塞进 Pinia 的常见误区。">
-                <template #avatar><NAvatar round>RV</NAvatar></template>
-                <template #footer>
+          <div class="article-comment-composer">
+            <div class="article-comment-composer__head article-comment-composer__head--simple">
+              <NTag round>{{ commentThreads.length + 4 }} 条评论</NTag>
+            </div>
+
+            <div class="article-comment-composer__body">
+              <NAvatar round size="large">ME</NAvatar>
+              <div class="article-comment-composer__main">
+                <NInput
+                  type="textarea"
+                  placeholder="写下你对这篇文章的看法，也可以补充你的项目实践。"
+                  :autosize="{ minRows: 4, maxRows: 6 }"
+                />
+                <div class="article-comment-composer__footer">
+                  <NSpace size="small">
+                    <NTag v-for="tag in quickCommentTags" :key="tag" round size="small">{{ tag }}</NTag>
+                  </NSpace>
                   <NSpace>
-                    <NButton quaternary size="small">点赞 18</NButton>
+                    <NButton quaternary>取消</NButton>
+                    <NButton type="primary">发表评论</NButton>
+                  </NSpace>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="article-comment-thread">
+            <div v-for="comment in commentThreads" :key="`${comment.author}-${comment.time}`" class="article-comment-item">
+              <div class="article-comment-item__main">
+                <NAvatar round size="large">{{ comment.avatar }}</NAvatar>
+                <div class="article-comment-item__content">
+                  <div class="article-comment-item__meta">
+                    <strong>{{ comment.author }}</strong>
+                    <span class="muted">{{ comment.time }}</span>
+                  </div>
+                  <p class="article-comment-item__text">{{ comment.content }}</p>
+                  <NSpace size="small">
+                    <NButton quaternary size="small">点赞 {{ comment.likes }}</NButton>
                     <NButton quaternary size="small">回复</NButton>
                   </NSpace>
-                </template>
-              </NThing>
-            </NListItem>
-            <NListItem>
-              <NThing title="Louis" description="建议再强调一下 OpenAPI 不完全准确时，为什么不要全量依赖自动生成 runtime client。">
-                <template #avatar><NAvatar round>LO</NAvatar></template>
-              </NThing>
-            </NListItem>
-          </NList>
+                </div>
+              </div>
+
+              <div v-if="comment.replies.length" class="article-comment-replies">
+                <div
+                  v-for="reply in comment.replies"
+                  :key="`${reply.author}-${reply.time}`"
+                  class="article-comment-reply"
+                  >
+                  <NAvatar round size="small">{{ reply.avatar }}</NAvatar>
+                  <div class="article-comment-reply__content">
+                    <div class="article-comment-reply__meta">
+                      <strong>{{ reply.author }}</strong>
+                      <NTag v-if="reply.highlight" size="small" round type="success">{{ reply.highlight }}</NTag>
+                      <span class="muted">{{ reply.time }}</span>
+                    </div>
+                    <p class="article-comment-item__text article-comment-item__text--reply">{{ reply.content }}</p>
+                    <NSpace size="small">
+                      <NButton quaternary size="tiny">点赞 {{ reply.likes }}</NButton>
+                      <NButton quaternary size="tiny">回复</NButton>
+                    </NSpace>
+                  </div>
+                </div>
+                <div class="article-comment-replies__pager">
+                  <NButton quaternary size="tiny" circle>&lt;</NButton>
+                  <span class="muted">2 / {{ comment.replies.length }} 条回复</span>
+                  <NButton quaternary size="tiny" circle>&gt;</NButton>
+                </div>
+              </div>
+            </div>
+          </div>
         </NCard>
       </NSpace>
     </NGridItem>

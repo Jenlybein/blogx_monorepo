@@ -3,7 +3,7 @@ package redis_email
 import (
 	"context"
 	"fmt"
-	"myblogx/global"
+	"myblogx/service/redis_service"
 	"strconv"
 	"time"
 
@@ -38,13 +38,13 @@ return {1, email or ""}
 
 // Store 保存邮箱验证码，timeoutMinute 为过期分钟，maxFailCount 为最大失败次数。
 func Store(id, email, code string, timeoutMinute, maxFailCount int) error {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return fmt.Errorf("redis 未初始化")
 	}
 
 	key := emailVerifyKey(id)
 	ctx := context.Background()
-	pipe := global.Redis.TxPipeline()
+	pipe := redis_service.Client().TxPipeline()
 	pipe.HSet(ctx, key, map[string]any{
 		"email":      email,
 		"code":       code,
@@ -54,18 +54,22 @@ func Store(id, email, code string, timeoutMinute, maxFailCount int) error {
 	pipe.Expire(ctx, key, time.Duration(timeoutMinute)*time.Minute)
 
 	if _, err := pipe.Exec(ctx); err != nil {
-		global.Logger.Errorf("邮件验证码存储失败: %v", err)
+		if redis_service.Logger() != nil {
+			redis_service.Logger().Errorf("邮件验证码存储失败: %v", err)
+		}
 		return err
 	}
 	return nil
 }
 
 func Delete(id string) error {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return fmt.Errorf("redis 未初始化")
 	}
-	if err := global.Redis.Del(context.Background(), emailVerifyKey(id)).Err(); err != nil {
-		global.Logger.Errorf("邮件验证码删除失败: %v", err)
+	if err := redis_service.Client().Del(context.Background(), emailVerifyKey(id)).Err(); err != nil {
+		if redis_service.Logger() != nil {
+			redis_service.Logger().Errorf("邮件验证码删除失败: %v", err)
+		}
 		return err
 	}
 	return nil
@@ -73,18 +77,20 @@ func Delete(id string) error {
 
 // Verify 校验验证码，成功后返回邮箱并删除该验证码记录（一次性消费）。
 func Verify(id, code string) (email string, ok bool, err error) {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return "", false, fmt.Errorf("redis 未初始化")
 	}
 
 	res, err := verifyScript.Run(
 		context.Background(),
-		global.Redis,
+		redis_service.Client(),
 		[]string{emailVerifyKey(id)},
 		code,
 	).Result()
 	if err != nil {
-		global.Logger.Errorf("邮件验证码校验失败: %v", err)
+		if redis_service.Logger() != nil {
+			redis_service.Logger().Errorf("邮件验证码校验失败: %v", err)
+		}
 		return "", false, err
 	}
 

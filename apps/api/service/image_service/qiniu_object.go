@@ -9,8 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"myblogx/global"
-
 	"github.com/qiniu/go-sdk/v7/auth"
 	"github.com/qiniu/go-sdk/v7/storage"
 )
@@ -31,9 +29,9 @@ func getQiniuRuntime() *qiniuRuntime {
 	qiniuRuntimeMu.Lock()
 	defer qiniuRuntimeMu.Unlock()
 
-	confKey := fmt.Sprintf("%s|%s", global.Config.QiNiu.AccessKey, global.Config.QiNiu.SecretKey)
+	confKey := fmt.Sprintf("%s|%s", imageQiNiuConfig.AccessKey, imageQiNiuConfig.SecretKey)
 	if qiniuRuntimeInst == nil || qiniuRuntimeKey != confKey {
-		mac := auth.New(global.Config.QiNiu.AccessKey, global.Config.QiNiu.SecretKey)
+		mac := auth.New(imageQiNiuConfig.AccessKey, imageQiNiuConfig.SecretKey)
 		cfg := &storage.Config{UseHTTPS: true}
 		qiniuRuntimeInst = &qiniuRuntime{
 			mac:       mac,
@@ -66,7 +64,7 @@ func DeleteObject(bucket, key string) error {
 func ImageInfoObject(bucket, key string) (*ImageInfoResult, error) {
 	_ = bucket
 
-	q := global.Config.QiNiu
+	q := imageQiNiuConfig
 	if strings.TrimSpace(q.Uri) == "" {
 		return nil, errors.New("七牛下载域名未配置")
 	}
@@ -101,7 +99,7 @@ func ImageInfoObject(bucket, key string) (*ImageInfoResult, error) {
 }
 
 func ObjectURL(key string) string {
-	domain := strings.TrimRight(strings.TrimSpace(global.Config.QiNiu.Uri), "/")
+	domain := strings.TrimRight(strings.TrimSpace(imageQiNiuConfig.Uri), "/")
 	if domain == "" {
 		return ""
 	}

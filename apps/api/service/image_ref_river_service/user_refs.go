@@ -3,7 +3,6 @@ package image_ref_river_service
 import (
 	"strings"
 
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/enum/image_ref_enum"
 
@@ -12,7 +11,7 @@ import (
 
 func RebuildUserRefs(tx *gorm.DB, user *models.UserModel) error {
 	if tx == nil {
-		tx = global.DB
+		tx = imageRefDB
 	}
 	candidates := make([]refCandidate, 0, 1)
 	if avatar := strings.TrimSpace(user.Avatar); avatar != "" {
@@ -31,13 +30,13 @@ func RebuildUserRefsByRow(snapshot rowSnapshot) error {
 		return err
 	}
 	if snapshot.IsDeleted() {
-		return DeleteOwnerRefs(global.DB, image_ref_enum.RefTypeUser, userID)
+		return DeleteOwnerRefs(imageRefDB, image_ref_enum.RefTypeUser, userID)
 	}
 	avatar, err := snapshot.RequireString("avatar")
 	if err != nil {
 		return err
 	}
-	return RebuildUserRefs(global.DB, &models.UserModel{
+	return RebuildUserRefs(imageRefDB, &models.UserModel{
 		Model:  models.Model{ID: userID},
 		Avatar: avatar,
 	})

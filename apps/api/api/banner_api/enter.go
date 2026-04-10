@@ -5,7 +5,6 @@ import (
 	"myblogx/appctx"
 	"myblogx/common"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/service/log_service"
@@ -39,7 +38,7 @@ func (BannerApi) BannerCreateView(c *gin.Context) {
 		Href:  cr.Href,
 		Show:  cr.Show,
 	}
-	if err := global.DB.Create(&model).Error; err != nil {
+	if err := mustApp(c).DB.Create(&model).Error; err != nil {
 		res.FailWithError(err, c)
 		return
 	}
@@ -67,7 +66,7 @@ func (BannerApi) BannerListView(c *gin.Context) {
 	list, hasMore, err := common.ListQueryHasMore(models.BannerModel{
 		Show: cr.Show,
 	}, common.Options{
-		DB:       global.DB,
+		DB:       mustApp(c).DB,
 		PageInfo: cr.PageInfo,
 	})
 	if err != nil {
@@ -82,12 +81,12 @@ func (BannerApi) BannerRemoveView(c *gin.Context) {
 	cr := middleware.GetBindJson[models.IDListRequest](c)
 
 	var list []models.BannerModel
-	if err := global.DB.Find(&list, "id IN ?", cr.IDList).Error; err != nil {
+	if err := mustApp(c).DB.Find(&list, "id IN ?", cr.IDList).Error; err != nil {
 		res.FailWithError(err, c)
 		return
 	}
 	if len(list) > 0 {
-		if err := global.DB.Delete(&list).Error; err != nil {
+		if err := mustApp(c).DB.Delete(&list).Error; err != nil {
 			res.FailWithError(err, c)
 			return
 		}
@@ -113,12 +112,12 @@ func (BannerApi) BannerUpdateView(c *gin.Context) {
 	cr := middleware.GetBindJson[BannerCreateRequest](c)
 
 	var model models.BannerModel
-	if err := global.DB.Take(&model, id.ID).Error; err != nil {
+	if err := mustApp(c).DB.Take(&model, id.ID).Error; err != nil {
 		res.FailWithMsg("轮播图不存在", c)
 		return
 	}
 
-	if err := global.DB.Model(&model).Updates(models.BannerModel{
+	if err := mustApp(c).DB.Model(&model).Updates(models.BannerModel{
 		Cover: cr.Cover,
 		Href:  cr.Href,
 		Show:  cr.Show,

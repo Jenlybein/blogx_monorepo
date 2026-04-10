@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/models/ctype"
 	"myblogx/service/db_service"
 	"myblogx/service/log_service"
@@ -18,7 +17,11 @@ import (
 
 // CommonFieldsHook 公共字段钩子
 // 作用：为所有日志自动注入通用公共字段（事件ID、时间、服务、环境、实例、主机名等）
-type CommonFieldsHook struct{}
+type CommonFieldsHook struct {
+	Service    string
+	Env        string
+	InstanceID string
+}
 
 // Levels 实现 logrus.Hook 接口
 // 作用：指定该钩子对所有日志级别生效
@@ -56,17 +59,17 @@ func (hook CommonFieldsHook) Fire(entry *logrus.Entry) error {
 
 	// 自动补充服务名称
 	if _, ok := entry.Data["service"]; !ok {
-		entry.Data["service"] = log_service.ResolveLogApp("")
+		entry.Data["service"] = hook.Service
 	}
 
 	// 自动补充运行环境（dev/prod/test）
 	if _, ok := entry.Data["env"]; !ok {
-		entry.Data["env"] = global.Config.System.Env
+		entry.Data["env"] = hook.Env
 	}
 
 	// 自动补充服务实例ID
 	if _, ok := entry.Data["instance_id"]; !ok {
-		entry.Data["instance_id"] = strconv.Itoa(int(global.Config.System.ServerID))
+		entry.Data["instance_id"] = hook.InstanceID
 	}
 
 	// 自动补充主机名
@@ -183,7 +186,7 @@ func InitFile(logger *logrus.Logger, logPath, appName string) {
 
 // InitLogrus 初始化日志系统（入口方法）
 // 作用：配置日志级别、输出格式、公共字段钩子、文件日志、初始化审计日志文件
-func InitLogrus(l *conf.Logrus) *logrus.Logger {
+func InitLogrus(l *conf.Logrus, system *conf.System) *logrus.Logger {
 	// 创建新的logrus日志实例
 	logger := logrus.New()
 	// 默认输出到控制台
@@ -223,17 +226,24 @@ func InitLogrus(l *conf.Logrus) *logrus.Logger {
 	}
 
 	// 注册公共字段钩子
-	logger.AddHook(CommonFieldsHook{})
+	serviceName := log_service.ResolveLogApp(l.App)
+	env := ""
+	instanceID := ""
+	if system != nil {
+		env = system.Env
+		instanceID = strconv.Itoa(int(system.ServerID))
+	}
+	logger.AddHook(CommonFieldsHook{
+		Service:    serviceName,
+		Env:        env,
+		InstanceID: instanceID,
+	})
 	// 初始化运行时日志文件输出
 	InitFile(
 		logger,
 		filepath.Join(log_service.ResolveLogDir(l.Dir), log_service.RuntimeLogDirName),
-		log_service.ResolveLogApp(l.App),
+		serviceName,
 	)
-	// 预创建当天审计/登录日志文件，避免采集器告警
-	if err = log_service.EnsureDailyLogFiles(); err != nil {
-		logger.Errorf("初始化结构化日志文件失败: %v", err)
-	}
 
 	return logger
 }

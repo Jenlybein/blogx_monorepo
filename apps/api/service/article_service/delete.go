@@ -3,7 +3,6 @@ package article_service
 import (
 	"fmt"
 
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/service/redis_service/redis_tag"
 
@@ -81,10 +80,10 @@ func deleteSingleArticle(tx *gorm.DB, article models.ArticleModel, unscoped bool
 	if err := deleteQuery().Where("article_id = ?", article.ID).Delete(&models.ArticleTagModel{}).Error; err != nil {
 		return err
 	}
-	if global.Redis != nil {
+	if articleLogger != nil {
 		for _, relation := range articleTagList {
 			if cacheErr := redis_tag.SetCacheArticleCount(relation.TagID, -1); cacheErr != nil {
-				global.Logger.Errorf("标签文章数缓存减少失败: 标签ID=%d 错误=%v", relation.TagID, cacheErr)
+				articleLogger.Errorf("标签文章数缓存减少失败: 标签ID=%d 错误=%v", relation.TagID, cacheErr)
 			}
 		}
 	}
@@ -93,16 +92,18 @@ func deleteSingleArticle(tx *gorm.DB, article models.ArticleModel, unscoped bool
 		return err
 	}
 
-	global.Logger.Infof(
-		"删除文章 %d 时，删除了 %d 条评论、%d 条点赞、%d 条收藏、%d 条置顶、%d 条浏览记录、%d 条标签关系",
-		article.ID,
-		len(commentList),
-		len(diggList),
-		len(favoriteList),
-		len(topList),
-		len(viewList),
-		len(articleTagList),
-	)
+	if articleLogger != nil {
+		articleLogger.Infof(
+			"删除文章 %d 时，删除了 %d 条评论、%d 条点赞、%d 条收藏、%d 条置顶、%d 条浏览记录、%d 条标签关系",
+			article.ID,
+			len(commentList),
+			len(diggList),
+			len(favoriteList),
+			len(topList),
+			len(viewList),
+			len(articleTagList),
+		)
+	}
 	return nil
 }
 

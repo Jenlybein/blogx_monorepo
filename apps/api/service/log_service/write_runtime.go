@@ -3,8 +3,6 @@ package log_service
 import (
 	"time"
 
-	"myblogx/global"
-
 	"github.com/sirupsen/logrus"
 )
 
@@ -29,7 +27,10 @@ func RuntimeEntry(fields logrus.Fields) *logrus.Entry {
 	}
 
 	// 绑定所有字段并返回日志实例
-	return global.Logger.WithFields(fields)
+	if logLogger == nil {
+		return logrus.New().WithFields(fields)
+	}
+	return logLogger.WithFields(fields)
 }
 
 // defaultIfEmptyString 在字段为空时回退到默认值。

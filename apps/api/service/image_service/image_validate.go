@@ -10,8 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"myblogx/global"
-
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
@@ -46,7 +44,7 @@ func VerifyImageFormat(whitelist []string, fileHeader *multipart.FileHeader) err
 	file, err := fileHeader.Open()
 	if err != nil {
 		serr := fmt.Errorf("图片格式验证时，创建文件读取器失败：%w", err)
-		global.Logger.Error(serr)
+		imageLogger.Error(serr)
 		return serr
 	}
 	defer file.Close()

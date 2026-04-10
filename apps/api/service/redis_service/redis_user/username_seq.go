@@ -3,7 +3,7 @@ package redis_user
 import (
 	"context"
 	"fmt"
-	"myblogx/global"
+	"myblogx/service/redis_service"
 	"strconv"
 )
 
@@ -15,17 +15,17 @@ const (
 // NextAutoUsername 从 Redis 中申请下一个系统用户名。
 // 约定初始化值为 100000，因此首个自动发放的用户名是 100001。
 func NextAutoUsername() (string, error) {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return "", fmt.Errorf("redis 未初始化，无法生成用户名")
 	}
 
 	ctx := context.Background()
 
-	if err := global.Redis.SetNX(ctx, usernameSeqKey, usernameSeqStartAt, 0).Err(); err != nil {
+	if err := redis_service.Client().SetNX(ctx, usernameSeqKey, usernameSeqStartAt, 0).Err(); err != nil {
 		return "", fmt.Errorf("初始化用户名序列失败: %w", err)
 	}
 
-	seq, err := global.Redis.Incr(ctx, usernameSeqKey).Result()
+	seq, err := redis_service.Client().Incr(ctx, usernameSeqKey).Result()
 	if err != nil {
 		return "", fmt.Errorf("生成用户名失败: %w", err)
 	}

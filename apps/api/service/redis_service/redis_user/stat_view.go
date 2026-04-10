@@ -4,14 +4,14 @@ import (
 	"context"
 	"time"
 
-	"myblogx/global"
 	"myblogx/models/ctype"
+	"myblogx/service/redis_service"
 )
 
 // TryMarkUserHomeViewed 使用 HSETNX 做“写入式判重”。
 // 返回 true 表示今天第一次记录这次访问；返回 false 表示今天已经访问过。
 func TryMarkUserHomeViewed(userID, viewerUserID ctype.ID, now time.Time) (bool, error) {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return true, nil
 	}
 
@@ -19,7 +19,7 @@ func TryMarkUserHomeViewed(userID, viewerUserID ctype.ID, now time.Time) (bool, 
 	key := statUserViewDailyKey(userID, now)
 	field := viewerUserID.String()
 
-	marked, err := global.Redis.HSetNX(ctx, key, field, 1).Result()
+	marked, err := redis_service.Client().HSetNX(ctx, key, field, 1).Result()
 	if err != nil {
 		return false, err
 	}
@@ -28,8 +28,8 @@ func TryMarkUserHomeViewed(userID, viewerUserID ctype.ID, now time.Time) (bool, 
 		if ttl <= 0 {
 			ttl = time.Second
 		}
-		if err = global.Redis.Expire(ctx, key, ttl).Err(); err != nil {
-			_ = global.Redis.HDel(ctx, key, field).Err()
+		if err = redis_service.Client().Expire(ctx, key, ttl).Err(); err != nil {
+			_ = redis_service.Client().HDel(ctx, key, field).Err()
 			return false, err
 		}
 	}
@@ -39,10 +39,10 @@ func TryMarkUserHomeViewed(userID, viewerUserID ctype.ID, now time.Time) (bool, 
 // RollbackUserHomeViewed 在数据库事务失败时尽力回滚 Redis 判重标记，
 // 避免“Redis 已记过，但数据库未成功落库”导致当天少算 1 次。
 func RollbackUserHomeViewed(userID, viewerUserID ctype.ID, now time.Time) error {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return nil
 	}
-	return global.Redis.HDel(
+	return redis_service.Client().HDel(
 		context.Background(),
 		statUserViewDailyKey(userID, now),
 		viewerUserID.String(),

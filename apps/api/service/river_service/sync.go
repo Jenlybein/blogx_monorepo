@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"myblogx/global"
 	"myblogx/service/es_service"
 	"myblogx/service/river_service/rule"
 	"reflect"
@@ -123,12 +122,12 @@ func (h *eventHandler) String() string {
 
 // syncLoop 同步循环，处理同步请求
 func (r *River) syncLoop() {
-	bulkSize := global.Config.River.BulkSize
+	bulkSize := riverConfig.BulkSize
 	if bulkSize == 0 {
 		bulkSize = 128
 	}
 
-	interval := time.Duration(global.Config.River.FlushBulkTime) * time.Millisecond
+	interval := time.Duration(riverConfig.FlushBulkTime) * time.Millisecond
 	if interval == 0 {
 		interval = 200 * time.Millisecond
 	}
@@ -170,7 +169,9 @@ func (r *River) syncLoop() {
 		if needFlush {
 			// TODO: retry some times?
 			if err := r.doBulk(reqs); err != nil {
-				global.Logger.Errorf("执行 ES 批量同步失败，停止同步: %v", err)
+				if riverLogger != nil {
+					riverLogger.Errorf("执行 ES 批量同步失败，停止同步: %v", err)
+				}
 				r.cancel()
 				return
 			}
@@ -179,7 +180,9 @@ func (r *River) syncLoop() {
 
 		if needSavePos {
 			if err := r.master.Save(pos); err != nil {
-				global.Logger.Errorf("保存同步位点失败，停止同步: 位点=%s 错误=%v", pos, err)
+				if riverLogger != nil {
+					riverLogger.Errorf("保存同步位点失败，停止同步: 位点=%s 错误=%v", pos, err)
+				}
 				r.cancel()
 				return
 			}
@@ -295,7 +298,9 @@ func (r *River) makeReqColumnData(col *schema.TableColumn, value interface{}) in
 			eNum := value - 1
 			if eNum < 0 || eNum >= int64(len(col.EnumValues)) {
 				// 我们之前插入了无效的枚举值，所以返回空
-				global.Logger.Warnf("无效的 binlog 枚举索引: 索引=%d 枚举值=%v", eNum, col.EnumValues)
+				if riverLogger != nil {
+					riverLogger.Warnf("无效的 binlog 枚举索引: 索引=%d 枚举值=%v", eNum, col.EnumValues)
+				}
 				return ""
 			}
 
@@ -539,9 +544,13 @@ func (r *River) doBulk(reqs []*es_service.BulkRequest) error {
 									default:
 										errorsCount++
 										if errorMsg != "" {
-											global.Logger.Errorf("同步错误: %s 操作文档 %s 失败，状态: %d, 错误: %s", action, docID, status, errorMsg)
+											if riverLogger != nil {
+												riverLogger.Errorf("同步错误: %s 操作文档 %s 失败，状态: %d, 错误: %s", action, docID, status, errorMsg)
+											}
 										} else {
-											global.Logger.Errorf("同步错误: %s 操作文档 %s 失败，状态: %d, 结果: %s", action, docID, status, resultStr)
+											if riverLogger != nil {
+												riverLogger.Errorf("同步错误: %s 操作文档 %s 失败，状态: %d, 结果: %s", action, docID, status, resultStr)
+											}
 										}
 									}
 								}
@@ -554,11 +563,15 @@ func (r *River) doBulk(reqs []*es_service.BulkRequest) error {
 	}
 
 	// 输出操作统计信息
-	global.Logger.Infof("同步操作统计: 总计=%d, 成功=%d, 失败=%d, binlog=%s",
-		len(reqs), successCount, errorsCount, r.canal.SyncedPosition())
+	if riverLogger != nil {
+		riverLogger.Infof("同步操作统计: 总计=%d, 成功=%d, 失败=%d, binlog=%s",
+			len(reqs), successCount, errorsCount, r.canal.SyncedPosition())
+	}
 
 	if !resp.Success {
-		global.Logger.Errorf("同步文档失败 %s, binlog=%s", resp.Msg, r.canal.SyncedPosition())
+		if riverLogger != nil {
+			riverLogger.Errorf("同步文档失败 %s, binlog=%s", resp.Msg, r.canal.SyncedPosition())
+		}
 	}
 
 	return nil

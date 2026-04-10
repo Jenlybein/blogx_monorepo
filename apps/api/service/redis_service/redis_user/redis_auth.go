@@ -5,13 +5,13 @@ import (
 	"context"
 	"time"
 
-	"myblogx/global"
+	"myblogx/service/redis_service"
 	"myblogx/service/site_service"
 )
 
 // CheckLoginAllowed 检查账号和IP是否允许登录
 func CheckLoginAllowed(account, ip string) bool {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return true
 	}
 	ctx := context.Background()
@@ -22,7 +22,7 @@ func CheckLoginAllowed(account, ip string) bool {
 
 // RecordLoginFailure 记录登录失败，并在达到阈值时触发锁定
 func RecordLoginFailure(account, ip string) {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return
 	}
 	ctx := context.Background()
@@ -35,12 +35,12 @@ func RecordLoginFailure(account, ip string) {
 
 // ResetLoginFailures 重置账号和IP的登录失败计数与锁定状态
 func ResetLoginFailures(account, ip string) {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return
 	}
 	ctx := context.Background()
 	// 删除账号和IP的失败计数key、锁定key
-	_ = global.Redis.Del(ctx,
+	_ = redis_service.Client().Del(ctx,
 		loginFailUserKey(account),
 		loginFailIPKey(ip),
 		loginLockUserKey(account),
@@ -50,7 +50,7 @@ func ResetLoginFailures(account, ip string) {
 
 // AllowEmailSend 检查邮箱发送是否在频率限制范围内
 func AllowEmailSend(email, ip string, sendType int8) bool {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return true
 	}
 	ctx := context.Background()
@@ -71,17 +71,17 @@ func recordFailure(ctx context.Context, countKey, lockKey string, ttl time.Durat
 	//	max - 最大失败次数阈值
 
 	// 增加失败计数（首次调用会自动创建Key并初始化为1）
-	count, err := global.Redis.Incr(ctx, countKey).Result()
+	count, err := redis_service.Client().Incr(ctx, countKey).Result()
 	if err != nil {
 		return
 	}
 	// 如果是第一次计数，设置Key的过期时间
 	if count == 1 {
-		_ = global.Redis.Expire(ctx, countKey, ttl).Err()
+		_ = redis_service.Client().Expire(ctx, countKey, ttl).Err()
 	}
 	// 如果达到最大失败次数，设置锁定Key
 	if count >= max {
-		_ = global.Redis.Set(ctx, lockKey, "1", ttl).Err()
+		_ = redis_service.Client().Set(ctx, lockKey, "1", ttl).Err()
 	}
 }
 
@@ -92,14 +92,14 @@ func allowWithinWindow(ctx context.Context, key string, ttl time.Duration, max i
 	//	max - 最大允许次数
 
 	// 增加操作计数（首次调用会自动创建Key并初始化为1）
-	count, err := global.Redis.Incr(ctx, key).Result()
+	count, err := redis_service.Client().Incr(ctx, key).Result()
 	if err != nil {
 		// Redis操作失败时默认允许（降级处理）
 		return true
 	}
 	// 如果是第一次计数，设置Key的过期时间
 	if count == 1 {
-		_ = global.Redis.Expire(ctx, key, ttl).Err()
+		_ = redis_service.Client().Expire(ctx, key, ttl).Err()
 	}
 	// 检查计数是否在允许范围内
 	return count <= max

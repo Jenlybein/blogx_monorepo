@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/service/ai_service"
 	"strings"
@@ -46,15 +45,15 @@ func RewriteArticleSearch(content string) (*ArticleSearchRewrite, error) {
 	if strings.TrimSpace(content) == "" {
 		return nil, errors.New("搜索内容不能为空")
 	}
-	if global.Config == nil {
+	if !ai_service.Ready() {
 		return nil, errors.New("系统配置未初始化")
 	}
-	if global.DB == nil {
+	if ai_service.DB() == nil {
 		return nil, errors.New("数据库未初始化")
 	}
 
 	var tagList []string
-	if err := global.DB.Model(&models.TagModel{}).
+	if err := ai_service.DB().Model(&models.TagModel{}).
 		Where("is_enabled = ?", true).
 		Order("sort desc, id asc").
 		Pluck("title", &tagList).Error; err != nil {

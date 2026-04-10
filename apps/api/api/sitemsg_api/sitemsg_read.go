@@ -3,7 +3,6 @@ package sitemsg_api
 import (
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/enum/message_enum"
@@ -14,6 +13,7 @@ import (
 )
 
 func (a *SitemsgApi) SitemsgReadView(c *gin.Context) {
+	app := mustApp(c)
 	cr := middleware.GetBindJson[SitemsgReadRequest](c)
 
 	claims := jwts.MustGetClaimsByGin(c)
@@ -25,7 +25,7 @@ func (a *SitemsgApi) SitemsgReadView(c *gin.Context) {
 
 	if cr.ID != 0 {
 		var msg models.ArticleMessageModel
-		if err := global.DB.Take(&msg, "id = ? and receiver_id = ?", cr.ID, claims.UserID).Error; err != nil {
+		if err := app.DB.Take(&msg, "id = ? and receiver_id = ?", cr.ID, claims.UserID).Error; err != nil {
 			res.FailWithMsg("消息不存在", c)
 			return
 		}
@@ -36,7 +36,7 @@ func (a *SitemsgApi) SitemsgReadView(c *gin.Context) {
 		}
 
 		now := time.Now()
-		if err := global.DB.Model(&msg).Updates(map[string]any{
+		if err := app.DB.Model(&msg).Updates(map[string]any{
 			"is_read": true,
 			"read_at": &now,
 		}).Error; err != nil {
@@ -59,14 +59,14 @@ func (a *SitemsgApi) SitemsgReadView(c *gin.Context) {
 	}
 
 	var msgList []models.ArticleMessageModel
-	if err := global.DB.Find(&msgList, "receiver_id = ? and type in ? and is_read = ?", claims.UserID, typeList, false).Error; err != nil {
+	if err := app.DB.Find(&msgList, "receiver_id = ? and type in ? and is_read = ?", claims.UserID, typeList, false).Error; err != nil {
 		res.FailWithError(err, c)
 		return
 	}
 
 	if len(msgList) > 0 {
 		now := time.Now()
-		if err := global.DB.Model(&msgList).Updates(map[string]any{
+		if err := app.DB.Model(&msgList).Updates(map[string]any{
 			"is_read": true,
 			"read_at": &now,
 		}).Error; err != nil {

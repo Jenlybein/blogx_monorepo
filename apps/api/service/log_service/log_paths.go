@@ -4,8 +4,6 @@ import (
 	"flag"
 	"path/filepath"
 	"runtime"
-
-	"myblogx/global"
 )
 
 // ResolveLogDir 统一解析日志目录，避免测试在包工作目录下写出散落日志。
@@ -24,8 +22,8 @@ func ResolveLogApp(app string) string {
 	if app != "" {
 		return app
 	}
-	if global.Config != nil && global.Config.Log.App != "" {
-		return global.Config.Log.App
+	if logSettings.App != "" {
+		return logSettings.App
 	}
 	if runningUnderGoTest() {
 		return "test"

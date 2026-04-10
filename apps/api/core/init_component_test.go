@@ -25,7 +25,7 @@ func TestInitRedis(t *testing.T) {
 		Addr: host,
 		Port: p,
 		DB:   0,
-	})
+	}, testutil.Logger())
 	if client == nil {
 		t.Fatal("InitRedis 不应返回 nil")
 	}
@@ -37,13 +37,13 @@ func TestInitRedis(t *testing.T) {
 func TestKafkaMysqlClientInitValidation(t *testing.T) {
 	testutil.InitGlobals()
 
-	if got := core.KafkaMysqlClientInit(&conf.Kafka{}); got != nil {
+	if got := core.KafkaMysqlClientInit(&conf.Kafka{}, testutil.Logger()); got != nil {
 		t.Fatalf("brokers 为空时应返回 nil")
 	}
 
 	if got := core.KafkaMysqlClientInit(&conf.Kafka{
 		Mysql: conf.KafkaConf{Brokers: []string{"127.0.0.1:9092"}},
-	}); got != nil {
+	}, testutil.Logger()); got != nil {
 		t.Fatalf("topic 为空时应返回 nil")
 	}
 
@@ -52,14 +52,14 @@ func TestKafkaMysqlClientInitValidation(t *testing.T) {
 			Brokers: []string{"127.0.0.1:9092"},
 			Topic:   "t1",
 		},
-	}); got != nil {
+	}, testutil.Logger()); got != nil {
 		t.Fatalf("group_id 为空时应返回 nil")
 	}
 }
 
 func TestEsConnectNilAddresses(t *testing.T) {
 	testutil.InitGlobals()
-	if got := core.EsConnect(&conf.ES{}); got != nil {
+	if got := core.EsConnect(&conf.ES{}, testutil.Logger()); got != nil {
 		t.Fatalf("ES 地址为空时应返回 nil")
 	}
 }

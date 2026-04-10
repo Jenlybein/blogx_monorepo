@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"time"
 
-	"myblogx/global"
 	"myblogx/service/db_service"
 	"myblogx/service/log_service"
 	"myblogx/utils/jwts"
@@ -16,6 +15,7 @@ import (
 
 // LogMiddleware 运行日志中间件
 func LogMiddleware(c *gin.Context) {
+	app := mustApp(c)
 	// 生成全局唯一的请求ID，用于全链路日志追踪
 	requestID := newRequestID()
 	// 将请求ID存入 Gin 上下文，方便后续日志/业务使用
@@ -30,7 +30,7 @@ func LogMiddleware(c *gin.Context) {
 	c.Next()
 
 	// 记录请求结束时间，用于计算接口耗时
-	if !global.Config.Log.RequestLogEnabled {
+	if !app.Config.Log.RequestLogEnabled {
 		return
 	}
 

@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"myblogx/conf"
-	"myblogx/global"
 
 	"github.com/go-gorm/caches/v4"
 	"github.com/go-redis/redis/v8"
+	"github.com/sirupsen/logrus"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -82,25 +82,25 @@ func (c *redisCacher) Invalidate(ctx context.Context) error {
 }
 
 // InitDB 初始化数据库连接
-func InitDB(dbCfg []conf.DB) *gorm.DB {
+func InitDB(dbCfg []conf.DB, gormConf conf.GormConf, logConfig conf.Logrus, loggerInstance *logrus.Logger, redisClient *redis.Client) *gorm.DB {
 	if len(dbCfg) == 0 {
-		global.Logger.Fatalf("数据库配置错误：未配置数据库")
+		loggerInstance.Fatalf("数据库配置错误：未配置数据库")
 	}
 
 	// 配置日志（Debug 模式）
-	logConfig := logger.Config{
+	gormLogConfig := logger.Config{
 		SlowThreshold:             time.Second, // 慢查询阈值（超过 1 秒标红）
 		LogLevel:                  logger.Warn, // SQL 日志级别（Debug 核心）
-		Colorful:                  global.Config.Log.StdoutFormat == "text",
+		Colorful:                  logConfig.StdoutFormat == "text",
 		IgnoreRecordNotFoundError: true, // 忽略记录不存在错误
 
 	}
-	if global.Config.GORM.Debug {
-		logConfig.LogLevel = logger.Info
+	if gormConf.Debug {
+		gormLogConfig.LogLevel = logger.Info
 	}
 	newLogger := logger.New(
-		global.Logger,
-		logConfig,
+		loggerInstance,
+		gormLogConfig,
 	)
 
 	gormCfg := gorm.Config{
@@ -116,13 +116,11 @@ func InitDB(dbCfg []conf.DB) *gorm.DB {
 	// 连接数据库（使用主库初始化）
 	db, err := gorm.Open(mysql.Open(dsn), &gormCfg)
 	if err != nil {
-		global.Logger.Fatalf("数据库连接失败: %s", err)
+		loggerInstance.Fatalf("数据库连接失败: %s", err)
 	}
 
-	global.Logger.Infof("数据库连接成功 %s", DB.SafeDSN())
+	loggerInstance.Infof("数据库连接成功 %s", DB.SafeDSN())
 
-	// 从配置文件中读取 gorm 配置
-	gormConf := global.Config.GORM
 	sqlDB, _ := db.DB()
 	sqlDB.SetMaxIdleConns(gormConf.MaxIdleConns)
 	sqlDB.SetMaxOpenConns(gormConf.MaxOpenConns)
@@ -141,20 +139,20 @@ func InitDB(dbCfg []conf.DB) *gorm.DB {
 			Policy:   dbresolver.RandomPolicy{},
 		}))
 		if err != nil {
-			global.Logger.Fatalf("数据库读写分离配置失败: %s", err)
+			loggerInstance.Fatalf("数据库读写分离配置失败: %s", err)
 		}
-		global.Logger.Infof("数据库读写分离配置成功 %d 个读库", len(readList))
+		loggerInstance.Infof("数据库读写分离配置成功 %d 个读库", len(readList))
 	}
 
 	// 缓存加速配置
 	cachesPlugin := &caches.Caches{Conf: &caches.Config{
 		Easer:  true,
-		Cacher: &redisCacher{rdb: global.Redis},
+		Cacher: &redisCacher{rdb: redisClient},
 	}}
 	if err := db.Use(cachesPlugin); err != nil {
-		global.Logger.Fatalf("数据库缓存插件配置失败: %s", err)
+		loggerInstance.Fatalf("数据库缓存插件配置失败: %s", err)
 	}
-	global.Logger.Infof("数据库缓存插件配置成功")
+	loggerInstance.Infof("数据库缓存插件配置成功")
 
 	return db
 }

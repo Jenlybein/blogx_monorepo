@@ -3,7 +3,6 @@ package qq_service
 import (
 	"io"
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/test/testutil"
 	"net/http"
 	"strings"
@@ -32,9 +31,9 @@ func withMockQQTransport(t *testing.T, fn func(req *http.Request) (string, int))
 
 func TestGetAccessToken(t *testing.T) {
 	testutil.InitGlobals()
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		QQ: conf.QQ{AppID: "1", AppKey: "2", Redirect: "http://localhost/cb"},
-	}
+	})
 
 	withMockQQTransport(t, func(req *http.Request) (string, int) {
 		if req.URL.Query().Get("grant_type") == "authorization_code" {
@@ -54,9 +53,9 @@ func TestGetAccessToken(t *testing.T) {
 
 func TestGetUserInfoAndGetUserInfoFlow(t *testing.T) {
 	testutil.InitGlobals()
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		QQ: conf.QQ{AppID: "1", AppKey: "2", Redirect: "http://localhost/cb"},
-	}
+	})
 
 	withMockQQTransport(t, func(req *http.Request) (string, int) {
 		if req.URL.Query().Get("grant_type") == "authorization_code" {
@@ -76,9 +75,9 @@ func TestGetUserInfoAndGetUserInfoFlow(t *testing.T) {
 
 func TestGetAccessTokenFail(t *testing.T) {
 	testutil.InitGlobals()
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		QQ: conf.QQ{AppID: "1", AppKey: "2", Redirect: "http://localhost/cb"},
-	}
+	})
 
 	withMockQQTransport(t, func(req *http.Request) (string, int) {
 		return `{"error_description":"bad code"}`, 200

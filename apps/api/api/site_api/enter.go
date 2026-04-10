@@ -5,7 +5,6 @@ package site_api
 import (
 	"myblogx/appctx"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/service/site_service"
 
 	"github.com/gin-gonic/gin"
@@ -28,7 +27,7 @@ var sensitive_place_holder = "******"
 
 // 站点 qq 登录地址
 func (SiteApi) SiteInfoQQView(c *gin.Context) {
-	res.OkWithData(global.Config.QQ.Url(), c)
+	res.OkWithData(mustApp(c).Config.QQ.Url(), c)
 }
 
 // AI 信息获取

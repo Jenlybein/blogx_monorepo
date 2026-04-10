@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/chat_msg_enum"
@@ -164,7 +163,7 @@ func mustGetSession(t *testing.T, userID, receiverID ctype.ID) models.ChatSessio
 	t.Helper()
 
 	var session models.ChatSessionModel
-	if err := global.DB.Take(&session, "user_id = ? and receiver_id = ?", userID, receiverID).Error; err != nil {
+	if err := testutil.DB().Take(&session, "user_id = ? and receiver_id = ?", userID, receiverID).Error; err != nil {
 		t.Fatalf("查询会话失败 user=%d receiver=%d: %v", userID, receiverID, err)
 	}
 	return session
@@ -234,7 +233,7 @@ func TestToTextChatCreatesMessageAndSessions(t *testing.T) {
 	}
 
 	var msgCount int64
-	if err = global.DB.Model(&models.ChatMsgModel{}).Count(&msgCount).Error; err != nil {
+	if err = testutil.DB().Model(&models.ChatMsgModel{}).Count(&msgCount).Error; err != nil {
 		t.Fatalf("统计消息失败: %v", err)
 	}
 	if msgCount != 1 {
@@ -242,7 +241,7 @@ func TestToTextChatCreatesMessageAndSessions(t *testing.T) {
 	}
 
 	var sessionCount int64
-	if err = global.DB.Model(&models.ChatSessionModel{}).Count(&sessionCount).Error; err != nil {
+	if err = testutil.DB().Model(&models.ChatSessionModel{}).Count(&sessionCount).Error; err != nil {
 		t.Fatalf("统计会话失败: %v", err)
 	}
 	if sessionCount != 2 {
@@ -293,7 +292,7 @@ func TestToTextChatReusesSessions(t *testing.T) {
 	}
 
 	var sessionCount int64
-	if err = global.DB.Model(&models.ChatSessionModel{}).Count(&sessionCount).Error; err != nil {
+	if err = testutil.DB().Model(&models.ChatSessionModel{}).Count(&sessionCount).Error; err != nil {
 		t.Fatalf("统计会话失败: %v", err)
 	}
 	if sessionCount != 2 {
@@ -328,10 +327,10 @@ func TestToTextChatRestoresDeletedSession(t *testing.T) {
 	}
 
 	var deletedSession models.ChatSessionModel
-	if err := global.DB.Take(&deletedSession, "user_id = ? and receiver_id = ?", userA.ID, userB.ID).Error; err != nil {
+	if err := testutil.DB().Take(&deletedSession, "user_id = ? and receiver_id = ?", userA.ID, userB.ID).Error; err != nil {
 		t.Fatalf("查询待删除会话失败: %v", err)
 	}
-	if err := global.DB.Delete(&deletedSession).Error; err != nil {
+	if err := testutil.DB().Delete(&deletedSession).Error; err != nil {
 		t.Fatalf("软删会话失败: %v", err)
 	}
 
@@ -346,7 +345,7 @@ func TestToTextChatRestoresDeletedSession(t *testing.T) {
 	}
 
 	var restoredSession models.ChatSessionModel
-	if err := global.DB.Take(&restoredSession, "user_id = ? and receiver_id = ?", userA.ID, userB.ID).Error; err != nil {
+	if err := testutil.DB().Take(&restoredSession, "user_id = ? and receiver_id = ?", userA.ID, userB.ID).Error; err != nil {
 		t.Fatalf("被删除的会话应被恢复: %v", err)
 	}
 	if restoredSession.DeletedAt.Valid {
@@ -376,7 +375,7 @@ func TestToTextChatSupportsSelfChat(t *testing.T) {
 	}
 
 	var sessionCount int64
-	if err = global.DB.Model(&models.ChatSessionModel{}).Count(&sessionCount).Error; err != nil {
+	if err = testutil.DB().Model(&models.ChatSessionModel{}).Count(&sessionCount).Error; err != nil {
 		t.Fatalf("统计会话失败: %v", err)
 	}
 	if sessionCount != 1 {

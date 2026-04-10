@@ -2,8 +2,6 @@ package top
 
 import (
 	"encoding/json"
-	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -46,7 +44,6 @@ func setupTopEnv(t *testing.T) (models.UserModel, models.UserModel) {
 		&models.ArticleModel{},
 		&models.UserTopArticleModel{},
 	)
-	global.Config = &conf.Config{}
 
 	user := models.UserModel{Username: "user_top", Password: "x", Role: enum.RoleUser}
 	admin := models.UserModel{Username: "admin_top", Password: "x", Role: enum.RoleAdmin}
@@ -67,7 +64,7 @@ func createTopArticle(t *testing.T, authorID ctype.ID, title string, status enum
 		AuthorID: authorID,
 		Status:   status,
 	}
-	if err := global.DB.Create(&article).Error; err != nil {
+	if err := testutil.DB().Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)
 	}
 	return article
@@ -125,7 +122,7 @@ func TestArticleTopSetViewUserLimitAndAdminUnlimited(t *testing.T) {
 	}
 
 	var userCount int64
-	if err := global.DB.Model(&models.UserTopArticleModel{}).Where("user_id = ?", user.ID).Count(&userCount).Error; err != nil {
+	if err := testutil.DB().Model(&models.UserTopArticleModel{}).Where("user_id = ?", user.ID).Count(&userCount).Error; err != nil {
 		t.Fatalf("统计普通用户置顶数量失败: %v", err)
 	}
 	if userCount != 3 {
@@ -133,7 +130,7 @@ func TestArticleTopSetViewUserLimitAndAdminUnlimited(t *testing.T) {
 	}
 
 	var adminCount int64
-	if err := global.DB.Model(&models.UserTopArticleModel{}).Where("user_id = ?", admin.ID).Count(&adminCount).Error; err != nil {
+	if err := testutil.DB().Model(&models.UserTopArticleModel{}).Where("user_id = ?", admin.ID).Count(&adminCount).Error; err != nil {
 		t.Fatalf("统计管理员置顶数量失败: %v", err)
 	}
 	if adminCount != 4 {
@@ -149,10 +146,10 @@ func TestArticleTopRemoveViewRemovesOnlyCurrentUsersTop(t *testing.T) {
 	adminClaims := &jwts.MyClaims{Claims: jwts.Claims{UserID: admin.ID, Role: admin.Role, Username: admin.Username}}
 
 	article := createTopArticle(t, user.ID, "shared-top", enum.ArticleStatusPublished)
-	if err := global.DB.Create(&models.UserTopArticleModel{UserID: user.ID, ArticleID: article.ID}).Error; err != nil {
+	if err := testutil.DB().Create(&models.UserTopArticleModel{UserID: user.ID, ArticleID: article.ID}).Error; err != nil {
 		t.Fatalf("创建用户置顶失败: %v", err)
 	}
-	if err := global.DB.Create(&models.UserTopArticleModel{UserID: admin.ID, ArticleID: article.ID}).Error; err != nil {
+	if err := testutil.DB().Create(&models.UserTopArticleModel{UserID: admin.ID, ArticleID: article.ID}).Error; err != nil {
 		t.Fatalf("创建管理员置顶失败: %v", err)
 	}
 
@@ -167,7 +164,7 @@ func TestArticleTopRemoveViewRemovesOnlyCurrentUsersTop(t *testing.T) {
 	}
 
 	var count int64
-	if err := global.DB.Model(&models.UserTopArticleModel{}).Where("article_id = ?", article.ID).Count(&count).Error; err != nil {
+	if err := testutil.DB().Model(&models.UserTopArticleModel{}).Where("article_id = ?", article.ID).Count(&count).Error; err != nil {
 		t.Fatalf("统计剩余置顶失败: %v", err)
 	}
 	if count != 1 {
@@ -184,7 +181,7 @@ func TestArticleTopRemoveViewRemovesOnlyCurrentUsersTop(t *testing.T) {
 		}
 	}
 
-	if err := global.DB.Model(&models.UserTopArticleModel{}).Where("article_id = ?", article.ID).Count(&count).Error; err != nil {
+	if err := testutil.DB().Model(&models.UserTopArticleModel{}).Where("article_id = ?", article.ID).Count(&count).Error; err != nil {
 		t.Fatalf("统计最终置顶失败: %v", err)
 	}
 	if count != 0 {
@@ -201,7 +198,7 @@ func TestArticleTopRemoveViewRemovesOnlyCurrentUsersTop(t *testing.T) {
 		}
 	}
 
-	if err := global.DB.Unscoped().Model(&models.UserTopArticleModel{}).Where("user_id = ? AND article_id = ?", user.ID, article.ID).Count(&count).Error; err != nil {
+	if err := testutil.DB().Unscoped().Model(&models.UserTopArticleModel{}).Where("user_id = ? AND article_id = ?", user.ID, article.ID).Count(&count).Error; err != nil {
 		t.Fatalf("统计恢复后的置顶关系失败: %v", err)
 	}
 	if count != 1 {
@@ -217,7 +214,7 @@ func TestArticleTopListViewByAuthor(t *testing.T) {
 	article2 := createTopArticle(t, user.ID, "top-2", enum.ArticleStatusPublished)
 	other := createTopArticle(t, admin.ID, "other-top", enum.ArticleStatusPublished)
 
-	if err := global.DB.Create(&models.UserTopArticleModel{
+	if err := testutil.DB().Create(&models.UserTopArticleModel{
 		Model: models.Model{
 			CreatedAt: time.Date(2026, 3, 22, 10, 0, 0, 0, time.UTC),
 		},
@@ -226,7 +223,7 @@ func TestArticleTopListViewByAuthor(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatalf("创建作者置顶失败: %v", err)
 	}
-	if err := global.DB.Create(&models.UserTopArticleModel{
+	if err := testutil.DB().Create(&models.UserTopArticleModel{
 		Model: models.Model{
 			CreatedAt: time.Date(2026, 3, 22, 10, 5, 0, 0, time.UTC),
 		},
@@ -235,7 +232,7 @@ func TestArticleTopListViewByAuthor(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatalf("创建作者第二条置顶失败: %v", err)
 	}
-	if err := global.DB.Create(&models.UserTopArticleModel{
+	if err := testutil.DB().Create(&models.UserTopArticleModel{
 		Model: models.Model{
 			CreatedAt: time.Date(2026, 3, 22, 10, 10, 0, 0, time.UTC),
 		},
@@ -277,14 +274,14 @@ func TestArticleTopListViewByAdminDeduplicatesArticles(t *testing.T) {
 	api := TopApi{}
 
 	admin2 := models.UserModel{Username: "admin_top_2", Password: "x", Role: enum.RoleAdmin}
-	if err := global.DB.Create(&admin2).Error; err != nil {
+	if err := testutil.DB().Create(&admin2).Error; err != nil {
 		t.Fatalf("创建第二个管理员失败: %v", err)
 	}
 
 	article1 := createTopArticle(t, user.ID, "admin-top-1", enum.ArticleStatusPublished)
 	article2 := createTopArticle(t, user.ID, "admin-top-2", enum.ArticleStatusPublished)
 
-	if err := global.DB.Create(&models.UserTopArticleModel{
+	if err := testutil.DB().Create(&models.UserTopArticleModel{
 		Model: models.Model{
 			CreatedAt: time.Date(2026, 3, 22, 11, 0, 0, 0, time.UTC),
 		},
@@ -293,7 +290,7 @@ func TestArticleTopListViewByAdminDeduplicatesArticles(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatalf("创建管理员置顶失败: %v", err)
 	}
-	if err := global.DB.Create(&models.UserTopArticleModel{
+	if err := testutil.DB().Create(&models.UserTopArticleModel{
 		Model: models.Model{
 			CreatedAt: time.Date(2026, 3, 22, 11, 5, 0, 0, time.UTC),
 		},
@@ -302,7 +299,7 @@ func TestArticleTopListViewByAdminDeduplicatesArticles(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatalf("创建管理员第二条置顶失败: %v", err)
 	}
-	if err := global.DB.Create(&models.UserTopArticleModel{
+	if err := testutil.DB().Create(&models.UserTopArticleModel{
 		Model: models.Model{
 			CreatedAt: time.Date(2026, 3, 22, 11, 10, 0, 0, time.UTC),
 		},

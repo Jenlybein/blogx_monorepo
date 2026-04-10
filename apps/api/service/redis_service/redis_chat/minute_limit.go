@@ -3,8 +3,8 @@ package redis_chat
 import (
 	"context"
 	"fmt"
-	"myblogx/global"
 	"myblogx/models/ctype"
+	"myblogx/service/redis_service"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -76,11 +76,12 @@ type MinuteReservation struct {
 
 // Release 撤销一次分钟级预占，用于消息最终未落库时回滚本次占用。
 func (r *MinuteReservation) Release() error {
-	if r == nil || global.Redis == nil {
+	client := redis_service.Client()
+	if r == nil || client == nil {
 		return nil
 	}
 
-	_, err := chatMinuteReleaseScript.Run(context.Background(), global.Redis,
+	_, err := chatMinuteReleaseScript.Run(context.Background(), client,
 		[]string{r.userKey, r.sessionKey},
 		r.member,
 	).Result()
@@ -93,7 +94,8 @@ func (r *MinuteReservation) Release() error {
 // 2. reservation 为空且 limitedBy 非空：被限流；
 // 3. err 非空：Redis 执行异常。
 func ReserveChatMinuteRate(senderID ctype.ID, sessionID string, now time.Time) (*MinuteReservation, string, error) {
-	if global.Redis == nil {
+	client := redis_service.Client()
+	if client == nil {
 		return nil, "", fmt.Errorf("redis 未初始化")
 	}
 
@@ -103,7 +105,7 @@ func ReserveChatMinuteRate(senderID ctype.ID, sessionID string, now time.Time) (
 	sessionKey := chatSessionMinuteKey(sessionID)
 
 	// 在一个 Lua 脚本中同时完成清理过期成员、统计窗口内数量和写入新消息
-	result, err := chatMinuteReserveScript.Run(context.Background(), global.Redis, []string{userKey, sessionKey},
+	result, err := chatMinuteReserveScript.Run(context.Background(), client, []string{userKey, sessionKey},
 		now.UnixMilli(),
 		chatMinuteWindow.Milliseconds(),
 		chatUserMinuteLimit,

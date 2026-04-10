@@ -4,25 +4,24 @@ import (
 	"context"
 	"fmt"
 	"myblogx/models/ctype"
+	"myblogx/service/redis_service"
 	"strconv"
-
-	"myblogx/global"
 )
 
 const TagCacheArticleCount = "tag_article_count"
 
 func SetCacheArticleCount(tagID ctype.ID, increase int) error {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return nil
 	}
-	return global.Redis.HIncrBy(context.Background(), TagCacheArticleCount, tagID.String(), int64(increase)).Err()
+	return redis_service.Client().HIncrBy(context.Background(), TagCacheArticleCount, tagID.String(), int64(increase)).Err()
 }
 
 func GetCacheArticleCount(tagID ctype.ID) int {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return 0
 	}
-	num, _ := global.Redis.HGet(context.Background(), TagCacheArticleCount, tagID.String()).Int()
+	num, _ := redis_service.Client().HGet(context.Background(), TagCacheArticleCount, tagID.String()).Int()
 	return num
 }
 
@@ -31,7 +30,7 @@ func GetBatchCacheArticleCount(tagIDs []ctype.ID) map[ctype.ID]int {
 	if len(tagIDs) == 0 {
 		return result
 	}
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return result
 	}
 
@@ -40,7 +39,7 @@ func GetBatchCacheArticleCount(tagIDs []ctype.ID) map[ctype.ID]int {
 		fields = append(fields, tagID.String())
 	}
 
-	values, err := global.Redis.HMGet(context.Background(), TagCacheArticleCount, fields...).Result()
+	values, err := redis_service.Client().HMGet(context.Background(), TagCacheArticleCount, fields...).Result()
 	if err != nil {
 		return result
 	}
@@ -59,10 +58,10 @@ func GetBatchCacheArticleCount(tagIDs []ctype.ID) map[ctype.ID]int {
 }
 
 func GetAllCacheArticleCount() map[ctype.ID]int {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return map[ctype.ID]int{}
 	}
-	res, err := global.Redis.HGetAll(context.Background(), TagCacheArticleCount).Result()
+	res, err := redis_service.Client().HGetAll(context.Background(), TagCacheArticleCount).Result()
 	if err != nil {
 		return nil
 	}
@@ -83,8 +82,8 @@ func GetAllCacheArticleCount() map[ctype.ID]int {
 }
 
 func ClearAllCacheTag() error {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return nil
 	}
-	return global.Redis.Del(context.Background(), TagCacheArticleCount).Err()
+	return redis_service.Client().Del(context.Background(), TagCacheArticleCount).Err()
 }

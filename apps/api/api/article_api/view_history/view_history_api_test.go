@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"myblogx/common"
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -42,13 +41,13 @@ func setupViewHistoryEnv(t *testing.T) *models.UserModel {
 		&models.ArticleModel{},
 		&models.UserArticleViewHistoryModel{},
 	)
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Jwt: conf.Jwt{
 			Expire: 1,
 			Secret: "history-secret",
 			Issuer: "history-test",
 		},
-	}
+	})
 
 	user := &models.UserModel{
 		Username: "history_user",
@@ -76,11 +75,11 @@ func TestViewHistoryListAndDelete(t *testing.T) {
 		AuthorID: user.ID,
 		Status:   enum.ArticleStatusPublished,
 	}
-	if err := global.DB.Create(&article).Error; err != nil {
+	if err := testutil.DB().Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)
 	}
 
-	if err := global.DB.Create(&models.UserArticleViewHistoryModel{
+	if err := testutil.DB().Create(&models.UserArticleViewHistoryModel{
 		ArticleID: article.ID,
 		UserID:    user.ID,
 	}).Error; err != nil {
@@ -117,7 +116,7 @@ func TestViewHistoryListAndDelete(t *testing.T) {
 	}
 
 	var count int64
-	if err := global.DB.Model(&models.UserArticleViewHistoryModel{}).
+	if err := testutil.DB().Model(&models.UserArticleViewHistoryModel{}).
 		Where("user_id = ? and article_id = ?", user.ID, article.ID).
 		Count(&count).Error; err != nil {
 		t.Fatalf("查询浏览记录失败: %v", err)

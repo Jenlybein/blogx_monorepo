@@ -3,16 +3,17 @@
 package core
 
 import (
-	"myblogx/global"
 	"myblogx/utils/ipmeta"
+
+	"github.com/sirupsen/logrus"
 )
 
-func InitIPDB() {
+func InitIPDB(logger *logrus.Logger) {
 	var dbIPv4 = "resources/ipbase/ip2region_v4.xdb"
 	var dbIPv6 = "resources/ipbase/ip2region_v6.xdb"
 
 	if err := ipmeta.Init(dbIPv4, dbIPv6); err != nil {
-		global.Logger.Fatalf("IP数据库初始化失败:%s", err)
+		logger.Fatalf("IP数据库初始化失败:%s", err)
 	}
 }
 

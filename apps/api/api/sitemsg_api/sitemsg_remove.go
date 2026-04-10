@@ -3,7 +3,6 @@ package sitemsg_api
 import (
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/enum/message_enum"
@@ -13,6 +12,7 @@ import (
 )
 
 func (a *SitemsgApi) SitemsgRemoveView(c *gin.Context) {
+	app := mustApp(c)
 	cr := middleware.GetBindJson[SitemsgRemoveRequest](c)
 
 	claims := jwts.MustGetClaimsByGin(c)
@@ -24,12 +24,12 @@ func (a *SitemsgApi) SitemsgRemoveView(c *gin.Context) {
 
 	if cr.ID != 0 {
 		var msg models.ArticleMessageModel
-		if err := global.DB.Take(&msg, "id = ? and receiver_id = ?", cr.ID, claims.UserID).Error; err != nil {
+		if err := app.DB.Take(&msg, "id = ? and receiver_id = ?", cr.ID, claims.UserID).Error; err != nil {
 			res.FailWithMsg("消息不存在", c)
 			return
 		}
 
-		if err := global.DB.Delete(&msg).Error; err != nil {
+		if err := app.DB.Delete(&msg).Error; err != nil {
 			res.FailWithError(err, c)
 			return
 		}
@@ -49,13 +49,13 @@ func (a *SitemsgApi) SitemsgRemoveView(c *gin.Context) {
 	}
 
 	var msgList []models.ArticleMessageModel
-	if err := global.DB.Find(&msgList, "receiver_id = ? and type in ?", claims.UserID, typeList).Error; err != nil {
+	if err := app.DB.Find(&msgList, "receiver_id = ? and type in ?", claims.UserID, typeList).Error; err != nil {
 		res.FailWithError(err, c)
 		return
 	}
 
 	if len(msgList) > 0 {
-		if err := global.DB.Delete(&msgList).Error; err != nil {
+		if err := app.DB.Delete(&msgList).Error; err != nil {
 			res.FailWithError(err, c)
 			return
 		}

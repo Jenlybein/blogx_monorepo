@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"myblogx/global"
 	"myblogx/models/ctype"
+	"myblogx/service/redis_service"
 
 	"github.com/go-redis/redis/v8"
 )
@@ -30,7 +30,7 @@ func StoreTask(taskID ctype.ID, objectKey string, data []byte, ttl time.Duration
 
 	ctx := context.Background()
 	// 创建Redis事务管道
-	pipe := global.Redis.TxPipeline()
+	pipe := redis_service.Client().TxPipeline()
 
 	// 1. 根据taskID存储任务原始数据
 	pipe.Set(ctx, uploadTaskIDKey(taskID), data, ttl)
@@ -45,18 +45,19 @@ func StoreTask(taskID ctype.ID, objectKey string, data []byte, ttl time.Duration
 // GetTaskDataByID 根据任务ID获取任务原始数据
 func GetTaskDataByID(taskID ctype.ID) ([]byte, error) {
 	// 从Redis获取字节数据
-	return global.Redis.Get(context.Background(), uploadTaskIDKey(taskID)).Bytes()
+	return redis_service.Client().Get(context.Background(), uploadTaskIDKey(taskID)).Bytes()
 }
 
 // GetTaskIDByObjectKey 根据对象key反向查询对应的任务ID
 // 返回：任务ID、查询/解析错误
 func GetTaskIDByObjectKey(objectKey string) (ctype.ID, error) {
-	if global.Redis == nil {
+	client := redis_service.Client()
+	if client == nil {
 		return 0, fmt.Errorf("redis 未初始化")
 	}
 
 	// 获取字符串格式的taskID
-	rawID, err := global.Redis.Get(context.Background(), uploadTaskObjectKey(objectKey)).Result()
+	rawID, err := client.Get(context.Background(), uploadTaskObjectKey(objectKey)).Result()
 	if err != nil {
 		return 0, err
 	}
@@ -85,7 +86,8 @@ func LockTask(taskID ctype.ID, ttl time.Duration) (unlock func(), locked bool, e
 	token := fmt.Sprintf("%d", time.Now().UnixNano())
 
 	// SETNX：不存在则设置，实现加锁
-	locked, err = global.Redis.SetNX(ctx, uploadTaskLockKey(taskID), token, ttl).Result()
+	client := redis_service.Client()
+	locked, err = client.SetNX(ctx, uploadTaskLockKey(taskID), token, ttl).Result()
 	if err != nil || !locked {
 		return nil, locked, err
 	}
@@ -93,8 +95,8 @@ func LockTask(taskID ctype.ID, ttl time.Duration) (unlock func(), locked bool, e
 	// 返回闭包解锁函数，内部使用Lua脚本安全释放锁
 	return func() {
 		// 执行Lua脚本释放锁
-		if _, releaseErr := releaseUploadTaskLockScript.Run(ctx, global.Redis, []string{uploadTaskLockKey(taskID)}, token).Result(); releaseErr != nil {
-			global.Logger.Warnf("释放图片上传任务锁失败: 任务ID=%s 错误=%v", taskID.String(), releaseErr)
+		if _, releaseErr := releaseUploadTaskLockScript.Run(ctx, client, []string{uploadTaskLockKey(taskID)}, token).Result(); releaseErr != nil {
+			redis_service.Logger().Warnf("释放图片上传任务锁失败: 任务ID=%s 错误=%v", taskID.String(), releaseErr)
 		}
 	}, true, nil
 }
@@ -104,10 +106,10 @@ func StoreAuditStatus(objectKey string, status string, ttl time.Duration) error 
 	if ttl <= 0 {
 		ttl = 24 * time.Hour
 	}
-	return global.Redis.Set(context.Background(), imageAuditKey(objectKey), status, ttl).Err()
+	return redis_service.Client().Set(context.Background(), imageAuditKey(objectKey), status, ttl).Err()
 }
 
 // ConsumeAuditStatus 读取并删除暂存的图片审核状态。
 func ConsumeAuditStatus(objectKey string) (string, error) {
-	return global.Redis.GetDel(context.Background(), imageAuditKey(objectKey)).Result()
+	return redis_service.Client().GetDel(context.Background(), imageAuditKey(objectKey)).Result()
 }

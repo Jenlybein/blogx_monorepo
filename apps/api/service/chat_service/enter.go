@@ -3,7 +3,6 @@ package chat_service
 import (
 	"time"
 
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/chat_msg_enum"
@@ -34,7 +33,7 @@ func ToChat(req ToChatRequest) (*models.ChatMsgModel, error) {
 	sessionID := buildSessionID(req.SenderID, req.ReceiverID)
 
 	var msg *models.ChatMsgModel
-	err := global.DB.Transaction(func(tx *gorm.DB) error {
+	err := chatDB.Transaction(func(tx *gorm.DB) error {
 		// 会话查找或创建
 		if err := ensureChatSessions(tx, req, sessionID); err != nil {
 			return err
@@ -52,7 +51,7 @@ func ToChat(req ToChatRequest) (*models.ChatMsgModel, error) {
 		}
 
 		if err := tx.Create(msg).Error; err != nil {
-			global.Logger.Errorf("创建聊天消息失败: %v", err)
+			chatLogger.Errorf("创建聊天消息失败: %v", err)
 			return err
 		}
 

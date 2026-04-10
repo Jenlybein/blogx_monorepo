@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"myblogx/common"
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -42,13 +41,13 @@ func setupCategoryEnv(t *testing.T) *models.UserModel {
 		&models.CategoryModel{},
 		&models.ArticleModel{},
 	)
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Jwt: conf.Jwt{
 			Expire: 1,
 			Secret: "category-secret",
 			Issuer: "category-test",
 		},
-	}
+	})
 
 	user := &models.UserModel{
 		Username: "category_user",
@@ -92,7 +91,7 @@ func TestCategoryCRUD(t *testing.T) {
 	}
 
 	var cat models.CategoryModel
-	if err := global.DB.Where("user_id = ? and title = ?", user.ID, "后端分类").First(&cat).Error; err != nil {
+	if err := testutil.DB().Where("user_id = ? and title = ?", user.ID, "后端分类").First(&cat).Error; err != nil {
 		t.Fatalf("查询分类失败: %v", err)
 	}
 

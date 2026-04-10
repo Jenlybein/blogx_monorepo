@@ -4,9 +4,9 @@ import { RouterView, useRoute } from "vue-router";
 import { darkTheme, NConfigProvider, NDialogProvider, NMessageProvider, type GlobalThemeOverrides } from "naive-ui";
 import WorkspaceShell from "@/components/layout/WorkspaceShell.vue";
 
-const route = useRoute();
-const themeKey = "blogx-prototype-admin-theme";
-const currentTheme = ref<"light" | "dark">((window.localStorage.getItem(themeKey) as "light" | "dark") || "light");
+  const route = useRoute();
+  const themeKey = "blogx-prototype-admin-theme";
+  const currentTheme = ref<"light" | "dark">((window.localStorage.getItem(themeKey) as "light" | "dark") || "light");
 
 watch(
   currentTheme,
@@ -17,6 +17,7 @@ watch(
   { immediate: true },
 );
 
+const shell = computed(() => String(route.meta.shell || "admin"));
 const title = computed(() => String(route.meta.title || ""));
 const subtitle = computed(() => String(route.meta.subtitle || ""));
 const breadcrumb = computed(() => String(route.meta.breadcrumb || ""));
@@ -42,19 +43,21 @@ function toggleTheme() {
 
 <template>
   <NConfigProvider :theme="currentTheme === 'dark' ? darkTheme : null" :theme-overrides="themeOverrides">
-    <NDialogProvider>
-      <NMessageProvider>
-        <WorkspaceShell
-          kind="admin"
-          :title="title"
-          :subtitle="subtitle"
-          :breadcrumb="breadcrumb"
-          :theme-label="themeLabel"
-          @toggle-theme="toggleTheme"
-        >
-          <RouterView />
-        </WorkspaceShell>
-      </NMessageProvider>
-    </NDialogProvider>
+      <NDialogProvider>
+        <NMessageProvider>
+          <RouterView v-if="shell === 'auth'" />
+          <WorkspaceShell
+            v-else
+            kind="admin"
+            :title="title"
+            :subtitle="subtitle"
+            :breadcrumb="breadcrumb"
+            :theme-label="themeLabel"
+            @toggle-theme="toggleTheme"
+          >
+            <RouterView />
+          </WorkspaceShell>
+        </NMessageProvider>
+      </NDialogProvider>
   </NConfigProvider>
 </template>

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"myblogx/api/ai_api"
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/service/ai_service"
@@ -102,7 +101,7 @@ func TestAIArticleMetaInfoView(t *testing.T) {
 	}))
 	defer server.Close()
 
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		AI: conf.AI{
 			Enable:        true,
 			SecretKey:     "test-key",
@@ -110,7 +109,7 @@ func TestAIArticleMetaInfoView(t *testing.T) {
 			ChatModel:     "test-model",
 			MaxInputChars: 2048,
 		},
-	}
+	})
 
 	api := ai_api.AIApi{}
 	c, w := newAICtx()

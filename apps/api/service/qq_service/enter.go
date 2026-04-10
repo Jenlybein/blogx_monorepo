@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"myblogx/global"
 	"net/http"
 	"net/url"
 )
@@ -47,7 +46,7 @@ type QQUserInfo struct {
 }
 
 func getAccessToken(code string) (atResp QQAccessTokenResp, err error) {
-	qq := global.Config.QQ
+	qq := qqConfig
 
 	baseURL, err := url.Parse("https://graph.qq.com/oauth2.0/token")
 	if err != nil {
@@ -87,7 +86,7 @@ func getAccessToken(code string) (atResp QQAccessTokenResp, err error) {
 }
 
 func getUserInfo(at QQAccessTokenResp) (userInfoResp QQUserInfoResp, err error) {
-	qq := global.Config.QQ
+	qq := qqConfig
 
 	baseURL, err := url.Parse("https://graph.qq.com/oauth2.0/token")
 	if err != nil {

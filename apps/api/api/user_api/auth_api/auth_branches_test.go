@@ -3,7 +3,6 @@ package auth_api_test
 import (
 	"encoding/json"
 	"myblogx/api/user_api/auth_api"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/test/testutil"
@@ -15,8 +14,8 @@ import (
 func TestPwdLoginAndSendEmailFailureBranches(t *testing.T) {
 	db := testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{})
 	setupAuthEnv(t)
-	global.Config.Site.Login.UsernamePwdLogin = true
-	global.Config.Site.Login.EmailLogin = true
+	testutil.Config().Site.Login.UsernamePwdLogin = true
+	testutil.Config().Site.Login.EmailLogin = true
 	api := auth_api.AuthApi{}
 
 	hashPwd, _ := pwd.GenerateFromPassword("right-pwd")
@@ -61,7 +60,7 @@ func TestPwdLoginAndSendEmailFailureBranches(t *testing.T) {
 func TestEmailPasswordAndBindFailureBranches(t *testing.T) {
 	db := testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{})
 	setupAuthEnv(t)
-	global.Config.Site.Login.EmailLogin = true
+	testutil.Config().Site.Login.EmailLogin = true
 	api := auth_api.AuthApi{}
 
 	hashPwd, _ := pwd.GenerateFromPassword("same-old")
@@ -195,7 +194,7 @@ func TestEmailPasswordAndBindFailureBranches(t *testing.T) {
 func TestEmailLoginView(t *testing.T) {
 	db := testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{}, &models.UserSessionModel{})
 	setupAuthEnv(t)
-	global.Config.Site.Login.EmailLogin = true
+	testutil.Config().Site.Login.EmailLogin = true
 	api := auth_api.AuthApi{}
 
 	user := models.UserModel{

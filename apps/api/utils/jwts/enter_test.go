@@ -2,7 +2,6 @@ package jwts_test
 
 import (
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/models/enum"
 	"myblogx/test/testutil"
 	"myblogx/utils/jwts"
@@ -15,13 +14,13 @@ import (
 
 func TestJWTGetAndParse(t *testing.T) {
 	testutil.InitGlobals()
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Jwt: conf.Jwt{
 			Expire: 1,
 			Secret: "jwt-secret",
 			Issuer: "blogx",
 		},
-	}
+	})
 
 	token, err := jwts.GetToken(jwts.Claims{
 		UserID:   100,
@@ -43,13 +42,13 @@ func TestJWTGetAndParse(t *testing.T) {
 
 func TestParseTokenByGin(t *testing.T) {
 	testutil.InitGlobals()
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Jwt: conf.Jwt{
 			Expire: 1,
 			Secret: "jwt-secret",
 			Issuer: "blogx",
 		},
-	}
+	})
 
 	token, err := jwts.GetToken(jwts.Claims{
 		UserID:   10,

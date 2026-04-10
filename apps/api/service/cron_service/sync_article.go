@@ -3,7 +3,6 @@ package cron_service
 import (
 	"context"
 	"fmt"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/redis_service/redis_article"
@@ -49,11 +48,15 @@ func SyncArticle() {
 				},
 			})
 			if err != nil {
-				global.Logger.Errorf("同步文章任务同步%s失败: Redis键=%s 错误=%v", metric.name, metric.activeKey, err)
+				if cronLogger != nil {
+					cronLogger.Errorf("同步文章任务同步%s失败: Redis键=%s 错误=%v", metric.name, metric.activeKey, err)
+				}
 				continue
 			}
 			if affected > 0 {
-				global.Logger.Infof("同步文章任务同步%s成功: Redis键=%s 影响数量=%d", metric.name, metric.activeKey, affected)
+				if cronLogger != nil {
+					cronLogger.Infof("同步文章任务同步%s成功: Redis键=%s 影响数量=%d", metric.name, metric.activeKey, affected)
+				}
 			}
 			totalAffected += affected
 		}
@@ -67,7 +70,7 @@ func applyArticleDelta(column string, articleID ctype.ID, delta int) error {
 	expr := fmt.Sprintf("CASE WHEN %s + ? < 0 THEN 0 ELSE %s + ? END", column, column)
 
 	// UpdateColumn 使用数据库表达式原子更新，避免先读后写竞争。
-	db := global.DB.Model(&models.ArticleModel{}).
+	db := cronDB.Model(&models.ArticleModel{}).
 		Where("id = ?", articleID).
 		UpdateColumn(column, gorm.Expr(expr, delta, delta))
 
@@ -77,8 +80,8 @@ func applyArticleDelta(column string, articleID ctype.ID, delta int) error {
 	}
 
 	// 如果文章不存在，记录告警但不中断整批任务。
-	if db.RowsAffected == 0 {
-		global.Logger.Warnf("同步文章任务更新行不存在: 文章ID=%d 字段=%s 增量=%d", articleID, column, delta)
+	if db.RowsAffected == 0 && cronLogger != nil {
+		cronLogger.Warnf("同步文章任务更新行不存在: 文章ID=%d 字段=%s 增量=%d", articleID, column, delta)
 	}
 	return nil
 }

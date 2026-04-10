@@ -1,7 +1,6 @@
 package search_service
 
 import (
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/redis_service/redis_article"
@@ -46,7 +45,7 @@ func loadSearchArticleCounterMaps(articleIDs []ctype.ID) (favorMap, diggMap, vie
 	diggMap = make(map[ctype.ID]int)
 	viewMap = make(map[ctype.ID]int)
 	commentMap = make(map[ctype.ID]int)
-	if global.Redis == nil || len(articleIDs) == 0 {
+	if len(articleIDs) == 0 {
 		return favorMap, diggMap, viewMap, commentMap
 	}
 
@@ -62,7 +61,7 @@ func loadSearchArticleCounterMaps(articleIDs []ctype.ID) (favorMap, diggMap, vie
 // 这里只补齐列表页展示字段，避免逐条查询分类和作者信息。
 func loadSearchArticleDisplayMetaMap(articleIDs []ctype.ID) map[ctype.ID]SearchListResponse {
 	metaMap := make(map[ctype.ID]SearchListResponse)
-	if global.DB == nil || len(articleIDs) == 0 {
+	if searchDB == nil || len(articleIDs) == 0 {
 		return metaMap
 	}
 
@@ -76,7 +75,7 @@ func loadSearchArticleDisplayMetaMap(articleIDs []ctype.ID) map[ctype.ID]SearchL
 	}
 
 	var rows []articleDisplayMeta
-	if err := global.DB.Model(&models.ArticleModel{}).
+	if err := searchDB.Model(&models.ArticleModel{}).
 		Select(
 			"article_models.id",
 			"article_models.author_id",

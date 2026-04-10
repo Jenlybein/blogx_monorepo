@@ -3,7 +3,6 @@ package sitemsg_api_test
 import (
 	"encoding/json"
 	"myblogx/api/sitemsg_api"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -64,7 +63,7 @@ func setupSitemsgEnv(t *testing.T) *models.UserModel {
 
 func TestSitemsgUserViewCountsUnreadGlobalNotif(t *testing.T) {
 	user := setupSitemsgEnv(t)
-	db := global.DB
+	db := testutil.DB()
 	api := sitemsg_api.SitemsgApi{}
 
 	registerAt := time.Now().Add(-24 * time.Hour).Round(time.Second)
@@ -199,7 +198,7 @@ func TestUserMsgConfViewAndUpdate(t *testing.T) {
 	}
 
 	var conf models.UserConfModel
-	if err := global.DB.Take(&conf, user.ID).Error; err != nil {
+	if err := testutil.DB().Take(&conf, user.ID).Error; err != nil {
 		t.Fatalf("查询配置失败: %v", err)
 	}
 	if conf.DiggNoticeEnabled || conf.CommentNoticeEnabled || conf.FavorNoticeEnabled || conf.PrivateChatNoticeEnabled {
@@ -211,7 +210,7 @@ func TestUserMsgConfViewAndUpdateFailBranches(t *testing.T) {
 	user := setupSitemsgEnv(t)
 	api := sitemsg_api.SitemsgApi{}
 
-	if err := global.DB.Unscoped().Delete(&models.UserConfModel{}, "user_id = ?", user.ID).Error; err != nil {
+	if err := testutil.DB().Unscoped().Delete(&models.UserConfModel{}, "user_id = ?", user.ID).Error; err != nil {
 		t.Fatalf("删除用户配置失败: %v", err)
 	}
 
@@ -242,7 +241,7 @@ func TestUserMsgConfViewAndUpdateFailBranches(t *testing.T) {
 
 func TestSitemsgListViewFiltersByType(t *testing.T) {
 	user := setupSitemsgEnv(t)
-	db := global.DB
+	db := testutil.DB()
 	api := sitemsg_api.SitemsgApi{}
 
 	other := &models.UserModel{
@@ -310,7 +309,7 @@ func TestSitemsgListViewFiltersByType(t *testing.T) {
 
 func TestSitemsgReadViewSingleAndBatch(t *testing.T) {
 	user := setupSitemsgEnv(t)
-	db := global.DB
+	db := testutil.DB()
 	api := sitemsg_api.SitemsgApi{}
 
 	other := &models.UserModel{
@@ -410,7 +409,7 @@ func TestSitemsgReadViewSingleAndBatch(t *testing.T) {
 
 func TestSitemsgReadViewFailBranches(t *testing.T) {
 	user := setupSitemsgEnv(t)
-	db := global.DB
+	db := testutil.DB()
 	api := sitemsg_api.SitemsgApi{}
 
 	other := &models.UserModel{
@@ -448,7 +447,7 @@ func TestSitemsgReadViewFailBranches(t *testing.T) {
 
 func TestSitemsgRemoveViewSingleAndBatch(t *testing.T) {
 	user := setupSitemsgEnv(t)
-	db := global.DB
+	db := testutil.DB()
 	api := sitemsg_api.SitemsgApi{}
 
 	other := &models.UserModel{
@@ -541,7 +540,7 @@ func TestSitemsgRemoveViewSingleAndBatch(t *testing.T) {
 
 func TestSitemsgRemoveViewFailBranches(t *testing.T) {
 	user := setupSitemsgEnv(t)
-	db := global.DB
+	db := testutil.DB()
 	api := sitemsg_api.SitemsgApi{}
 
 	other := &models.UserModel{

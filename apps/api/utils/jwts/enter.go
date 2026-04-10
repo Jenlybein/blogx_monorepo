@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"myblogx/global"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
 
@@ -35,9 +34,9 @@ type MyClaims struct {
 func GetToken(claims Claims) (string, error) {
 	// 从配置文件中获取 jwt 相关配置
 	var (
-		TokenExpireDuration = time.Duration(global.Config.Jwt.Expire) * time.Hour // 令牌过期时间
-		Secret              = []byte(global.Config.Jwt.Secret)                    // 密钥
-		Issuer              = global.Config.Jwt.Issuer                            // jwt 签发者
+		TokenExpireDuration = time.Duration(jwtConfig.Expire) * time.Hour // 令牌过期时间
+		Secret              = []byte(jwtConfig.Secret)                    // 密钥
+		Issuer              = jwtConfig.Issuer                            // jwt 签发者
 	)
 
 	// 构造自定义的Claims（JWT的载荷部分）
@@ -67,7 +66,7 @@ func ParseToken(tokenString string) (*MyClaims, error) {
 
 	// 从配置文件中获取 jwt 相关配置
 	var (
-		Secret = []byte(global.Config.Jwt.Secret) // 密钥
+		Secret = []byte(jwtConfig.Secret) // 密钥
 	)
 
 	// 解析 tokenString 字符串到指定的 MyClaims 结构体

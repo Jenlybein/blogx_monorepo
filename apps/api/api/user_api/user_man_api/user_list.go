@@ -3,7 +3,6 @@ package user_man_api
 import (
 	"myblogx/common"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -14,6 +13,7 @@ import (
 )
 
 func (a *UserManApi) UserListView(c *gin.Context) {
+	app := mustApp(c)
 	cr := middleware.GetBindQuery[UserListRequest](c)
 
 	_list, count, _ := common.ListQuery(models.UserModel{}, common.Options{
@@ -27,7 +27,7 @@ func (a *UserManApi) UserListView(c *gin.Context) {
 	}
 	latestLoginMap, err := log_service.LoadLatestLoginMap(idList)
 	if err != nil {
-		global.Logger.Errorf("加载用户最后登录信息失败: %v", err)
+		app.Logger.Errorf("加载用户最后登录信息失败: %v", err)
 	}
 
 	var list = make([]UserListResponse, 0)

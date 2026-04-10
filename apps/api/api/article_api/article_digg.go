@@ -2,7 +2,6 @@ package article_api
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/enum"
@@ -19,17 +18,17 @@ func (ArticleApi) ArticleDiggView(c *gin.Context) {
 	id := middleware.GetBindUri[models.IDRequest](c)
 
 	var article models.ArticleModel
-	if err := global.DB.Take(&article, "id = ? and status = ?", id.ID, enum.ArticleStatusPublished).Error; err != nil {
+	if err := mustApp(c).DB.Take(&article, "id = ? and status = ?", id.ID, enum.ArticleStatusPublished).Error; err != nil {
 		res.FailWithMsg("文章不存在", c)
 		return
 	}
 
 	claims := jwts.MustGetClaimsByGin(c)
 	var digg models.ArticleDiggModel
-	if err := global.DB.Take(&digg, "article_id = ? and user_id = ?", id.ID, claims.UserID).Error; err == nil {
+	if err := mustApp(c).DB.Take(&digg, "article_id = ? and user_id = ?", id.ID, claims.UserID).Error; err == nil {
 		// 取消点赞要看条件删除是否真的命中了活记录，避免并发下双成功。
 		// 取消点赞必须看本次 Delete 是否真的删掉了活记录，避免并发下双成功。
-		deleteResult := global.DB.Where(map[string]any{
+		deleteResult := mustApp(c).DB.Where(map[string]any{
 			"article_id": id.ID,
 			"user_id":    claims.UserID,
 		}).Delete(&models.ArticleDiggModel{})
@@ -51,7 +50,7 @@ func (ArticleApi) ArticleDiggView(c *gin.Context) {
 	}
 
 	// 点赞成功与否只看本次恢复/新建是否真的写入，不能再依赖前置查询快照。
-	createdOrRestored, err := dbservice.RestoreOrCreateUnique(global.DB, &models.ArticleDiggModel{
+	createdOrRestored, err := dbservice.RestoreOrCreateUnique(mustApp(c).DB, &models.ArticleDiggModel{
 		ArticleID: id.ID,
 		UserID:    claims.UserID,
 	}, []string{"article_id", "user_id"})

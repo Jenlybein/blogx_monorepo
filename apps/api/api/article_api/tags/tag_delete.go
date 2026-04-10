@@ -3,7 +3,6 @@ package tags
 import (
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/service/log_service"
@@ -19,7 +18,7 @@ func (TagsApi) TagDeleteView(c *gin.Context) {
 	}
 
 	var relationCount int64
-	if err := global.DB.Model(&models.ArticleTagModel{}).
+	if err := mustApp(c).DB.Model(&models.ArticleTagModel{}).
 		Where("tag_id IN ?", cr.IDList).
 		Count(&relationCount).Error; err != nil {
 		res.FailWithError(err, c)
@@ -31,7 +30,7 @@ func (TagsApi) TagDeleteView(c *gin.Context) {
 	}
 
 	var list []models.TagModel
-	if err := global.DB.Where("id IN ?", cr.IDList).Find(&list).Error; err != nil {
+	if err := mustApp(c).DB.Where("id IN ?", cr.IDList).Find(&list).Error; err != nil {
 		res.FailWithMsg("查询标签失败", c)
 		return
 	}
@@ -40,7 +39,7 @@ func (TagsApi) TagDeleteView(c *gin.Context) {
 		return
 	}
 
-	if err := global.DB.Delete(&list).Error; err != nil {
+	if err := mustApp(c).DB.Delete(&list).Error; err != nil {
 		res.FailWithMsg("删除标签失败", c)
 		return
 	}

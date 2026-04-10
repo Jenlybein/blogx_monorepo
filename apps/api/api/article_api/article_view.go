@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -61,7 +60,7 @@ func (ArticleApi) ArticleVisitView(c *gin.Context) {
 
 		// 验证文章是否存在并已发布
 		var articleID ctype.ID
-		err := global.DB.Model(&models.ArticleModel{}).
+		err := mustApp(c).DB.Model(&models.ArticleModel{}).
 			Where("id = ? and status = ?", cr.ArticleID, enum.ArticleStatusPublished).
 			Select("id").Take(&articleID).Error
 		if err != nil {
@@ -70,7 +69,7 @@ func (ArticleApi) ArticleVisitView(c *gin.Context) {
 				return
 			}
 			// 记录详细错误日志（建议使用日志库，如 zap）
-			global.Logger.Errorf("数据库验证文章失败: 错误=%v 文章ID=%d", err, cr.ArticleID)
+			mustApp(c).Logger.Errorf("数据库验证文章失败: 错误=%v 文章ID=%d", err, cr.ArticleID)
 			res.FailWithMsg("服务器内部错误", c)
 			return
 		}
@@ -81,7 +80,7 @@ func (ArticleApi) ArticleVisitView(c *gin.Context) {
 			UserID:    claims.UserID,
 		}
 
-		if err = global.DB.Clauses(clause.OnConflict{
+		if err = mustApp(c).DB.Clauses(clause.OnConflict{
 			Columns: []clause.Column{
 				{Name: "article_id"},
 				{Name: "user_id"},
@@ -91,7 +90,7 @@ func (ArticleApi) ArticleVisitView(c *gin.Context) {
 				"deleted_at": nil,
 			}),
 		}).Create(&articleHistory).Error; err != nil {
-			global.Logger.Errorf("数据库更新浏览历史失败: 错误=%v 文章ID=%d", err, cr.ArticleID)
+			mustApp(c).Logger.Errorf("数据库更新浏览历史失败: 错误=%v 文章ID=%d", err, cr.ArticleID)
 			res.FailWithMsg("服务器内部错误", c)
 			return
 		}

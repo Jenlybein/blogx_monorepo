@@ -3,7 +3,6 @@ package image_ref_river_service
 import (
 	"strings"
 
-	"myblogx/global"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/image_ref_enum"
 
@@ -35,20 +34,20 @@ func (r *River) newCanal() error {
 	// 创建默认 canal 配置
 	cfg := canal.NewDefaultConfig()
 	// 绑定日志适配器
-	cfg.Logger = logrusToSlogAdapter(global.Logger)
+	cfg.Logger = logrusToSlogAdapter(imageRefLogger)
 	// 从全局配置加载 MySQL 连接信息
-	cfg.Addr = global.Config.ImageRefRiver.Mysql.Addr
-	cfg.User = global.Config.ImageRefRiver.Mysql.User
-	cfg.Password = global.Config.ImageRefRiver.Mysql.Password
-	cfg.Charset = global.Config.ImageRefRiver.Charset
-	cfg.Flavor = global.Config.ImageRefRiver.Flavor
-	cfg.ServerID = global.Config.ImageRefRiver.ServerID
+	cfg.Addr = imageRefRiverConfig.Mysql.Addr
+	cfg.User = imageRefRiverConfig.Mysql.User
+	cfg.Password = imageRefRiverConfig.Mysql.Password
+	cfg.Charset = imageRefRiverConfig.Charset
+	cfg.Flavor = imageRefRiverConfig.Flavor
+	cfg.ServerID = imageRefRiverConfig.ServerID
 	// 全量数据备份相关配置
-	cfg.Dump.ExecutionPath = global.Config.ImageRefRiver.DumpExec
-	cfg.Dump.SkipMasterData = global.Config.ImageRefRiver.SkipMasterData
+	cfg.Dump.ExecutionPath = imageRefRiverConfig.DumpExec
+	cfg.Dump.SkipMasterData = imageRefRiverConfig.SkipMasterData
 
 	// 获取要监听的数据库名
-	schema := strings.TrimSpace(global.Config.ImageRefRiver.Schema)
+	schema := strings.TrimSpace(imageRefRiverConfig.Schema)
 	// 监听四张核心业务表
 	for _, table := range []string{"article_models", "user_models", "banner_models", "favorite_models"} {
 		cfg.IncludeTableRegex = append(cfg.IncludeTableRegex, schema+"\\."+table)
@@ -94,7 +93,7 @@ func (h *eventHandler) OnRow(e *canal.RowsEvent) error {
 	case canal.DeleteAction:
 		// 删除操作：删除该业务对象关联的所有图片引用
 		for _, ownerID := range extractRowIDs(e) {
-			if err := DeleteOwnerRefs(global.DB, refType, ownerID); err != nil {
+			if err := DeleteOwnerRefs(imageRefDB, refType, ownerID); err != nil {
 				return err
 			}
 		}

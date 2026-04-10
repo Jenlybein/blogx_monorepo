@@ -242,7 +242,7 @@ func (ChatApi) ChatWsView(c *gin.Context) {
 
 		// DEBUG：给自己也发一份
 		// if err := res.SendConnOkWithData(item, conn, chatWSWriteWait); err != nil {
-		// 	global.Logger.Warnf("聊天 WebSocket 写入失败: 用户ID=%d 错误=%v", claims.UserID, err)
+		// 	logger.Warnf("聊天 WebSocket 写入失败: 用户ID=%d 错误=%v", claims.UserID, err)
 		// 	return
 		// }
 	}

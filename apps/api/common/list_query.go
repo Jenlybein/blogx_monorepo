@@ -15,7 +15,6 @@ package common
 import (
 	"errors"
 	"fmt"
-	"myblogx/global"
 	"myblogx/models/ctype"
 
 	"gorm.io/gorm"
@@ -297,7 +296,7 @@ func PageIDHasMoreQuery(query *gorm.DB, option IDPageOptions) (ids []ctype.ID, h
 func buildListQuery[T any](model T, option Options) *gorm.DB {
 	queryDB := option.DB
 	if queryDB == nil {
-		queryDB = global.DB
+		queryDB = defaultDB
 	}
 
 	query := queryDB.Model(model)
@@ -326,7 +325,7 @@ func buildListQuery[T any](model T, option Options) *gorm.DB {
 // buildLikeCondition 构造多个列的 OR LIKE 条件。
 func buildLikeCondition(db *gorm.DB, columns []string, key string) *gorm.DB {
 	if db == nil {
-		db = global.DB
+		db = defaultDB
 	}
 	pattern := "%" + key + "%"
 	likeQuery := db.Where(fmt.Sprintf("%s LIKE ?", columns[0]), pattern)

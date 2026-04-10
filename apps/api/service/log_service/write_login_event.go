@@ -2,8 +2,6 @@ package log_service
 
 import (
 	"encoding/json"
-
-	"myblogx/global"
 )
 
 // EmitLoginEvent 写入一条登录事件日志，并根据成功状态推导默认级别与消息。
@@ -31,7 +29,9 @@ func EmitLoginEvent(input LoginEventInput) {
 	}
 
 	if err := loginEventSink().write(event); err != nil {
-		global.Logger.Errorf("写入登录事件日志失败: %v", err)
+		if logLogger != nil {
+			logLogger.Errorf("写入登录事件日志失败: %v", err)
+		}
 	}
 }
 

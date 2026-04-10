@@ -3,12 +3,12 @@ package core
 import (
 	"context"
 	"myblogx/conf"
-	"myblogx/global"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/sirupsen/logrus"
 )
 
-func InitRedis(redisCfg *conf.Redis) *redis.Client {
+func InitRedis(redisCfg *conf.Redis, logger *logrus.Logger) *redis.Client {
 	redisDB := redis.NewClient(&redis.Options{
 		Addr:     redisCfg.GetAddr(),
 		Username: redisCfg.Username,
@@ -18,10 +18,15 @@ func InitRedis(redisCfg *conf.Redis) *redis.Client {
 
 	_, err := redisDB.Ping(context.Background()).Result()
 	if err != nil {
-		global.Logger.Fatalf("Redis 连接失败: %v", err)
+		if logger != nil {
+			logger.Fatalf("Redis 连接失败: %v", err)
+		}
+		panic(err)
 	}
 
-	global.Logger.Infof("Redis 连接成功: %s", redisDB.Options().Addr)
+	if logger != nil {
+		logger.Infof("Redis 连接成功: %s", redisDB.Options().Addr)
+	}
 
 	return redisDB
 }

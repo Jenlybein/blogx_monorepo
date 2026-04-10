@@ -3,12 +3,19 @@ package testutil
 import (
 	"fmt"
 	"io"
+	"myblogx/buildinfo"
+	"myblogx/common"
 	"myblogx/conf"
-	"myblogx/global"
 	blogmodels "myblogx/models"
 	"myblogx/models/ctype"
+	"myblogx/service/ai_service"
 	"myblogx/service/db_service"
+	"myblogx/service/email_service"
+	"myblogx/service/log_service"
+	"myblogx/service/message_service"
+	"myblogx/service/redis_service"
 	"myblogx/service/user_service"
+	"myblogx/utils/ipmeta"
 	"myblogx/utils/jwts"
 	"net/http"
 	"path/filepath"
@@ -20,37 +27,112 @@ import (
 	"time"
 
 	miniredis "github.com/alicebob/miniredis/v2"
+	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/go-redis/redis/v8"
+	"github.com/mojocn/base64Captcha"
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 var sqliteDSNCounter uint64
+var testConfig *conf.Config
+var testLogger *logrus.Logger
+var testDB *gorm.DB
+var testRedis *redis.Client
+var testESClient *elasticsearch.Client
+var testImageCaptchaStore = base64Captcha.DefaultMemStore
 
 func InitGlobals() {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
-	global.Logger = logger
-
-	if global.Config == nil {
-		global.Config = &conf.Config{}
+	if testLogger == nil {
+		testLogger = logrus.New()
+		testLogger.SetOutput(io.Discard)
 	}
-	if global.Config.Log.Dir == "" {
-		global.Config.Log.Dir = defaultTestLogDir()
+	if testConfig == nil {
+		testConfig = &conf.Config{}
 	}
-	if global.Config.Log.App == "" {
-		global.Config.Log.App = "test"
-	}
-	if global.Config.Log.StdoutFormat == "" {
-		global.Config.Log.StdoutFormat = "json"
-	}
-	if global.Config.System.ServerID == 0 {
-		global.Config.System.ServerID = 1
-	}
-	if err := db_service.InitSnowflake(global.Config.System.ServerID); err != nil {
+	applyDefaultConfig(testConfig)
+	configureModules()
+	if err := db_service.InitSnowflake(testConfig.System.ServerID); err != nil {
 		panic(fmt.Errorf("初始化测试雪花 ID 生成器失败: %w", err))
 	}
+}
+
+func applyDefaultConfig(cfg *conf.Config) {
+	if cfg.Log.Dir == "" {
+		cfg.Log.Dir = defaultTestLogDir()
+	}
+	if cfg.Log.App == "" {
+		cfg.Log.App = "test"
+	}
+	if cfg.Log.StdoutFormat == "" {
+		cfg.Log.StdoutFormat = "json"
+	}
+	if cfg.System.ServerID == 0 {
+		cfg.System.ServerID = 1
+	}
+}
+
+func configureModules() {
+	if testConfig == nil || testLogger == nil {
+		return
+	}
+	log_service.Configure(testConfig.Log, testConfig.System, testConfig.ClickHouse, testLogger, nil)
+	email_service.Configure(testConfig.Email)
+	common.Configure(testDB)
+	blogmodels.Configure(testConfig.ES.Index)
+	user_service.Configure(testConfig.Jwt, testConfig.System.Env, testDB, testLogger)
+	message_service.Configure(testDB, testLogger)
+	ai_service.Configure(testDB, testLogger)
+	redis_service.Configure(testRedis, testLogger)
+	jwts.Configure(testConfig.Jwt)
+	ipmeta.Configure(testLogger)
+}
+
+func Config() *conf.Config {
+	InitGlobals()
+	return testConfig
+}
+
+func SetConfig(cfg *conf.Config) *conf.Config {
+	if cfg == nil {
+		cfg = &conf.Config{}
+	}
+	applyDefaultConfig(cfg)
+	testConfig = cfg
+	configureModules()
+	return testConfig
+}
+
+func Logger() *logrus.Logger {
+	InitGlobals()
+	return testLogger
+}
+
+func DB() *gorm.DB {
+	return testDB
+}
+
+func Redis() *redis.Client {
+	return testRedis
+}
+
+func ESClient() *elasticsearch.Client {
+	return testESClient
+}
+
+func SetESClient(client *elasticsearch.Client) *elasticsearch.Client {
+	testESClient = client
+	configureModules()
+	return testESClient
+}
+
+func ImageCaptchaStore() base64Captcha.Store {
+	return testImageCaptchaStore
+}
+
+func Version() string {
+	return buildinfo.Version
 }
 
 func defaultTestLogDir() string {
@@ -71,12 +153,17 @@ func SetupMiniRedis(t *testing.T) *miniredis.Miniredis {
 		t.Fatalf("启动 miniredis 失败: %v", err)
 	}
 
-	global.Redis = redis.NewClient(&redis.Options{
+	testRedis = redis.NewClient(&redis.Options{
 		Addr: mr.Addr(),
 	})
+	configureModules()
 
 	t.Cleanup(func() {
-		_ = global.Redis.Close()
+		if testRedis != nil {
+			_ = testRedis.Close()
+			testRedis = nil
+		}
+		configureModules()
 		mr.Close()
 	})
 
@@ -110,7 +197,8 @@ func SetupSQLite(t *testing.T, models ...any) *gorm.DB {
 		}
 	}
 
-	global.DB = db
+	testDB = db
+	configureModules()
 	return db
 }
 
@@ -202,7 +290,10 @@ func IssueAccessToken(t *testing.T, user *blogmodels.UserModel) string {
 		LastSeenAt:       &now,
 		ExpiresAt:        now.Add(24 * time.Hour),
 	}
-	if err = global.DB.Create(&session).Error; err != nil {
+	if testDB == nil {
+		t.Fatal("测试数据库未初始化，请先调用 SetupSQLite")
+	}
+	if err = testDB.Create(&session).Error; err != nil {
 		t.Fatalf("创建测试会话失败: %v", err)
 	}
 

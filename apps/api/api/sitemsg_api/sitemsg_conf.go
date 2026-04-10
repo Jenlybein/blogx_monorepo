@@ -2,7 +2,6 @@ package sitemsg_api
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/utils/jwts"
@@ -12,10 +11,11 @@ import (
 )
 
 func (a *SitemsgApi) UserMsgConfView(c *gin.Context) {
+	app := mustApp(c)
 	claims := jwts.MustGetClaimsByGin(c)
 
 	var userConfModel models.UserConfModel
-	if err := global.DB.Take(&userConfModel, claims.UserID).Error; err != nil {
+	if err := app.DB.Take(&userConfModel, claims.UserID).Error; err != nil {
 		res.FailWithMsg("用户配置信息不存在", c)
 		return
 	}
@@ -31,6 +31,7 @@ func (a *SitemsgApi) UserMsgConfView(c *gin.Context) {
 }
 
 func (a *SitemsgApi) UserMsgConfUpdateView(c *gin.Context) {
+	app := mustApp(c)
 	cr := middleware.GetBindJson[UserMsgConfResponseAndRequest](c)
 
 	claims := jwts.MustGetClaimsByGin(c)
@@ -43,12 +44,12 @@ func (a *SitemsgApi) UserMsgConfUpdateView(c *gin.Context) {
 
 	if len(confMap) > 0 {
 		var userConfModel models.UserConfModel
-		if err = global.DB.Take(&userConfModel, claims.UserID).Error; err != nil {
+		if err = app.DB.Take(&userConfModel, claims.UserID).Error; err != nil {
 			res.FailWithMsg("用户配置信息不存在", c)
 			return
 		}
 
-		if err = global.DB.Model(&userConfModel).Updates(confMap).Error; err != nil {
+		if err = app.DB.Model(&userConfModel).Updates(confMap).Error; err != nil {
 			res.FailWithMsg("用户配置信息更新失败", c)
 			return
 		}

@@ -3,8 +3,8 @@ package ai_metainfo
 import (
 	"encoding/json"
 	"fmt"
-	"myblogx/global"
 	"myblogx/models/ctype"
+	"myblogx/service/ai_service"
 	"myblogx/service/site_service"
 	"myblogx/utils/markdown"
 	"strings"
@@ -31,7 +31,7 @@ func normalizeArticleMetainfoReply(raw string, categoryOptions, tagOptions []Met
 
 	var payload MetainfoResponse
 	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
-		global.Logger.Errorf("解析文章元信息 JSON 失败: 错误=%v 原始内容=%s", err, raw)
+		ai_service.Logger().Errorf("解析文章元信息 JSON 失败: 错误=%v 原始内容=%s", err, raw)
 		return nil, fmt.Errorf("文章元信息结果不是有效 JSON: %w", err)
 	}
 

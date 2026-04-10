@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"myblogx/conf"
 	confsite "myblogx/conf/site"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -70,7 +69,7 @@ func setupArticleEnv(t *testing.T) *models.UserModel {
 		&models.CommentModel{},
 		&models.ArticleMessageModel{},
 	)
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Jwt: conf.Jwt{
 			Expire: 1,
 			Secret: "article-secret",
@@ -80,7 +79,7 @@ func setupArticleEnv(t *testing.T) *models.UserModel {
 			SiteInfo: confsite.SiteInfo{Mode: enum.SiteModeCommunity},
 			Article:  confsite.Article{SkipExamining: false},
 		},
-	}
+	})
 
 	user := &models.UserModel{
 		Username: "u1",
@@ -99,7 +98,7 @@ func waitArticleMessageCount(t *testing.T, want int) []models.ArticleMessageMode
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		var list []models.ArticleMessageModel
-		if err := global.DB.Order("id asc").Find(&list).Error; err != nil {
+		if err := testutil.DB().Order("id asc").Find(&list).Error; err != nil {
 			t.Fatalf("查询消息失败: %v", err)
 		}
 		if len(list) == want {
@@ -109,7 +108,7 @@ func waitArticleMessageCount(t *testing.T, want int) []models.ArticleMessageMode
 	}
 
 	var list []models.ArticleMessageModel
-	if err := global.DB.Order("id asc").Find(&list).Error; err != nil {
+	if err := testutil.DB().Order("id asc").Find(&list).Error; err != nil {
 		t.Fatalf("查询消息失败: %v", err)
 	}
 	t.Fatalf("等待消息数量超时: got=%d want=%d", len(list), want)
@@ -118,7 +117,7 @@ func waitArticleMessageCount(t *testing.T, want int) []models.ArticleMessageMode
 
 func TestArticleCreateUpdateExamineAndRemove(t *testing.T) {
 	user := setupArticleEnv(t)
-	db := global.DB
+	db := testutil.DB()
 
 	cat := models.CategoryModel{Title: "go", UserID: user.ID}
 	if err := db.Create(&cat).Error; err != nil {
@@ -226,7 +225,7 @@ func TestArticleCreateUpdateExamineAndRemove(t *testing.T) {
 
 func TestArticleUpdateViewOnlyUpdatesProvidedFields(t *testing.T) {
 	user := setupArticleEnv(t)
-	db := global.DB
+	db := testutil.DB()
 
 	cat := models.CategoryModel{Title: "go", UserID: user.ID}
 	if err := db.Create(&cat).Error; err != nil {
@@ -308,7 +307,7 @@ func TestArticleUpdateViewOnlyUpdatesProvidedFields(t *testing.T) {
 
 func TestArticleUpdateViewCategoryIDZeroClearsCategory(t *testing.T) {
 	user := setupArticleEnv(t)
-	db := global.DB
+	db := testutil.DB()
 
 	cat := models.CategoryModel{Title: "go", UserID: user.ID}
 	if err := db.Create(&cat).Error; err != nil {
@@ -354,7 +353,7 @@ func TestArticleUpdateViewCategoryIDZeroClearsCategory(t *testing.T) {
 
 func TestArticleDiggFavoriteVisitDetailRemoveUser(t *testing.T) {
 	user := setupArticleEnv(t)
-	db := global.DB
+	db := testutil.DB()
 	api := ArticleApi{}
 
 	tag := models.TagModel{Title: "Backend", IsEnabled: true}

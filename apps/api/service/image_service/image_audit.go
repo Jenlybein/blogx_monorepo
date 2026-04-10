@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/service/redis_service/redis_image"
@@ -40,7 +39,7 @@ func HandleQiniuAuditCallback(body []byte) error {
 
 	// 根据文件key查询数据库中是否已存在图片记录
 	var image models.ImageModel
-	err = global.DB.Where("object_key = ?", objectKey).Take(&image).Error
+	err = imageDB.Where("object_key = ?", objectKey).Take(&image).Error
 	switch {
 	case err == nil:
 		// 图片已存在：状态相同则无需更新
@@ -48,7 +47,7 @@ func HandleQiniuAuditCallback(body []byte) error {
 			return nil
 		}
 		// 更新图片审核状态
-		return global.DB.Model(&models.ImageModel{}).
+		return imageDB.Model(&models.ImageModel{}).
 			Where("id = ?", image.ID).
 			Update("status", status).Error
 
@@ -88,7 +87,7 @@ func applyPendingAuditStatusIfAny(image *models.ImageModel) error {
 	}
 
 	// 执行数据库状态更新
-	if err = global.DB.Model(&models.ImageModel{}).
+	if err = imageDB.Model(&models.ImageModel{}).
 		Where("id = ?", image.ID).
 		Update("status", status).Error; err != nil {
 		return err

@@ -1,7 +1,6 @@
 package search_service
 
 import (
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -154,7 +153,7 @@ func buildLikeTagsQuery(query map[string]any, userID ctype.ID) map[string]any {
 		return query
 	}
 	var userConf models.UserConfModel
-	if err := global.DB.Select("user_id", "like_tags").Take(&userConf, userID).Error; err != nil {
+	if err := searchDB.Select("user_id", "like_tags").Take(&userConf, userID).Error; err != nil {
 		return query
 	}
 	if len(userConf.LikeTags) == 0 {

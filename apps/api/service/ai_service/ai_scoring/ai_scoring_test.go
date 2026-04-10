@@ -3,8 +3,8 @@ package ai_scoring
 import (
 	"encoding/json"
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/service/ai_service"
+	"myblogx/test/testutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -52,14 +52,14 @@ func TestScoreArticleQualityShortArticle(t *testing.T) {
 	}))
 	defer server.Close()
 
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		AI: conf.AI{
 			Enable:    true,
 			SecretKey: "test-key",
 			BaseURL:   server.URL,
 			ChatModel: "test-model",
 		},
-	}
+	})
 
 	resp, err := ScoreArticleQuality(ArticleScoreRequest{
 		Title:   "Go 写作实践",
@@ -195,14 +195,14 @@ func TestScoreArticleQualityLongArticle(t *testing.T) {
 	}))
 	defer server.Close()
 
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		AI: conf.AI{
 			Enable:    true,
 			SecretKey: "test-key",
 			BaseURL:   server.URL,
 			ChatModel: "test-model",
 		},
-	}
+	})
 
 	var builder strings.Builder
 	builder.WriteString("# 超长文章标题\n\n")

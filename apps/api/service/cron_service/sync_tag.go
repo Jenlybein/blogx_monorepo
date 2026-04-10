@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/redis_service/redis_tag"
@@ -32,15 +31,15 @@ func SyncTag() {
 
 func applyTagArticleCountDeltaToDB(tagID ctype.ID, delta int) error {
 	expr := "CASE WHEN article_count + ? < 0 THEN 0 ELSE article_count + ? END"
-	db := global.DB.Model(&models.TagModel{}).
+	db := cronDB.Model(&models.TagModel{}).
 		Where("id = ?", tagID).
 		UpdateColumn("article_count", gorm.Expr(expr, delta, delta))
 
 	if db.Error != nil {
 		return db.Error
 	}
-	if db.RowsAffected == 0 {
-		global.Logger.Warnf("同步标签任务更新行不存在: 标签ID=%d 增量=%d", tagID, delta)
+	if db.RowsAffected == 0 && cronLogger != nil {
+		cronLogger.Warnf("同步标签任务更新行不存在: 标签ID=%d 增量=%d", tagID, delta)
 	}
 	return nil
 }

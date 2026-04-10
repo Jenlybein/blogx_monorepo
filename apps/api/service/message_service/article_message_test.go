@@ -1,7 +1,6 @@
 package message_service_test
 
 import (
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/message_enum"
@@ -28,7 +27,7 @@ func createMessageUser(t *testing.T, username, nickname, avatar string) models.U
 		Nickname: nickname,
 		Avatar:   avatar,
 	}
-	if err := global.DB.Create(&user).Error; err != nil {
+	if err := testutil.DB().Create(&user).Error; err != nil {
 		t.Fatalf("创建测试用户失败: %v", err)
 	}
 	return user
@@ -38,7 +37,7 @@ func loadArticleMessages(t *testing.T) []models.ArticleMessageModel {
 	t.Helper()
 
 	var list []models.ArticleMessageModel
-	if err := global.DB.Order("id asc").Find(&list).Error; err != nil {
+	if err := testutil.DB().Order("id asc").Find(&list).Error; err != nil {
 		t.Fatalf("查询消息失败: %v", err)
 	}
 	return list

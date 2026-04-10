@@ -3,7 +3,6 @@ package chat_service
 import (
 	"encoding/json"
 	"errors"
-	"myblogx/global"
 	"myblogx/models/enum/chat_msg_enum"
 	"myblogx/utils/markdown"
 	"strings"
@@ -47,7 +46,7 @@ func validateChatBase(req *ToChatRequest) error {
 func marshalChatContent(v any) (string, error) {
 	b, err := json.Marshal(v)
 	if err != nil {
-		global.Logger.Errorf("序列化聊天消息内容失败: %v", err)
+		chatLogger.Errorf("序列化聊天消息内容失败: %v", err)
 		return "", err
 	}
 	return string(b), nil

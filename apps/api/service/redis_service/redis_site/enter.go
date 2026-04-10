@@ -2,7 +2,7 @@ package redis_site
 
 import (
 	"context"
-	"myblogx/global"
+	"myblogx/service/redis_service"
 	"strconv"
 	"time"
 )
@@ -20,7 +20,7 @@ type DateCountItem struct {
 
 // SetFlow 写入站点流量
 func SetFlow() {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return
 	}
 
@@ -28,12 +28,14 @@ func SetFlow() {
 	now := time.Now()
 	today := now.Format("2006-01-02")
 
-	pipe := global.Redis.TxPipeline()
+	pipe := redis_service.Client().TxPipeline()
 	pipe.IncrBy(ctx, siteFlowTotalKey, 1)
 	pipe.HIncrBy(ctx, siteFlowDailyKey, today, 1)
 
 	if _, err := pipe.Exec(ctx); err != nil {
-		global.Logger.Errorf("站点流量写入失败: %v", err)
+		if redis_service.Logger() != nil {
+			redis_service.Logger().Errorf("站点流量写入失败: %v", err)
+		}
 		return
 	}
 	pruneExpiredDailyFlow(now)
@@ -41,25 +43,27 @@ func SetFlow() {
 
 // GetFlow 读取站点流量
 func GetFlow() int {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return 0
 	}
-	num, _ := global.Redis.Get(context.Background(), siteFlowTotalKey).Int()
+	num, _ := redis_service.Client().Get(context.Background(), siteFlowTotalKey).Int()
 	return num
 }
 
 // GetRecentFlow 获取最近 days 天的站点流量
 func GetRecentFlow(days int) []DateCountItem {
-	if global.Redis == nil || days <= 0 {
+	if redis_service.Client() == nil || days <= 0 {
 		return nil
 	}
 
 	now := time.Now()
 	pruneExpiredDailyFlow(now)
 
-	values, err := global.Redis.HGetAll(context.Background(), siteFlowDailyKey).Result()
+	values, err := redis_service.Client().HGetAll(context.Background(), siteFlowDailyKey).Result()
 	if err != nil {
-		global.Logger.Errorf("读取站点流量失败: %v", err)
+		if redis_service.Logger() != nil {
+			redis_service.Logger().Errorf("读取站点流量失败: %v", err)
+		}
 		return nil
 	}
 
@@ -78,13 +82,15 @@ func GetRecentFlow(days int) []DateCountItem {
 
 // pruneExpiredDailyFlow 清理过期的站点流量
 func pruneExpiredDailyFlow(now time.Time) {
-	if global.Redis == nil {
+	if redis_service.Client() == nil {
 		return
 	}
 
-	keys, err := global.Redis.HKeys(context.Background(), siteFlowDailyKey).Result()
+	keys, err := redis_service.Client().HKeys(context.Background(), siteFlowDailyKey).Result()
 	if err != nil {
-		global.Logger.Errorf("读取站点流量日期失败: %v", err)
+		if redis_service.Logger() != nil {
+			redis_service.Logger().Errorf("读取站点流量日期失败: %v", err)
+		}
 		return
 	}
 
@@ -97,8 +103,10 @@ func pruneExpiredDailyFlow(now time.Time) {
 	for _, date := range expiredDates {
 		fields = append(fields, date)
 	}
-	if err := global.Redis.HDel(context.Background(), siteFlowDailyKey, fields...).Err(); err != nil {
-		global.Logger.Errorf("清理过期站点流量失败: %v", err)
+	if err := redis_service.Client().HDel(context.Background(), siteFlowDailyKey, fields...).Err(); err != nil {
+		if redis_service.Logger() != nil {
+			redis_service.Logger().Errorf("清理过期站点流量失败: %v", err)
+		}
 	}
 }
 

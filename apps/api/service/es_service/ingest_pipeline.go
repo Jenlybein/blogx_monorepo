@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"myblogx/global"
 )
 
 // 创建 pipeline
@@ -13,10 +12,10 @@ func CreatePipeline(pipeline, definition string) error {
 	req := bytes.NewBufferString(definition)
 
 	// 调用 ES 的 Create Pipeline API
-	res, err := global.ESClient.Ingest.PutPipeline(
+	res, err := esClient.Ingest.PutPipeline(
 		pipeline,
 		req,
-		global.ESClient.Ingest.PutPipeline.WithContext(context.Background()),
+		esClient.Ingest.PutPipeline.WithContext(context.Background()),
 	)
 	if err != nil {
 		return fmt.Errorf("创建 pipeline %s 失败: %v", pipeline, err)
@@ -34,9 +33,9 @@ func CreatePipeline(pipeline, definition string) error {
 // 判断 pipeline 是否存在
 func ExistsPipeline(pipeline string) (bool, error) {
 	// 必须指定 PipelineID 才能查询特定的 pipeline
-	res, err := global.ESClient.Ingest.GetPipeline(
-		global.ESClient.Ingest.GetPipeline.WithPipelineID(pipeline), // 关键点：指定 ID
-		global.ESClient.Ingest.GetPipeline.WithContext(context.Background()),
+	res, err := esClient.Ingest.GetPipeline(
+		esClient.Ingest.GetPipeline.WithPipelineID(pipeline), // 关键点：指定 ID
+		esClient.Ingest.GetPipeline.WithContext(context.Background()),
 	)
 
 	if err != nil {
@@ -60,9 +59,9 @@ func ExistsPipeline(pipeline string) (bool, error) {
 
 // 删除 pipeline
 func DeletePipeline(pipeline string) error {
-	res, err := global.ESClient.Ingest.DeletePipeline(
+	res, err := esClient.Ingest.DeletePipeline(
 		pipeline,
-		global.ESClient.Ingest.DeletePipeline.WithContext(context.Background()),
+		esClient.Ingest.DeletePipeline.WithContext(context.Background()),
 	)
 	if err != nil {
 		return fmt.Errorf("删除 pipeline %s 失败: %v", pipeline, err)

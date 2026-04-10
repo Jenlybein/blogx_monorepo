@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"myblogx/global"
 )
 
 // 创建索引
@@ -13,10 +12,10 @@ func CreateIndex(index, mapping string) error {
 	req := bytes.NewBufferString(mapping)
 
 	// 调用ES的Create Index API
-	res, err := global.ESClient.Indices.Create(
+	res, err := esClient.Indices.Create(
 		index,
-		global.ESClient.Indices.Create.WithBody(req),
-		global.ESClient.Indices.Create.WithContext(context.Background()),
+		esClient.Indices.Create.WithBody(req),
+		esClient.Indices.Create.WithContext(context.Background()),
 	)
 	if err != nil {
 		return fmt.Errorf("创建索引 %s 失败: %v", index, err)
@@ -33,9 +32,9 @@ func CreateIndex(index, mapping string) error {
 
 // 判断索引是否存在
 func ExistsIndex(index string) (bool, error) {
-	res, err := global.ESClient.Indices.Exists(
+	res, err := esClient.Indices.Exists(
 		[]string{index},
-		global.ESClient.Indices.Exists.WithContext(context.Background()),
+		esClient.Indices.Exists.WithContext(context.Background()),
 	)
 	if err != nil {
 		return false, fmt.Errorf("检查索引 %s 是否存在失败: %v", index, err)
@@ -54,9 +53,9 @@ func ExistsIndex(index string) (bool, error) {
 
 // 删除索引
 func DeleteIndex(index string) error {
-	res, err := global.ESClient.Indices.Delete(
+	res, err := esClient.Indices.Delete(
 		[]string{index},
-		global.ESClient.Indices.Delete.WithContext(context.Background()),
+		esClient.Indices.Delete.WithContext(context.Background()),
 	)
 	if err != nil {
 		return fmt.Errorf("删除索引 %s 失败: %v", index, err)

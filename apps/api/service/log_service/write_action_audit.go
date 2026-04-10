@@ -3,7 +3,6 @@ package log_service
 import (
 	"encoding/json"
 
-	"myblogx/global"
 	"myblogx/models/ctype"
 )
 
@@ -103,7 +102,9 @@ func EmitActionAudit(input ActionAuditInput) {
 
 	// 写入审计日志文件，写入失败则打印错误日志
 	if err := actionAuditSink().write(event); err != nil {
-		global.Logger.Errorf("写入操作审计日志失败: %v", err)
+		if logLogger != nil {
+			logLogger.Errorf("写入操作审计日志失败: %v", err)
+		}
 	}
 }
 

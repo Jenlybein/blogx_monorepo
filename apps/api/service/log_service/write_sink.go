@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
-
-	"myblogx/global"
 )
 
 // jsonLineSink JSON行日志写入器结构体
@@ -55,7 +53,7 @@ func (s *jsonLineSink) write(record any) error {
 // 返回：打开的文件句柄、错误信息
 func (s *jsonLineSink) ensureFile(now time.Time) (*os.File, error) {
 	// 解析日志根目录和应用名称
-	logDir := ResolveLogDir(global.Config.Log.Dir)
+	logDir := ResolveLogDir(runtimeLogDir())
 	appName := ResolveLogApp(s.appName)
 
 	// 格式化当前日期
@@ -126,7 +124,7 @@ func EnsureDailyLogFiles() error {
 // 用于统一管理登录相关日志的写入，全局唯一实例
 func loginEventSink() *jsonLineSink {
 	loginEventSinkOnce.Do(func() {
-		loginEventSinkValue = newJSONLineSink(LoginEventLogDirName, global.Config.Log.App)
+		loginEventSinkValue = newJSONLineSink(LoginEventLogDirName, ResolveLogApp(""))
 	})
 	return loginEventSinkValue
 }
@@ -135,7 +133,7 @@ func loginEventSink() *jsonLineSink {
 // 用于统一管理操作审计日志，全局唯一实例
 func actionAuditSink() *jsonLineSink {
 	actionAuditSinkOnce.Do(func() {
-		actionAuditSinkVal = newJSONLineSink(ActionAuditLogDirName, global.Config.Log.App)
+		actionAuditSinkVal = newJSONLineSink(ActionAuditLogDirName, ResolveLogApp(""))
 	})
 	return actionAuditSinkVal
 }
@@ -146,4 +144,8 @@ func newJSONLineSink(dirName, appName string) *jsonLineSink {
 		dirName: dirName, // 日志子目录名
 		appName: appName, // 应用名称
 	}
+}
+
+func runtimeLogDir() string {
+	return logSettings.Dir
 }

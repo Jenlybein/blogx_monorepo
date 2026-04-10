@@ -1811,3 +1811,37 @@ Worker 收到一条消息：
 4. `service/user_service` 的写操作服务
 5. `service/message_service / service/site_service / service/es_service`
 
+## 本轮后端修复记录 4（2026-04-10）
+
+### 修复目标
+
+按“全面依赖注入、不再兼容旧全局调用”的要求，继续清理遗留，最终把 `apps/api` 范围内的 `global.*` 全部移除，并把测试体系同步迁移到 DI 路径。
+
+### 已完成内容
+
+- `apps/api` 生产代码 + 测试代码 + 测试基建，`global.*` 已全部清零。
+- 测试基建 `apps/api/test/testutil/testutil.go` 重构为测试依赖容器：
+  - 提供 `SetConfig/Config/DB/Redis/ESClient/SetESClient/Logger` 等注入入口。
+  - `SetupSQLite/SetupMiniRedis` 初始化后会走统一 `Configure(...)` 装配，不再写全局单例。
+- 历史测试代码批量迁移：
+  - `global.DB` -> `testutil.DB()`
+  - `global.Config` -> `testutil.Config()/testutil.SetConfig(...)`
+  - `global.Redis` -> `testutil.Redis()`
+  - `global.ESClient` -> `testutil.ESClient()/testutil.SetESClient(...)`
+  - `global.ImageCaptchaStore` -> `testutil.ImageCaptchaStore()`
+  - `global.Version` -> `testutil.Version()`
+- `core` / `test/core` 遗留签名问题修复：
+  - `SetCfg/InitLogrus/InitRedis/KafkaMysqlClientInit/EsConnect/InitMySQLES` 的测试调用已升级到新 DI 形态。
+
+### 验证结果
+
+- 在 `apps/api` 目录执行：`go test ./... -run ^$` 通过。
+- 扫描命令：`rg -n "global\\." apps/api`，结果为 0。
+- 扫描命令：`rg -n '"myblogx/global"|\\bglobal\\.' apps/api`，结果为 0。
+
+### 当前约束（新基线）
+
+1. 新增业务代码禁止引入 `global.*`。
+2. 请求依赖必须从 `AppContext` 获取，不允许隐式兜底。
+3. 测试依赖统一通过 `testutil` 容器装配，不再直接写全局单例。
+

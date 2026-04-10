@@ -2,7 +2,6 @@ package email_service_test
 
 import (
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/service/email_service"
 	"myblogx/test/testutil"
 	"testing"
@@ -10,7 +9,7 @@ import (
 
 func TestSendEmailFunctions(t *testing.T) {
 	testutil.InitGlobals()
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Email: conf.Email{
 			Domain:       "",
 			Port:         0,
@@ -18,7 +17,7 @@ func TestSendEmailFunctions(t *testing.T) {
 			AuthCode:     "x",
 			SendNickname: "BlogX",
 		},
-	}
+	})
 
 	if err := email_service.SendRegisterCode("u@example.com", "1234", 5); err != nil {
 		t.Fatalf("SendRegisterCode 返回错误: %v", err)

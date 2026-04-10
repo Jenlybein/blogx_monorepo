@@ -1,7 +1,6 @@
 package flags
 
 import (
-	"myblogx/global"
 	"myblogx/models"
 
 	"gorm.io/gorm"
@@ -38,13 +37,13 @@ func FlagDB(db *gorm.DB) {
 		&models.ChatMsgUserStateModel{},
 	)
 	if err != nil {
-		global.Logger.Error("数据库迁移失败", err)
+		flagLogger.Error("数据库迁移失败", err)
 		return
 	}
 	// if db.Migrator().HasTable("image_upload_task_models") {
 	// 	if err := db.Migrator().DropTable("image_upload_task_models"); err != nil {
-	// 		global.Logger.Errorf("删除旧图片上传任务表失败: %v", err)
+	// 		flagLogger.Errorf("删除旧图片上传任务表失败: %v", err)
 	// 	}
 	// }
-	global.Logger.Info("数据库迁移成功")
+	flagLogger.Info("数据库迁移成功")
 }

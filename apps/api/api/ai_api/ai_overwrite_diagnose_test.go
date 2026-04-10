@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"myblogx/api/ai_api"
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/models/enum"
 	"myblogx/service/ai_service"
+	"myblogx/test/testutil"
 	"myblogx/utils/jwts"
 	"net/http"
 	"net/http/httptest"
@@ -34,14 +34,14 @@ func TestAIOverwriteView(t *testing.T) {
 	}))
 	defer server.Close()
 
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		AI: conf.AI{
 			Enable:    true,
 			SecretKey: "test-key",
 			BaseURL:   server.URL,
 			ChatModel: "test-model",
 		},
-	}
+	})
 
 	api := ai_api.AIApi{}
 	c, w := newAICtx()
@@ -119,14 +119,14 @@ func TestAIDiagnoseView(t *testing.T) {
 	}))
 	defer server.Close()
 
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		AI: conf.AI{
 			Enable:    true,
 			SecretKey: "test-key",
 			BaseURL:   server.URL,
 			ChatModel: "test-model",
 		},
-	}
+	})
 
 	api := ai_api.AIApi{}
 	c, w := newAICtx()

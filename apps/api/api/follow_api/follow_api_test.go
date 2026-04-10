@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"myblogx/common"
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/relationship_enum"
@@ -247,13 +246,13 @@ type followUsers struct {
 func setupFollowEnv(t *testing.T) followUsers {
 	t.Helper()
 	testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{}, &models.UserFollowModel{})
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Jwt: conf.Jwt{
 			Expire: 24,
 			Secret: "follow-test-secret",
 			Issuer: "blogx-test",
 		},
-	}
+	})
 
 	return followUsers{
 		owner:     createUser(t, "owner"),
@@ -273,7 +272,7 @@ func createUser(t *testing.T, name string) models.UserModel {
 		Avatar:   name + ".png",
 		Abstract: name + "_abstract",
 	}
-	if err := global.DB.Create(&user).Error; err != nil {
+	if err := testutil.DB().Create(&user).Error; err != nil {
 		t.Fatalf("创建用户失败 name=%s err=%v", name, err)
 	}
 	return user
@@ -293,7 +292,7 @@ func createFollowAt(t *testing.T, fansUserID, followedUserID ctype.ID, createdAt
 		FansUserID:     fansUserID,
 		FollowedUserID: followedUserID,
 	}
-	if err := global.DB.Create(&row).Error; err != nil {
+	if err := testutil.DB().Create(&row).Error; err != nil {
 		t.Fatalf("创建关注关系失败 fans=%d followed=%d err=%v", fansUserID, followedUserID, err)
 	}
 }
@@ -301,7 +300,7 @@ func createFollowAt(t *testing.T, fansUserID, followedUserID ctype.ID, createdAt
 func assertFollowCount(t *testing.T, fansUserID, followedUserID ctype.ID, expected int64) {
 	t.Helper()
 	var count int64
-	if err := global.DB.Model(&models.UserFollowModel{}).
+	if err := testutil.DB().Model(&models.UserFollowModel{}).
 		Where("followed_user_id = ? and fans_user_id = ?", followedUserID, fansUserID).
 		Count(&count).Error; err != nil {
 		t.Fatalf("查询关注关系失败: %v", err)
@@ -314,7 +313,7 @@ func assertFollowCount(t *testing.T, fansUserID, followedUserID ctype.ID, expect
 func assertUserStatCounts(t *testing.T, userID ctype.ID, viewCount, fansCount, followCount int) {
 	t.Helper()
 	var stat models.UserStatModel
-	if err := global.DB.Take(&stat, "user_id = ?", userID).Error; err != nil {
+	if err := testutil.DB().Take(&stat, "user_id = ?", userID).Error; err != nil {
 		t.Fatalf("查询用户统计失败 user_id=%d err=%v", userID, err)
 	}
 	if stat.ViewCount != viewCount || stat.FansCount != fansCount || stat.FollowCount != followCount {
@@ -325,7 +324,7 @@ func assertUserStatCounts(t *testing.T, userID ctype.ID, viewCount, fansCount, f
 
 func setFollowVisibility(t *testing.T, userID ctype.ID, visible bool) {
 	t.Helper()
-	if err := global.DB.Model(&models.UserConfModel{}).
+	if err := testutil.DB().Model(&models.UserConfModel{}).
 		Where("user_id = ?", userID).
 		Update("follow_visibility", visible).Error; err != nil {
 		t.Fatalf("更新关注可见性失败: %v", err)
@@ -334,7 +333,7 @@ func setFollowVisibility(t *testing.T, userID ctype.ID, visible bool) {
 
 func setFansVisibility(t *testing.T, userID ctype.ID, visible bool) {
 	t.Helper()
-	if err := global.DB.Model(&models.UserConfModel{}).
+	if err := testutil.DB().Model(&models.UserConfModel{}).
 		Where("user_id = ?", userID).
 		Update("fans_visibility", visible).Error; err != nil {
 		t.Fatalf("更新粉丝可见性失败: %v", err)

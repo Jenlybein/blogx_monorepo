@@ -2,7 +2,6 @@ package flags
 
 import (
 	"fmt"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/es_service"
@@ -26,17 +25,17 @@ func FlagESIndex() {
 	case 1:
 		// 初始化文章索引设置
 		if err := es_service.CreateIndexForce(index, article.Mapping()); err != nil {
-			global.Logger.Errorf("初始化索引失败: %v", err)
+			flagLogger.Errorf("初始化索引失败: %v", err)
 			return
 		}
-		global.Logger.Infof("索引 %s 初始化成功", index)
+		flagLogger.Infof("索引 %s 初始化成功", index)
 	case 2:
 		// 删除文章索引设置
 		if err := es_service.DeleteIndex(index); err != nil {
-			global.Logger.Errorf("删除索引失败: %v", err)
+			flagLogger.Errorf("删除索引失败: %v", err)
 			return
 		}
-		global.Logger.Infof("索引 %s 删除成功", index)
+		flagLogger.Infof("索引 %s 删除成功", index)
 	default:
 		fmt.Println("无效的选择，不执行任何操作")
 	}
@@ -55,17 +54,17 @@ func FlagESIndex() {
 	case 1:
 		// 初始化文章流水线设置
 		if err := es_service.CreatePipelineForce(pipelineName, article.Pipeline()); err != nil {
-			global.Logger.Errorf("初始化流水线失败: %v", err)
+			flagLogger.Errorf("初始化流水线失败: %v", err)
 			return
 		}
-		global.Logger.Infof("流水线 %s 初始化成功", pipelineName)
+		flagLogger.Infof("流水线 %s 初始化成功", pipelineName)
 	case 2:
 		// 删除文章流水线设置
 		if err := es_service.DeletePipeline(pipelineName); err != nil {
-			global.Logger.Errorf("删除流水线失败: %v", err)
+			flagLogger.Errorf("删除流水线失败: %v", err)
 			return
 		}
-		global.Logger.Infof("流水线 %s 删除成功", pipelineName)
+		flagLogger.Infof("流水线 %s 删除成功", pipelineName)
 	default:
 		fmt.Println("无效的选择，不执行任何操作")
 	}
@@ -79,26 +78,26 @@ func FlagESEnsure() {
 	pipelineName := article.PipelineName()
 
 	if err := es_service.EnsureIndex(index, article.Mapping()); err != nil {
-		global.Logger.Errorf("确保索引失败: %v", err)
+		flagLogger.Errorf("确保索引失败: %v", err)
 		return
 	}
-	global.Logger.Infof("索引 %s 已就绪", index)
+	flagLogger.Infof("索引 %s 已就绪", index)
 
 	if err := es_service.EnsurePipeline(pipelineName, article.Pipeline()); err != nil {
-		global.Logger.Errorf("确保流水线失败: %v", err)
+		flagLogger.Errorf("确保流水线失败: %v", err)
 		return
 	}
-	global.Logger.Infof("流水线 %s 已就绪", pipelineName)
+	flagLogger.Infof("流水线 %s 已就绪", pipelineName)
 }
 
 // FlagESArticleSync 全量同步文章数据到 ES。
 func FlagESArticleSync() {
-	if global.DB == nil {
-		global.Logger.Error("文章同步失败: 数据库未初始化")
+	if flagDB == nil {
+		flagLogger.Error("文章同步失败: 数据库未初始化")
 		return
 	}
-	if global.ESClient == nil {
-		global.Logger.Error("文章同步失败: ES 客户端未初始化")
+	if flagES == nil {
+		flagLogger.Error("文章同步失败: ES 客户端未初始化")
 		return
 	}
 
@@ -108,26 +107,26 @@ func FlagESArticleSync() {
 	// 检查 ES 索引是否存在
 	exists, err := es_service.ExistsIndex(index)
 	if err != nil {
-		global.Logger.Errorf("文章同步失败: 检查 ES 索引失败: %v", err)
+		flagLogger.Errorf("文章同步失败: 检查 ES 索引失败: %v", err)
 		return
 	}
 	if !exists {
-		global.Logger.Errorf("文章同步失败: ES 索引 %s 不存在，请先执行 -es -s init", index)
+		flagLogger.Errorf("文章同步失败: ES 索引 %s 不存在，请先执行 -es -s init", index)
 		return
 	}
 
 	// 设置同步批次
 	batchSize := 128
-	if global.Config != nil && global.Config.River.BulkSize > 0 {
-		batchSize = global.Config.River.BulkSize
+	if flagRiverConfig.BulkSize > 0 {
+		batchSize = flagRiverConfig.BulkSize
 	}
 
-	total, err := syncArticleDocuments(global.DB, index, batchSize)
+	total, err := syncArticleDocuments(flagDB, index, batchSize)
 	if err != nil {
-		global.Logger.Errorf("文章同步失败: %v", err)
+		flagLogger.Errorf("文章同步失败: %v", err)
 		return
 	}
-	global.Logger.Infof("文章同步完成，共同步 %d 篇文章到索引 %s", total, index)
+	flagLogger.Infof("文章同步完成，共同步 %d 篇文章到索引 %s", total, index)
 }
 
 // syncArticleDocuments 全量同步文章数据到 ES
@@ -153,7 +152,7 @@ func syncArticleDocuments(db *gorm.DB, index string, batchSize int) (int, error)
 			}
 
 			total += len(articles)
-			global.Logger.Infof("文章同步进度: 第 %d 批完成，本批 %d 篇，累计 %d 篇", batch, len(articles), total)
+			flagLogger.Infof("文章同步进度: 第 %d 批完成，本批 %d 篇，累计 %d 篇", batch, len(articles), total)
 			return nil
 		})
 	if result.Error != nil {

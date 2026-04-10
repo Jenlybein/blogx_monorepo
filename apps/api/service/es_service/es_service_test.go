@@ -6,7 +6,6 @@ import (
 	"io"
 	"myblogx/conf"
 	confsite "myblogx/conf/site"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -30,10 +29,10 @@ func setupMockES(t *testing.T, handler http.HandlerFunc) {
 		t.Fatalf("创建 mock ES 客户端失败: %v", err)
 	}
 
-	old := global.ESClient
-	global.ESClient = client
+	old := testutil.ESClient()
+	testutil.SetESClient(client)
 	t.Cleanup(func() {
-		global.ESClient = old
+		testutil.SetESClient(old)
 		srv.Close()
 	})
 }
@@ -222,12 +221,12 @@ func TestUpdateESDocsContent(t *testing.T) {
 		&models.ArticleTagModel{},
 		&models.UserTopArticleModel{},
 	)
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		ES: conf.ES{Index: "article_index"},
 		Site: conf.Site{
 			SiteInfo: confsite.SiteInfo{Mode: enum.SiteModeCommunity},
 		},
-	}
+	})
 
 	user := models.UserModel{Username: "author", Password: "x", Role: enum.RoleUser}
 	if err := db.Create(&user).Error; err != nil {
@@ -316,7 +315,7 @@ func TestUpdateESDocsTags(t *testing.T) {
 		&models.TagModel{},
 		&models.ArticleTagModel{},
 	)
-	global.Config = &conf.Config{ES: conf.ES{Index: "article_index"}}
+	testutil.SetConfig(&conf.Config{ES: conf.ES{Index: "article_index"}})
 
 	user := models.UserModel{Username: "author", Password: "x", Role: enum.RoleUser}
 	if err := db.Create(&user).Error; err != nil {
@@ -393,7 +392,7 @@ func TestUpdateESDocsTop(t *testing.T) {
 		&models.ArticleModel{},
 		&models.UserTopArticleModel{},
 	)
-	global.Config = &conf.Config{ES: conf.ES{Index: "article_index"}}
+	testutil.SetConfig(&conf.Config{ES: conf.ES{Index: "article_index"}})
 
 	admin := models.UserModel{Username: "admin", Password: "x", Role: enum.RoleAdmin}
 	author := models.UserModel{Username: "author", Password: "x", Role: enum.RoleUser}

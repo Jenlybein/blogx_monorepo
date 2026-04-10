@@ -3,13 +3,12 @@ package article_api
 import (
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
-	"myblogx/service/read_service"
 	"myblogx/service/log_service"
 	"myblogx/service/message_service"
+	"myblogx/service/read_service"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -20,19 +19,19 @@ func (ArticleApi) ArticleExamineView(c *gin.Context) {
 	cr := middleware.GetBindJson[ArticleExamineRequest](c)
 
 	var article models.ArticleModel
-	if err := global.DB.Take(&article, id.ID).Error; err != nil {
+	if err := mustApp(c).DB.Take(&article, id.ID).Error; err != nil {
 		res.FailWithMsg("文章不存在", c)
 		return
 	}
 
-	if err := global.DB.Model(&article).Updates(models.ArticleModel{
+	if err := mustApp(c).DB.Model(&article).Updates(models.ArticleModel{
 		Status: cr.Status,
 	}).Error; err != nil {
 		res.FailWithMsg("文章审核失败", c)
 		return
 	}
-	if err := read_service.SyncArticleFavorSnapshots(global.DB, []ctype.ID{article.ID}); err != nil {
-		global.Logger.Errorf("同步文章收藏快照失败: 文章ID=%d 错误=%v", article.ID, err)
+	if err := read_service.SyncArticleFavorSnapshots(mustApp(c).DB, []ctype.ID{article.ID}); err != nil {
+		mustApp(c).Logger.Errorf("同步文章收藏快照失败: 文章ID=%d 错误=%v", article.ID, err)
 	}
 
 	// 给文章创作者发送系统通知

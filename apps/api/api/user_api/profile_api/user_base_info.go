@@ -2,7 +2,6 @@ package profile_api
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -30,10 +29,11 @@ type UserBaseInfoResponse struct {
 }
 
 func (ProfileApi) UserBaseInfoView(c *gin.Context) {
+	app := mustApp(c)
 	cr := middleware.GetBindQuery[models.IDRequest](c)
 
 	var user models.UserModel
-	if err := global.DB.Preload("UserConfModel").Preload("UserStatModel").Take(&user, cr.ID).Error; err != nil {
+	if err := app.DB.Preload("UserConfModel").Preload("UserStatModel").Take(&user, cr.ID).Error; err != nil {
 		res.FailWithError(err, c)
 		return
 	}

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/redis_service/redis_user"
@@ -27,7 +26,7 @@ func StatRecordUserHomeView(userID, viewerUserID ctype.ID) (counted bool, err er
 	reservedByRedis := false
 	marked, markErr := redis_user.TryMarkUserHomeViewed(userID, viewerUserID, now)
 	if markErr != nil {
-		global.Logger.Warnf("记录用户主页访问时 Redis 判重失败，降级走数据库兜底: user_id=%d viewer_user_id=%d err=%v", userID, viewerUserID, markErr)
+		userLogger.Warnf("记录用户主页访问时 Redis 判重失败，降级走数据库兜底: user_id=%d viewer_user_id=%d err=%v", userID, viewerUserID, markErr)
 	} else {
 		if !marked {
 			return false, nil
@@ -35,7 +34,7 @@ func StatRecordUserHomeView(userID, viewerUserID ctype.ID) (counted bool, err er
 		reservedByRedis = true
 	}
 
-	err = global.DB.Transaction(func(tx *gorm.DB) error {
+	err = userDB.Transaction(func(tx *gorm.DB) error {
 		row := models.UserViewDailyModel{
 			UserID:       userID,
 			ViewerUserID: viewerUserID,
@@ -67,7 +66,7 @@ func StatRecordUserHomeView(userID, viewerUserID ctype.ID) (counted bool, err er
 	})
 	if err != nil && reservedByRedis {
 		if rollbackErr := redis_user.RollbackUserHomeViewed(userID, viewerUserID, now); rollbackErr != nil {
-			global.Logger.Warnf("回滚用户主页访问 Redis 判重失败: user_id=%d viewer_user_id=%d err=%v", userID, viewerUserID, rollbackErr)
+			userLogger.Warnf("回滚用户主页访问 Redis 判重失败: user_id=%d viewer_user_id=%d err=%v", userID, viewerUserID, rollbackErr)
 		}
 	}
 	return counted, err

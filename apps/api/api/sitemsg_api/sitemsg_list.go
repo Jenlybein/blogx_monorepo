@@ -3,7 +3,6 @@ package sitemsg_api
 import (
 	"myblogx/common"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/enum/message_enum"
@@ -13,6 +12,7 @@ import (
 )
 
 func (a *SitemsgApi) SitemsgListView(c *gin.Context) {
+	app := mustApp(c)
 	cr := middleware.GetBindQuery[SitemsgListRequest](c)
 
 	var typeList []message_enum.Type
@@ -31,7 +31,7 @@ func (a *SitemsgApi) SitemsgListView(c *gin.Context) {
 		ReceiverID: claims.UserID,
 	}, common.Options{
 		PageInfo: cr.PageInfo,
-		Where:    global.DB.Where("type in ?", typeList),
+		Where:    app.DB.Where("type in ?", typeList),
 	})
 	if err != nil {
 		res.FailWithError(err, c)

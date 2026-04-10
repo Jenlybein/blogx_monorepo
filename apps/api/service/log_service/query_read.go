@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"myblogx/common"
-	"myblogx/global"
 	"myblogx/models/ctype"
 )
 
@@ -157,7 +156,7 @@ ORDER BY ts DESC, event_id DESC
 LIMIT ? OFFSET ?`, RuntimeLogTableName, whereSQL)
 	args = append(args, limit, offset)
 
-	rows, err := global.ClickHouse.QueryContext(ctx, sqlText, args...)
+	rows, err := logClickHouse.QueryContext(ctx, sqlText, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -218,7 +217,7 @@ FROM %s %s
 ORDER BY ts DESC, event_id DESC
 LIMIT ? OFFSET ?`, LoginEventLogTableName, whereSQL)
 	args = append(args, limit, offset)
-	rows, err := global.ClickHouse.QueryContext(ctx, sqlText, args...)
+	rows, err := logClickHouse.QueryContext(ctx, sqlText, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -278,7 +277,7 @@ FROM %s %s
 ORDER BY ts DESC, event_id DESC
 LIMIT ? OFFSET ?`, ActionAuditLogTableName, whereSQL)
 	args = append(args, limit, offset)
-	rows, err := global.ClickHouse.QueryContext(ctx, sqlText, args...)
+	rows, err := logClickHouse.QueryContext(ctx, sqlText, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -358,7 +357,7 @@ func LoadLatestLoginMap(userIDs []ctype.ID) (map[ctype.ID]LoginEventRecord, erro
 		placeholders = append(placeholders, "?")
 		args = append(args, value)
 	}
-	rows, err := global.ClickHouse.QueryContext(ctx, fmt.Sprintf(`
+	rows, err := logClickHouse.QueryContext(ctx, fmt.Sprintf(`
 SELECT event_id, toString(ts), service, env, host, instance_id, level, message, request_id, trace_id, user_id, ip, event_name, username, login_type, success, reason, addr, ua, extra_json
 FROM %s
 WHERE user_id IN (%s) AND event_name = 'login_success' AND success = 1
@@ -386,13 +385,13 @@ LIMIT 1 BY user_id`, LoginEventLogTableName, strings.Join(placeholders, ",")), a
 
 // normalizeLogPage 统一处理后台日志分页参数和默认限制。
 func normalizeLogPage(pageInfo common.PageInfo) (limit int, offset int) {
-	defaultLimit := global.Config.Log.QueryDefaultLimit
-	if defaultLimit <= 0 {
-		defaultLimit = 20
+	defaultLimit := 20
+	if logSettings.QueryDefaultLimit > 0 {
+		defaultLimit = logSettings.QueryDefaultLimit
 	}
-	maxLimit := global.Config.Log.QueryMaxLimit
-	if maxLimit <= 0 {
-		maxLimit = 200
+	maxLimit := 200
+	if logSettings.QueryMaxLimit > 0 {
+		maxLimit = logSettings.QueryMaxLimit
 	}
 
 	limit = pageInfo.Limit

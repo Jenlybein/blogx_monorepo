@@ -2,7 +2,6 @@ package profile_api
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -27,10 +26,11 @@ type UserDetailResponse struct {
 }
 
 func (ProfileApi) UserDetailView(c *gin.Context) {
+	app := mustApp(c)
 	claims := jwts.MustGetClaimsByGin(c)
 
 	var user models.UserModel
-	if err := global.DB.Preload("UserConfModel").Take(&user, claims.UserID).Error; err != nil {
+	if err := app.DB.Preload("UserConfModel").Take(&user, claims.UserID).Error; err != nil {
 		res.FailWithMsg("用户不存在", c)
 		c.Abort()
 		return

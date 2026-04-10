@@ -11,7 +11,6 @@ import (
 	"myblogx/api/site_api"
 	"myblogx/conf"
 	confsite "myblogx/conf/site"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/service/site_service"
 	"myblogx/test/testutil"
@@ -39,7 +38,7 @@ func readSiteCode(t *testing.T, w *httptest.ResponseRecorder) int {
 func setupSiteApiEnv(t *testing.T) {
 	t.Helper()
 	testutil.SetupSQLite(t, &models.RuntimeSiteConfigModel{})
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Site: conf.Site{
 			SiteInfo: confsite.SiteInfo{
 				Title: "技术博客",
@@ -68,7 +67,7 @@ func setupSiteApiEnv(t *testing.T) {
 			Avatar:    "/ai.png",
 			Abstract:  "你好",
 		},
-	}
+	})
 	if err := site_service.InitRuntimeConfig(); err != nil {
 		t.Fatalf("初始化运行时站点配置失败: %v", err)
 	}
@@ -96,7 +95,7 @@ func TestSiteInfoViews(t *testing.T) {
 		if code := readSiteCode(t, w); code != 0 {
 			t.Fatalf("站点信息接口应成功, body=%s", w.Body.String())
 		}
-		if !strings.Contains(w.Body.String(), global.Version) {
+		if !strings.Contains(w.Body.String(), testutil.Version()) {
 			t.Fatalf("站点信息应包含版本号, body=%s", w.Body.String())
 		}
 	})
@@ -184,11 +183,11 @@ func TestSiteUpdateView(t *testing.T) {
 		if code := readSiteCode(t, w); code != 0 {
 			t.Fatalf("ai 更新应成功, body=%s", w.Body.String())
 		}
-		if global.Config.AI.SecretKey != "ai-secret-origin" {
-			t.Fatalf("占位符应保留原 ai secret, got=%s", global.Config.AI.SecretKey)
+		if testutil.Config().AI.SecretKey != "ai-secret-origin" {
+			t.Fatalf("占位符应保留原 ai secret, got=%s", testutil.Config().AI.SecretKey)
 		}
-		if global.Config.AI.BaseURL != "https://new-ai.example.com" {
-			t.Fatalf("AI base_url 未更新, got=%s", global.Config.AI.BaseURL)
+		if testutil.Config().AI.BaseURL != "https://new-ai.example.com" {
+			t.Fatalf("AI base_url 未更新, got=%s", testutil.Config().AI.BaseURL)
 		}
 	})
 
@@ -202,8 +201,8 @@ func TestSiteUpdateView(t *testing.T) {
 		if code := readSiteCode(t, w); code != 0 {
 			t.Fatalf("site 更新应成功, body=%s", w.Body.String())
 		}
-		if global.Config.Site.SiteInfo.Title != "新站点" {
-			t.Fatalf("站点标题未更新, got=%s", global.Config.Site.SiteInfo.Title)
+		if testutil.Config().Site.SiteInfo.Title != "新站点" {
+			t.Fatalf("站点标题未更新, got=%s", testutil.Config().Site.SiteInfo.Title)
 		}
 		if got := site_service.GetRuntimeSite().Seo.Description; got != "新的描述" {
 			t.Fatalf("运行时站点配置未更新, got=%s", got)

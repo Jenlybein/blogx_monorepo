@@ -10,10 +10,10 @@ import (
 
 	"myblogx/conf"
 	siteconf "myblogx/conf/site"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/utils/envyaml"
 
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
@@ -29,20 +29,77 @@ var runtimeConfigCache struct {
 	data *RuntimeConfig
 }
 
-func defaultRuntimeConfig() *RuntimeConfig {
-	cfg := &RuntimeConfig{}
-	if global.Config != nil {
-		cfg.Site = global.Config.Site
-		cfg.AI = global.Config.AI
+var runtimeDeps struct {
+	mu            sync.RWMutex
+	baseSite      conf.Site
+	baseAI        conf.AI
+	applyBaseFunc func(site conf.Site, ai conf.AI)
+	logger        *logrus.Logger
+	db            *gorm.DB
+	configFile    string
+}
+
+func ConfigureRuntimeConfig(baseSite conf.Site, baseAI conf.AI, applyBaseFunc func(site conf.Site, ai conf.AI), logger *logrus.Logger, db *gorm.DB, configFile string) {
+	runtimeDeps.mu.Lock()
+	defer runtimeDeps.mu.Unlock()
+	runtimeDeps.baseSite = baseSite
+	runtimeDeps.baseAI = baseAI
+	runtimeDeps.applyBaseFunc = applyBaseFunc
+	runtimeDeps.logger = logger
+	runtimeDeps.db = db
+	runtimeDeps.configFile = configFile
+}
+
+func runtimeBaseConfig() RuntimeConfig {
+	runtimeDeps.mu.RLock()
+	defer runtimeDeps.mu.RUnlock()
+	return RuntimeConfig{
+		Site: runtimeDeps.baseSite,
+		AI:   runtimeDeps.baseAI,
 	}
-	return cfg
+}
+
+func runtimeApplyBase(site conf.Site, ai conf.AI) {
+	runtimeDeps.mu.RLock()
+	apply := runtimeDeps.applyBaseFunc
+	runtimeDeps.mu.RUnlock()
+	if apply != nil {
+		apply(site, ai)
+	}
+}
+
+func runtimeLogger() *logrus.Logger {
+	runtimeDeps.mu.RLock()
+	defer runtimeDeps.mu.RUnlock()
+	return runtimeDeps.logger
+}
+
+func runtimeDB() *gorm.DB {
+	runtimeDeps.mu.RLock()
+	defer runtimeDeps.mu.RUnlock()
+	return runtimeDeps.db
+}
+
+func runtimeConfigFile() string {
+	runtimeDeps.mu.RLock()
+	defer runtimeDeps.mu.RUnlock()
+	return runtimeDeps.configFile
+}
+
+func defaultRuntimeConfig() *RuntimeConfig {
+	baseConfig := runtimeBaseConfig()
+	return &RuntimeConfig{
+		Site: baseConfig.Site,
+		AI:   baseConfig.AI,
+	}
 }
 
 func loadRuntimeDefaultConfigFromFile() (*RuntimeConfig, error) {
-	if global.Flags == nil || global.Flags.File == "" {
+	configFile := runtimeConfigFile()
+	if configFile == "" {
 		return nil, errors.New("运行时站点默认配置路径未设置")
 	}
-	defaultFile := filepath.Join(filepath.Dir(global.Flags.File), "site_default_settings.yaml")
+	defaultFile := filepath.Join(filepath.Dir(configFile), "site_default_settings.yaml")
 	byteData, err := os.ReadFile(defaultFile)
 	if err != nil {
 		return nil, err
@@ -63,8 +120,8 @@ func initialRuntimeConfig() *RuntimeConfig {
 	if err == nil {
 		return cfg
 	}
-	if global.Logger != nil {
-		global.Logger.Warnf("读取 site_default_settings.yaml 失败，回退到进程内默认值: %v", err)
+	if logger := runtimeLogger(); logger != nil {
+		logger.Warnf("读取 site_default_settings.yaml 失败，回退到进程内默认值: %v", err)
 	}
 	return defaultRuntimeConfig()
 }
@@ -117,9 +174,8 @@ func GetRuntimeAI() conf.AI {
 }
 
 func applyRuntimeConfig(cfg *RuntimeConfig) {
-	if global.Config != nil && cfg != nil {
-		global.Config.Site = cfg.Site
-		global.Config.AI = cfg.AI
+	if cfg != nil {
+		runtimeApplyBase(cfg.Site, cfg.AI)
 	}
 	setRuntimeConfigCache(cfg)
 }
@@ -187,14 +243,15 @@ func ensureRuntimeConfigModel(tx *gorm.DB) (*models.RuntimeSiteConfigModel, *Run
 // InitRuntimeConfig 会在启动时把运行时站点配置从数据库加载到内存。
 // 当数据库还没有初始化记录时，会使用 site_default_settings.yaml 中的默认值灌入数据库。
 func InitRuntimeConfig() error {
-	if global.DB == nil {
+	db := runtimeDB()
+	if db == nil {
 		return errors.New("数据库未初始化")
 	}
-	if !global.DB.Migrator().HasTable(&models.RuntimeSiteConfigModel{}) {
+	if !db.Migrator().HasTable(&models.RuntimeSiteConfigModel{}) {
 		return errors.New("运行时配置表不存在，请先执行数据库初始化命令：/app/server -db")
 	}
 	var loaded *RuntimeConfig
-	if err := global.DB.Transaction(func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		_, cfg, err := ensureRuntimeConfigModel(tx)
 		if err != nil {
 			return err
@@ -209,11 +266,12 @@ func InitRuntimeConfig() error {
 }
 
 func UpdateRuntimeSite(site conf.Site) error {
-	if global.DB == nil {
+	db := runtimeDB()
+	if db == nil {
 		return errors.New("数据库未初始化")
 	}
 	var updated *RuntimeConfig
-	if err := global.DB.Transaction(func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		model, cfg, err := ensureRuntimeConfigModel(tx)
 		if err != nil {
 			return err
@@ -239,11 +297,12 @@ func UpdateRuntimeSite(site conf.Site) error {
 }
 
 func UpdateRuntimeAI(ai conf.AI) error {
-	if global.DB == nil {
+	db := runtimeDB()
+	if db == nil {
 		return errors.New("数据库未初始化")
 	}
 	var updated *RuntimeConfig
-	if err := global.DB.Transaction(func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		model, cfg, err := ensureRuntimeConfigModel(tx)
 		if err != nil {
 			return err

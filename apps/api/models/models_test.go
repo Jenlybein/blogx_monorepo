@@ -2,7 +2,6 @@ package models_test
 
 import (
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -55,9 +54,9 @@ func TestEnumStrings(t *testing.T) {
 
 func TestModelMethods(t *testing.T) {
 	testutil.InitGlobals()
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		ES: conf.ES{Index: "article_index"},
-	}
+	})
 
 	article := models.ArticleModel{}
 	if article.Index() != "article_index" {

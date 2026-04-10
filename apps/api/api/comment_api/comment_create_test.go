@@ -2,7 +2,6 @@ package comment_api
 
 import (
 	"encoding/json"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -50,7 +49,7 @@ func setupCommentEnv(t *testing.T) *models.UserModel {
 		&models.CommentDiggModel{},
 		&models.ArticleMessageModel{},
 	)
-	global.Config.Site.Comment.SkipExamining = true
+	testutil.Config().Site.Comment.SkipExamining = true
 
 	user := &models.UserModel{
 		Username: "comment_u",
@@ -84,10 +83,10 @@ func TestCommentCreateView(t *testing.T) {
 		AuthorID:       user.ID,
 		CommentsToggle: true,
 	}
-	if err := global.DB.Create(&closedArticle).Error; err != nil {
+	if err := testutil.DB().Create(&closedArticle).Error; err != nil {
 		t.Fatalf("创建关闭评论文章失败: %v", err)
 	}
-	if err := global.DB.Model(&closedArticle).Update("comments_toggle", false).Error; err != nil {
+	if err := testutil.DB().Model(&closedArticle).Update("comments_toggle", false).Error; err != nil {
 		t.Fatalf("关闭评论开关失败: %v", err)
 	}
 
@@ -107,7 +106,7 @@ func TestCommentCreateView(t *testing.T) {
 		AuthorID:       user.ID,
 		CommentsToggle: true,
 	}
-	if err := global.DB.Create(&openArticle).Error; err != nil {
+	if err := testutil.DB().Create(&openArticle).Error; err != nil {
 		t.Fatalf("创建可评论文章失败: %v", err)
 	}
 
@@ -121,7 +120,7 @@ func TestCommentCreateView(t *testing.T) {
 			t.Fatalf("一级评论应成功, body=%s", w.Body.String())
 		}
 
-		if err := global.DB.Last(&first).Error; err != nil {
+		if err := testutil.DB().Last(&first).Error; err != nil {
 			t.Fatalf("查询评论失败: %v", err)
 		}
 		if first.ReplyId != 0 || first.RootID != 0 {
@@ -152,7 +151,7 @@ func TestCommentCreateView(t *testing.T) {
 			t.Fatalf("回复评论应成功, body=%s", w.Body.String())
 		}
 
-		if err := global.DB.Last(&second).Error; err != nil {
+		if err := testutil.DB().Last(&second).Error; err != nil {
 			t.Fatalf("查询回复评论失败: %v", err)
 		}
 		if second.ReplyId != first.ID {
@@ -186,7 +185,7 @@ func TestCommentCreateView(t *testing.T) {
 		}
 
 		var reply models.CommentModel
-		if err := global.DB.Last(&reply).Error; err != nil {
+		if err := testutil.DB().Last(&reply).Error; err != nil {
 			t.Fatalf("查询回复评论失败: %v", err)
 		}
 		if reply.ReplyId != second.ID {
@@ -216,9 +215,9 @@ func TestCommentCreateView(t *testing.T) {
 	})
 
 	t.Run("关闭免审核时普通用户评论进入审核中且不计数", func(t *testing.T) {
-		global.Config.Site.Comment.SkipExamining = false
+		testutil.Config().Site.Comment.SkipExamining = false
 		t.Cleanup(func() {
-			global.Config.Site.Comment.SkipExamining = true
+			testutil.Config().Site.Comment.SkipExamining = true
 		})
 
 		beforeCommentCount := redis_article.GetCacheComment(openArticle.ID)
@@ -237,7 +236,7 @@ func TestCommentCreateView(t *testing.T) {
 		}
 
 		var last models.CommentModel
-		if err := global.DB.Last(&last).Error; err != nil {
+		if err := testutil.DB().Last(&last).Error; err != nil {
 			t.Fatalf("查询评论失败: %v", err)
 		}
 		if last.Status != enum.CommentStatusExamining {
@@ -252,7 +251,7 @@ func TestCommentCreateView(t *testing.T) {
 	})
 
 	t.Run("管理员评论直接发布并计数与消息", func(t *testing.T) {
-		global.Config.Site.Comment.SkipExamining = false
+		testutil.Config().Site.Comment.SkipExamining = false
 		adminClaims := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Username: user.Username, Role: enum.RoleAdmin}}
 
 		beforeCommentCount := redis_article.GetCacheComment(openArticle.ID)
@@ -271,7 +270,7 @@ func TestCommentCreateView(t *testing.T) {
 		}
 
 		var last models.CommentModel
-		if err := global.DB.Last(&last).Error; err != nil {
+		if err := testutil.DB().Last(&last).Error; err != nil {
 			t.Fatalf("查询评论失败: %v", err)
 		}
 		if last.Status != enum.CommentStatusPublished {

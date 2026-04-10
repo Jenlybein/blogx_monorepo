@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tabler/icons-vue": "^3.41.1",
     "echarts": "^5.6.0",
     "katex": "^0.16.11",
     "naive-ui": "^2.41.0",

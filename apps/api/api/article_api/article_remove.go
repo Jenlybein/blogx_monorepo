@@ -3,7 +3,6 @@ package article_api
 import (
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/service/article_service"
@@ -16,13 +15,13 @@ func (ArticleApi) ArticleRemoveView(c *gin.Context) {
 	cr := middleware.GetBindJson[models.IDListRequest](c)
 
 	var list []models.ArticleModel
-	global.DB.Find(&list, "id in ?", cr.IDList)
+	mustApp(c).DB.Find(&list, "id in ?", cr.IDList)
 
 	if len(list) == 0 {
 		res.FailWithMsg("删除失败，文章不存在", c)
 		return
 	}
-	if err := article_service.DeleteArticles(global.DB, list, false); err != nil {
+	if err := article_service.DeleteArticles(mustApp(c).DB, list, false); err != nil {
 		res.FailWithMsg("删除文章失败", c)
 		return
 	}

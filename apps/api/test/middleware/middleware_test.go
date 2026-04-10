@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"myblogx/conf"
 	confsite "myblogx/conf/site"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/enum"
@@ -72,7 +71,7 @@ func setupAuthEnv(t *testing.T) {
 	t.Helper()
 	_ = testutil.SetupMiniRedis(t)
 	_ = testutil.SetupSQLite(t, &models.UserModel{})
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Jwt: conf.Jwt{
 			Expire: 1,
 			Secret: "secret",
@@ -81,7 +80,7 @@ func setupAuthEnv(t *testing.T) {
 		Site: conf.Site{
 			Login: confsite.Login{Captcha: false},
 		},
-	}
+	})
 }
 
 func TestAuthAndAdminMiddleware(t *testing.T) {
@@ -99,10 +98,10 @@ func TestAuthAndAdminMiddleware(t *testing.T) {
 
 	user := &models.UserModel{Username: "u1", Password: "x", Role: enum.RoleUser}
 	admin := &models.UserModel{Username: "admin", Password: "x", Role: enum.RoleAdmin}
-	if err := global.DB.Create(user).Error; err != nil {
+	if err := testutil.DB().Create(user).Error; err != nil {
 		t.Fatalf("创建普通用户失败: %v", err)
 	}
-	if err := global.DB.Create(admin).Error; err != nil {
+	if err := testutil.DB().Create(admin).Error; err != nil {
 		t.Fatalf("创建管理员失败: %v", err)
 	}
 	userToken := testutil.IssueAccessToken(t, user)
@@ -164,7 +163,7 @@ func TestCaptchaAndEmailVerifyMiddleware(t *testing.T) {
 	})
 
 	// 关闭验证码时直接通过
-	global.Config.Site.Login.Captcha = false
+	testutil.Config().Site.Login.Captcha = false
 	{
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/captcha", strings.NewReader(`{}`))
@@ -176,8 +175,8 @@ func TestCaptchaAndEmailVerifyMiddleware(t *testing.T) {
 	}
 
 	// 开启验证码 + 正确验证码
-	global.Config.Site.Login.Captcha = true
-	_ = global.ImageCaptchaStore.Set("cid", "1234")
+	testutil.Config().Site.Login.Captcha = true
+	_ = testutil.ImageCaptchaStore().Set("cid", "1234")
 	{
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/captcha", strings.NewReader(`{"captcha_id":"cid","captcha_code":"1234"}`))
@@ -189,7 +188,7 @@ func TestCaptchaAndEmailVerifyMiddleware(t *testing.T) {
 	}
 
 	// 错误验证码
-	_ = global.ImageCaptchaStore.Set("cid2", "5678")
+	_ = testutil.ImageCaptchaStore().Set("cid2", "5678")
 	{
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/captcha", strings.NewReader(`{"captcha_id":"cid2","captcha_code":"wrong"}`))

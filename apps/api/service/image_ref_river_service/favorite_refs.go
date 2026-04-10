@@ -3,7 +3,6 @@ package image_ref_river_service
 import (
 	"strings"
 
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/enum/image_ref_enum"
 
@@ -12,7 +11,7 @@ import (
 
 func RebuildFavoriteRefs(tx *gorm.DB, favorite *models.FavoriteModel) error {
 	if tx == nil {
-		tx = global.DB
+		tx = imageRefDB
 	}
 	candidates := make([]refCandidate, 0, 1)
 	if cover := strings.TrimSpace(favorite.Cover); cover != "" {
@@ -31,13 +30,13 @@ func RebuildFavoriteRefsByRow(snapshot rowSnapshot) error {
 		return err
 	}
 	if snapshot.IsDeleted() {
-		return DeleteOwnerRefs(global.DB, image_ref_enum.RefTypeFavorite, favoriteID)
+		return DeleteOwnerRefs(imageRefDB, image_ref_enum.RefTypeFavorite, favoriteID)
 	}
 	cover, err := snapshot.RequireString("cover")
 	if err != nil {
 		return err
 	}
-	return RebuildFavoriteRefs(global.DB, &models.FavoriteModel{
+	return RebuildFavoriteRefs(imageRefDB, &models.FavoriteModel{
 		Model: models.Model{ID: favoriteID},
 		Cover: cover,
 	})

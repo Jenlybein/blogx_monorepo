@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/service/image_service"
@@ -22,6 +21,7 @@ import (
 // CreateUploadTaskView 创建图片直传上传任务
 // 前端调用：获取上传凭证、判断是否需要上传（秒传）
 func (ImageApi) CreateUploadTaskView(c *gin.Context) {
+	app := mustApp(c)
 	cr := middleware.GetBindJson[CreateImageUploadTaskRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
 
@@ -52,9 +52,9 @@ func (ImageApi) CreateUploadTaskView(c *gin.Context) {
 		Bucket:      result.UploadInfo.Bucket,                        // 七牛存储空间
 		ObjectKey:   result.UploadInfo.ObjectKey,                     // 文件存储key
 		UploadToken: result.UploadInfo.Token,                         // 七牛上传凭证
-		Region:      strings.TrimSpace(global.Config.QiNiu.Region),   // 存储区域
+		Region:      strings.TrimSpace(app.Config.QiNiu.Region),      // 存储区域
 		ExpireAt:    result.UploadInfo.ExpireAt.Format(time.RFC3339), // 凭证过期时间
-		MaxSize:     int64(global.Config.QiNiu.Size) * 1024 * 1024,   // 最大上传大小
+		MaxSize:     int64(app.Config.QiNiu.Size) * 1024 * 1024,      // 最大上传大小
 		Hash:        result.Task.Hash,                                // 文件哈希值
 	}, c)
 }

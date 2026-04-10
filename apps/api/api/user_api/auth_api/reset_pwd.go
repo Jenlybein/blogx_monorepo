@@ -2,7 +2,6 @@ package auth_api
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/service/user_service"
@@ -16,13 +15,14 @@ type ResetPasswordRequest struct {
 }
 
 func (AuthApi) ResetPwdByEmailView(c *gin.Context) {
+	app := mustApp(c)
 	cr := middleware.GetBindJson[ResetPasswordRequest](c)
 
 	email := c.GetString("email")
 
 	var user models.UserModel
 	var err error
-	if err = global.DB.Take(&user, "email = ?", email).Error; err != nil {
+	if err = app.DB.Take(&user, "email = ?", email).Error; err != nil {
 		res.FailWithMsg("用户不存在", c)
 		return
 	}

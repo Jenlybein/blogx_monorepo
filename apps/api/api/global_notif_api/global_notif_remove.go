@@ -3,7 +3,6 @@ package global_notif_api
 import (
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/service/log_service"
@@ -16,6 +15,7 @@ import (
 )
 
 func (GlobalNotifApi) GlobalNotifAdminRemoveView(c *gin.Context) {
+	app := mustApp(c)
 	cr := middleware.GetBindJson[models.IDListRequest](c)
 
 	if len(cr.IDList) == 0 {
@@ -24,13 +24,13 @@ func (GlobalNotifApi) GlobalNotifAdminRemoveView(c *gin.Context) {
 	}
 
 	var list []models.GlobalNotifModel
-	if err := global.DB.Find(&list, "id IN ?", cr.IDList).Error; err != nil {
+	if err := app.DB.Find(&list, "id IN ?", cr.IDList).Error; err != nil {
 		res.FailWithError(err, c)
 		return
 	}
 
 	if len(list) > 0 {
-		if err := global.DB.Delete(&list).Error; err != nil {
+		if err := app.DB.Delete(&list).Error; err != nil {
 			res.FailWithError(err, c)
 			return
 		}
@@ -77,7 +77,7 @@ func (GlobalNotifApi) GlobalNotifUserRemoveView(c *gin.Context) {
 	}
 
 	var successCount int
-	err = global.DB.Transaction(func(tx *gorm.DB) error {
+	err = mustApp(c).DB.Transaction(func(tx *gorm.DB) error {
 		now := time.Now()
 		for _, notif := range notifList {
 			match := map[string]any{

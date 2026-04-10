@@ -2,7 +2,6 @@ package models
 
 import (
 	_ "embed"
-	"myblogx/global"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
 )
@@ -43,7 +42,7 @@ func (ArticleModel) Mapping() string {
 }
 
 func (ArticleModel) Index() string {
-	return global.Config.ES.Index
+	return articleESIndex
 }
 
 //go:embed es_settings/article_pipeline.json

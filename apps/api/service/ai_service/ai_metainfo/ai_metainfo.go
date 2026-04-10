@@ -3,9 +3,9 @@ package ai_metainfo
 import (
 	"errors"
 	"fmt"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
+	"myblogx/service/ai_service"
 	"strings"
 )
 
@@ -17,32 +17,32 @@ func GenerateArticleMetainfo(uid ctype.ID, content string) (*MetainfoResponse, e
 	if strings.TrimSpace(content) == "" {
 		return nil, errors.New("文章内容不能为空")
 	}
-	if global.Config == nil {
+	if !ai_service.Ready() {
 		return nil, errors.New("系统配置未初始化")
 	}
-	if global.DB == nil {
+	if ai_service.DB() == nil {
 		return nil, errors.New("数据库未初始化")
 	}
 
 	// 加载文章分类候选。
 	var categoryOptions []Metainfos
-	if err := global.DB.Model(&models.CategoryModel{}).
+	if err := ai_service.DB().Model(&models.CategoryModel{}).
 		Where("user_id = ?", uid).
 		Order("id asc").
 		Select("id", "title").
 		Scan(&categoryOptions).Error; err != nil {
-		global.Logger.Errorf("查询文章分类候选失败: 用户ID=%d 错误=%v", uid, err)
+		ai_service.Logger().Errorf("查询文章分类候选失败: 用户ID=%d 错误=%v", uid, err)
 		return nil, fmt.Errorf("查询分类候选失败: %w", err)
 	}
 
 	// 加载文章标签候选。
 	var tagOptions []Metainfos
-	if err := global.DB.Model(&models.TagModel{}).
+	if err := ai_service.DB().Model(&models.TagModel{}).
 		Where("is_enabled = ?", true).
 		Order("sort desc, id asc").
 		Select("id", "title").
 		Scan(&tagOptions).Error; err != nil {
-		global.Logger.Errorf("查询文章标签候选失败: 错误=%v", err)
+		ai_service.Logger().Errorf("查询文章标签候选失败: 错误=%v", err)
 		return nil, fmt.Errorf("查询标签候选失败: %w", err)
 	}
 

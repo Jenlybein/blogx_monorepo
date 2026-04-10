@@ -2,7 +2,6 @@ package article_api
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/service/article_service"
@@ -17,13 +16,13 @@ func (ArticleApi) ArticleRemoveUserView(c *gin.Context) {
 	claims := jwts.GetClaimsByGin(c)
 
 	var model models.ArticleModel
-	if err := global.DB.Take(&model, "author_id = ? and id = ?", claims.UserID, cr.ID).Error; err != nil {
+	if err := mustApp(c).DB.Take(&model, "author_id = ? and id = ?", claims.UserID, cr.ID).Error; err != nil {
 		res.FailWithMsg("文章不存在", c)
 		return
 	}
 
 	// 软删除
-	if err := article_service.DeleteArticles(global.DB, []models.ArticleModel{model}, false); err != nil {
+	if err := article_service.DeleteArticles(mustApp(c).DB, []models.ArticleModel{model}, false); err != nil {
 		res.FailWithMsg("删除文章失败", c)
 		return
 	}

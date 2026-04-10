@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"myblogx/global"
 
 	"github.com/elastic/go-elasticsearch/v7/esapi"
 )
@@ -72,7 +71,7 @@ func handleError(res *esapi.Response) error {
 
 // 执行ES请求，处理错误响应
 func doRequest(req esapi.Request) (res *esapi.Response, err error) {
-	res, err = req.Do(context.Background(), global.ESClient)
+	res, err = req.Do(context.Background(), esClient)
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +397,7 @@ func CreateMapping(index, docType string, mapping map[string]interface{}) ESResp
 	existsReq := esapi.IndicesExistsRequest{
 		Index: []string{index},
 	}
-	existsRes, err := existsReq.Do(context.Background(), global.ESClient)
+	existsRes, err := existsReq.Do(context.Background(), esClient)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
 	}
@@ -411,7 +410,7 @@ func CreateMapping(index, docType string, mapping map[string]interface{}) ESResp
 		}
 		var createRes *esapi.Response
 		var createErr error
-		createRes, createErr = createReq.Do(context.Background(), global.ESClient)
+		createRes, createErr = createReq.Do(context.Background(), esClient)
 		if createErr != nil {
 			return ESResponse{Success: false, Msg: createErr.Error()}
 		}
@@ -427,7 +426,7 @@ func CreateMapping(index, docType string, mapping map[string]interface{}) ESResp
 		Index: []string{index},
 		Body:  bytes.NewReader([]byte(fmt.Sprintf(`{"properties":%s}`, string(mappingJSON)))),
 	}
-	mapRes, err := mapReq.Do(context.Background(), global.ESClient)
+	mapRes, err := mapReq.Do(context.Background(), esClient)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
 	}
@@ -497,7 +496,7 @@ func Exists(index, docType, id string) ESResponse {
 		DocumentID: id,
 	}
 
-	res, err := req.Do(context.Background(), global.ESClient)
+	res, err := req.Do(context.Background(), esClient)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
 	}

@@ -3,7 +3,6 @@ package view_history
 import (
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/utils/jwts"
@@ -16,12 +15,12 @@ func (ViewHistoryApi) ArticleViewHistoryRemoveView(c *gin.Context) {
 	claims := jwts.GetClaimsByGin(c)
 
 	var list []models.UserArticleViewHistoryModel
-	if err := global.DB.Find(&list, "user_id = ? and article_id IN ?", claims.UserID, cr.IDList).Error; err != nil {
+	if err := mustApp(c).DB.Find(&list, "user_id = ? and article_id IN ?", claims.UserID, cr.IDList).Error; err != nil {
 		res.FailWithError(err, c)
 		return
 	}
 	if len(list) > 0 {
-		if err := global.DB.Delete(&list).Error; err != nil {
+		if err := mustApp(c).DB.Delete(&list).Error; err != nil {
 			res.FailWithMsg(fmt.Sprintf("删除访问历史失败:%v", err), c)
 			return
 		}

@@ -2,7 +2,6 @@ package auth_api
 
 import (
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/service/log_service"
@@ -15,6 +14,7 @@ import (
 // EmailLoginView 邮箱验证码登录。
 // 这里依赖 EmailVerifyMiddleware 先完成验证码校验，并把邮箱写入上下文。
 func (AuthApi) EmailLoginView(c *gin.Context) {
+	app := mustApp(c)
 	if !site_service.GetRuntimeLogin().EmailLogin {
 		log_service.EmitLoginEventFromGin(c, "login_fail", enum.EmailLoginType, false, "", 0, "站点未启用邮箱登录", nil)
 		res.FailWithMsg("站点未启用邮箱登录功能", c)
@@ -29,7 +29,7 @@ func (AuthApi) EmailLoginView(c *gin.Context) {
 	}
 
 	var user models.UserModel
-	if err := global.DB.Take(&user, "email = ?", email).Error; err != nil {
+	if err := app.DB.Take(&user, "email = ?", email).Error; err != nil {
 		// 这里不区分“邮箱不存在”和其他细节，避免把账号状态暴露给外部调用方。
 		log_service.EmitLoginEventFromGin(c, "login_fail", enum.EmailLoginType, false, email, 0, "邮箱登录失败", map[string]any{
 			"username": email,

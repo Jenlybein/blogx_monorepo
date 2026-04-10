@@ -3,8 +3,8 @@ package redis_chat
 import (
 	"context"
 	"fmt"
-	"myblogx/global"
 	"myblogx/models/ctype"
+	"myblogx/service/redis_service"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -52,11 +52,12 @@ type WeekQuotaReservation struct {
 
 // Release 撤销一次自然周配额预占，用于消息最终未发送成功时回滚。
 func (r *WeekQuotaReservation) Release() error {
-	if r == nil || global.Redis == nil {
+	client := redis_service.Client()
+	if r == nil || client == nil {
 		return nil
 	}
 
-	_, err := chatWeekQuotaReleaseScript.Run(context.Background(), global.Redis,
+	_, err := chatWeekQuotaReleaseScript.Run(context.Background(), client,
 		[]string{r.key},
 	).Result()
 	return err
@@ -68,7 +69,8 @@ func (r *WeekQuotaReservation) Release() error {
 // 2. reservation 为空且 allowed=false：本周额度已满；
 // 3. err 非空：Redis 执行异常。
 func ReserveChatWeekQuota(senderID, receiverID ctype.ID, limit int, now time.Time) (*WeekQuotaReservation, bool, error) {
-	if global.Redis == nil {
+	client := redis_service.Client()
+	if client == nil {
 		return nil, false, fmt.Errorf("redis 未初始化")
 	}
 
@@ -79,7 +81,7 @@ func ReserveChatWeekQuota(senderID, receiverID ctype.ID, limit int, now time.Tim
 	key := chatWeekQuotaKey(senderID, receiverID, now)
 
 	// 执行脚本，对应 Key 的数字加 1，过期时间设置到本周结束
-	current, err := chatWeekQuotaReserveScript.Run(context.Background(), global.Redis,
+	current, err := chatWeekQuotaReserveScript.Run(context.Background(), client,
 		[]string{key},
 		limit,
 		weekEnd.Unix(),
@@ -97,10 +99,11 @@ func ReserveChatWeekQuota(senderID, receiverID ctype.ID, limit int, now time.Tim
 // ResetChatWeekQuota 清空一个方向在当前自然周内的已用额度。
 // 这个动作在“对方成功回复后”调用，用于恢复反向的周配额。
 func ResetChatWeekQuota(senderID, receiverID ctype.ID, now time.Time) error {
-	if global.Redis == nil {
+	client := redis_service.Client()
+	if client == nil {
 		return fmt.Errorf("redis 未初始化")
 	}
-	return global.Redis.Del(context.Background(), chatWeekQuotaKey(senderID, receiverID, now)).Err()
+	return client.Del(context.Background(), chatWeekQuotaKey(senderID, receiverID, now)).Err()
 }
 
 // chatWeekQuotaKey 返回单向自然周配额 key。

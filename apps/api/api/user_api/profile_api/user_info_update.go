@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -16,6 +15,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type UserInfoUpdateRequest struct {
@@ -31,6 +31,7 @@ type UserInfoUpdateRequest struct {
 }
 
 func (ProfileApi) UserInfoUpdateView(c *gin.Context) {
+	app := mustApp(c)
 	cr := middleware.GetBindJson[UserInfoUpdateRequest](c)
 
 	userMap, err := maps.FieldsStructToMap(&cr, &models.UserModel{})
@@ -45,7 +46,7 @@ func (ProfileApi) UserInfoUpdateView(c *gin.Context) {
 	}
 
 	if cr.LikeTags != nil {
-		tagIDs, err := validateLikeTagIDs(*cr.LikeTags)
+		tagIDs, err := validateLikeTagIDs(app.DB, *cr.LikeTags)
 		if err != nil {
 			res.FailWithMsg(err.Error(), c)
 			return
@@ -63,7 +64,7 @@ func (ProfileApi) UserInfoUpdateView(c *gin.Context) {
 	// 处理用户基本表的更新
 	if len(userMap) > 0 {
 		var userModel models.UserModel
-		if err = global.DB.Preload("UserConfModel").Take(&userModel, claims.UserID).Error; err != nil {
+		if err = app.DB.Preload("UserConfModel").Take(&userModel, claims.UserID).Error; err != nil {
 			res.FailWithMsg("用户不存在", c)
 			return
 		}
@@ -77,7 +78,7 @@ func (ProfileApi) UserInfoUpdateView(c *gin.Context) {
 
 			// 校验用户名是否已被使用
 			var nameCount int64
-			if err = global.DB.Model(&models.UserModel{}).Where("username = ?", *cr.Username).Count(&nameCount).Error; err != nil {
+			if err = app.DB.Model(&models.UserModel{}).Where("username = ?", *cr.Username).Count(&nameCount).Error; err != nil {
 				res.FailWithError(err, c)
 				return
 			}
@@ -100,18 +101,18 @@ func (ProfileApi) UserInfoUpdateView(c *gin.Context) {
 			confMap["updated_username_date"] = time.Now()
 		}
 
-		if err = global.DB.Model(&userModel).Updates(userMap).Error; err != nil {
+		if err = app.DB.Model(&userModel).Updates(userMap).Error; err != nil {
 			res.FailWithMsg("用户信息更新失败", c)
 			return
 		}
 		if cr.Nickname != nil || cr.Avatar != nil {
 			if err = es_service.SyncESDocsByAuthorIDs([]ctype.ID{claims.UserID}); err != nil {
-				global.Logger.Errorf("同步用户文章 ES 文档失败: 用户ID=%d 错误=%v", claims.UserID, err)
+				app.Logger.Errorf("同步用户文章 ES 文档失败: 用户ID=%d 错误=%v", claims.UserID, err)
 			}
 		}
 		if cr.Nickname != nil || cr.Avatar != nil || cr.Abstract != nil {
-			if err = read_service.SyncUserDisplaySnapshots(global.DB, claims.UserID); err != nil {
-				global.Logger.Errorf("同步用户展示快照失败: 用户ID=%d 错误=%v", claims.UserID, err)
+			if err = read_service.SyncUserDisplaySnapshots(app.DB, claims.UserID); err != nil {
+				app.Logger.Errorf("同步用户展示快照失败: 用户ID=%d 错误=%v", claims.UserID, err)
 			}
 		}
 	}
@@ -119,12 +120,12 @@ func (ProfileApi) UserInfoUpdateView(c *gin.Context) {
 	// 处理用户配置表的更新
 	if len(confMap) > 0 {
 		var userConfModel models.UserConfModel
-		if err = global.DB.Take(&userConfModel, claims.UserID).Error; err != nil {
+		if err = app.DB.Take(&userConfModel, claims.UserID).Error; err != nil {
 			res.FailWithMsg("用户配置信息不存在", c)
 			return
 		}
 
-		if err = global.DB.Model(&userConfModel).Updates(confMap).Error; err != nil {
+		if err = app.DB.Model(&userConfModel).Updates(confMap).Error; err != nil {
 			res.FailWithMsg("用户配置信息更新失败", c)
 			return
 		}
@@ -133,14 +134,14 @@ func (ProfileApi) UserInfoUpdateView(c *gin.Context) {
 	res.OkWithMsg("用户信息更新成功", c)
 }
 
-func validateLikeTagIDs(tagIDs []ctype.ID) ([]ctype.ID, error) {
+func validateLikeTagIDs(db *gorm.DB, tagIDs []ctype.ID) ([]ctype.ID, error) {
 	normalized := normalizeIDs(tagIDs)
 	if len(normalized) == 0 {
 		return []ctype.ID{}, nil
 	}
 
 	var count int64
-	if err := global.DB.Model(&models.TagModel{}).
+	if err := db.Model(&models.TagModel{}).
 		Where("id IN ? AND is_enabled = ?", normalized, true).
 		Count(&count).Error; err != nil {
 		return nil, err

@@ -2,7 +2,6 @@ package redis_jwt_test
 
 import (
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/models/enum"
 	redis_jwt "myblogx/service/redis_service/redis_jwt"
 	"myblogx/test/testutil"
@@ -36,13 +35,13 @@ func TestBlackTypeHelpers(t *testing.T) {
 
 func TestTokenBlacklistFlow(t *testing.T) {
 	_ = testutil.SetupMiniRedis(t)
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Jwt: conf.Jwt{
 			Expire: 1,
 			Secret: "test-secret",
 			Issuer: "test",
 		},
-	}
+	})
 
 	token, err := jwts.GetToken(jwts.Claims{
 		UserID:   1,
@@ -74,13 +73,13 @@ func TestTokenBlacklistFlow(t *testing.T) {
 
 func TestHasTokenBlackByGin(t *testing.T) {
 	_ = testutil.SetupMiniRedis(t)
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Jwt: conf.Jwt{
 			Expire: 1,
 			Secret: "test-secret",
 			Issuer: "test",
 		},
-	}
+	})
 
 	token, err := jwts.GetToken(jwts.Claims{
 		UserID:   2,

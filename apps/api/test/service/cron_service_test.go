@@ -2,7 +2,6 @@ package service_test
 
 import (
 	"context"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/cron_service"
@@ -118,9 +117,9 @@ func TestSyncArticleNotBelowZeroAndLockSkip(t *testing.T) {
 }
 
 func testutilSetupCounter(key string, articleID ctype.ID, delta int) error {
-	return global.Redis.HIncrBy(context.Background(), key, articleID.String(), int64(delta)).Err()
+	return testutil.Redis().HIncrBy(context.Background(), key, articleID.String(), int64(delta)).Err()
 }
 
 func testutilSetKey(key, value string) error {
-	return global.Redis.Set(context.Background(), key, value, 0).Err()
+	return testutil.Redis().Set(context.Background(), key, value, 0).Err()
 }

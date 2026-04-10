@@ -4,12 +4,13 @@ package core
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/utils/envyaml"
 
+	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 )
 
@@ -32,14 +33,22 @@ func ReadCfg(settings *string) (c *conf.Config) {
 	return c
 }
 
-func SetCfg(cfg *conf.Config, settings *string) {
+func SetCfg(cfg *conf.Config, settings *string, logger *logrus.Logger) {
 	byteData, err := yaml.Marshal(*cfg)
 	if err != nil {
-		global.Logger.Errorf("yaml 配置文件序列化失败: %s", err)
+		logError(logger, "yaml 配置文件序列化失败: %s", err)
 	}
 
 	err = os.WriteFile(*settings, byteData, 0666)
 	if err != nil {
-		global.Logger.Errorf("yaml 配置文件写入失败: %s", err)
+		logError(logger, "yaml 配置文件写入失败: %s", err)
 	}
+}
+
+func logError(logger *logrus.Logger, format string, args ...any) {
+	if logger != nil {
+		logger.Errorf(format, args...)
+		return
+	}
+	_, _ = fmt.Fprintf(io.Discard, format, args...)
 }

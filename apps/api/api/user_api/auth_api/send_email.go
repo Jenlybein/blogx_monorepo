@@ -3,7 +3,6 @@ package auth_api
 import (
 	"fmt"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/service/email_service"
@@ -26,6 +25,7 @@ type SendEmailResponse struct {
 }
 
 func (AuthApi) SendEmailView(c *gin.Context) {
+	app := mustApp(c)
 	loginConf := site_service.GetRuntimeLogin()
 	if !loginConf.EmailLogin {
 		res.FailWithMsg("站点未启用邮箱功能", c)
@@ -45,7 +45,7 @@ func (AuthApi) SendEmailView(c *gin.Context) {
 	if timeout <= 0 {
 		timeout = 5
 	}
-	isEmailExist := global.DB.Take(&user, "email = ?", cr.Email).Error == nil
+	isEmailExist := app.DB.Take(&user, "email = ?", cr.Email).Error == nil
 
 	var err error
 	shouldSend := false
@@ -77,7 +77,7 @@ func (AuthApi) SendEmailView(c *gin.Context) {
 
 	if err != nil {
 		fmt.Println(err)
-		global.Logger.Errorf("邮件发送失败: %v", err)
+		app.Logger.Errorf("邮件发送失败: %v", err)
 		res.FailWithMsg("邮件发送失败", c)
 		return
 	}
@@ -85,7 +85,7 @@ func (AuthApi) SendEmailView(c *gin.Context) {
 	id := base64Captcha.RandomId()
 	if shouldSend {
 		if err = redis_email.Store(id, cr.Email, code, timeout, 3); err != nil {
-			global.Logger.Errorf("邮件验证码存储失败: %v", err)
+			app.Logger.Errorf("邮件验证码存储失败: %v", err)
 			res.FailWithMsg("邮件发送失败", c)
 			return
 		}

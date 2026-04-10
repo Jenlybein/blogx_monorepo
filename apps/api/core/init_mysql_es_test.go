@@ -1,20 +1,23 @@
 package core_test
 
 import (
+	"myblogx/appctx"
 	"myblogx/conf"
 	"myblogx/core"
-	"myblogx/global"
 	"myblogx/test/testutil"
 	"testing"
 )
 
 func TestInitMySQLESDisabled(t *testing.T) {
 	testutil.InitGlobals()
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		River: conf.River{
 			Enabled: false,
 		},
-	}
+	})
 
-	core.InitMySQLES()
+	core.InitMySQLES(&appctx.AppContext{
+		Config: testutil.Config(),
+		Logger: testutil.Logger(),
+	})
 }

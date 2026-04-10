@@ -3,7 +3,6 @@ package cron_service
 import (
 	"context"
 	"fmt"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/redis_service/redis_comment"
@@ -33,14 +32,14 @@ func SyncCommentReply() {
 func applyCommentReplyDelta(commentID ctype.ID, delta int) error {
 	expr := fmt.Sprintf("CASE WHEN %s + ? < 0 THEN 0 ELSE %s + ? END", "reply_count", "reply_count")
 
-	db := global.DB.Model(&models.CommentModel{}).
+	db := cronDB.Model(&models.CommentModel{}).
 		Where("id = ?", commentID).
 		UpdateColumn("reply_count", gorm.Expr(expr, delta, delta))
 	if db.Error != nil {
 		return db.Error
 	}
-	if db.RowsAffected == 0 {
-		global.Logger.Warnf("同步评论回复数任务更新行不存在: 评论ID=%d 增量=%d", commentID, delta)
+	if db.RowsAffected == 0 && cronLogger != nil {
+		cronLogger.Warnf("同步评论回复数任务更新行不存在: 评论ID=%d 增量=%d", commentID, delta)
 	}
 	return nil
 }

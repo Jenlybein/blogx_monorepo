@@ -2,7 +2,6 @@ package es_service
 
 import (
 	"fmt"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -78,7 +77,7 @@ func BuildArticleESDocument(article models.ArticleModel, adminTop, authorTop boo
 // SyncESDocs 按文章 ID 批量重建 ES 文档。
 // 这里会从数据库重新读取文章、标签和置顶信息，再统一索引到 ES。
 func SyncESDocs(articleIDs []ctype.ID) error {
-	if global.DB == nil || global.ESClient == nil {
+	if esDB == nil || esClient == nil {
 		return nil
 	}
 
@@ -87,7 +86,7 @@ func SyncESDocs(articleIDs []ctype.ID) error {
 		return nil
 	}
 
-	articleList, err := loadArticlesForES(global.DB, articleIDs)
+	articleList, err := loadArticlesForES(esDB, articleIDs)
 	if err != nil {
 		return err
 	}
@@ -95,7 +94,7 @@ func SyncESDocs(articleIDs []ctype.ID) error {
 		return nil
 	}
 
-	topMap, err := loadArticleESTopMap(global.DB, articleIDs)
+	topMap, err := loadArticleESTopMap(esDB, articleIDs)
 	if err != nil {
 		return err
 	}
@@ -129,11 +128,11 @@ func SyncESDocs(articleIDs []ctype.ID) error {
 // UpdateESDocsTags 在文章标签关系变化后刷新对应文章的 ES 文档。
 func UpdateESDocsTags(articleIDs []ctype.ID) error {
 	articleIDs = normalizeArticleIDs(articleIDs)
-	if len(articleIDs) == 0 || global.DB == nil || global.ESClient == nil {
+	if len(articleIDs) == 0 || esDB == nil || esClient == nil {
 		return nil
 	}
 
-	articleList, err := loadArticlesForESTags(global.DB, articleIDs)
+	articleList, err := loadArticlesForESTags(esDB, articleIDs)
 	if err != nil {
 		return err
 	}
@@ -163,11 +162,11 @@ func UpdateESDocsTags(articleIDs []ctype.ID) error {
 // UpdateESDocsContent 在文章正文变化后刷新对应文章的 ES 文档。
 func UpdateESDocsContent(articleIDs []ctype.ID) error {
 	articleIDs = normalizeArticleIDs(articleIDs)
-	if len(articleIDs) == 0 || global.DB == nil || global.ESClient == nil {
+	if len(articleIDs) == 0 || esDB == nil || esClient == nil {
 		return nil
 	}
 
-	articleList, err := loadArticlesForESContentUpdate(global.DB, articleIDs)
+	articleList, err := loadArticlesForESContentUpdate(esDB, articleIDs)
 	if err != nil {
 		return err
 	}
@@ -222,11 +221,11 @@ func UpdateESDocsContent(articleIDs []ctype.ID) error {
 // UpdateESDocsTop 在文章置顶状态变化后刷新对应文章的 ES 文档。
 func UpdateESDocsTop(articleIDs []ctype.ID) error {
 	articleIDs = normalizeArticleIDs(articleIDs)
-	if len(articleIDs) == 0 || global.DB == nil || global.ESClient == nil {
+	if len(articleIDs) == 0 || esDB == nil || esClient == nil {
 		return nil
 	}
 
-	topMap, err := loadArticleESTopMap(global.DB, articleIDs)
+	topMap, err := loadArticleESTopMap(esDB, articleIDs)
 	if err != nil {
 		return err
 	}
@@ -248,7 +247,7 @@ func UpdateESDocsTop(articleIDs []ctype.ID) error {
 }
 
 func SyncESDocsByCategoryIDs(categoryIDs []ctype.ID) error {
-	if global.DB == nil || global.ESClient == nil {
+	if esDB == nil || esClient == nil {
 		return nil
 	}
 	categoryIDs = normalizeArticleIDs(categoryIDs)
@@ -257,7 +256,7 @@ func SyncESDocsByCategoryIDs(categoryIDs []ctype.ID) error {
 	}
 
 	var articleIDs []ctype.ID
-	if err := global.DB.Model(&models.ArticleModel{}).
+	if err := esDB.Model(&models.ArticleModel{}).
 		Where("category_id IN ?", categoryIDs).
 		Order("id asc").
 		Pluck("id", &articleIDs).Error; err != nil {
@@ -267,7 +266,7 @@ func SyncESDocsByCategoryIDs(categoryIDs []ctype.ID) error {
 }
 
 func SyncESDocsByAuthorIDs(userIDs []ctype.ID) error {
-	if global.DB == nil || global.ESClient == nil {
+	if esDB == nil || esClient == nil {
 		return nil
 	}
 	userIDs = normalizeArticleIDs(userIDs)
@@ -276,7 +275,7 @@ func SyncESDocsByAuthorIDs(userIDs []ctype.ID) error {
 	}
 
 	var articleIDs []ctype.ID
-	if err := global.DB.Model(&models.ArticleModel{}).
+	if err := esDB.Model(&models.ArticleModel{}).
 		Where("author_id IN ?", userIDs).
 		Order("id asc").
 		Pluck("id", &articleIDs).Error; err != nil {

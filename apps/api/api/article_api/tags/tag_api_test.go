@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"myblogx/common"
 	"myblogx/conf"
-	"myblogx/global"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -43,13 +42,13 @@ func setupTagEnv(t *testing.T) *models.UserModel {
 		&models.ArticleModel{},
 		&models.ArticleTagModel{},
 	)
-	global.Config = &conf.Config{
+	testutil.SetConfig(&conf.Config{
 		Jwt: conf.Jwt{
 			Expire: 1,
 			Secret: "tag-secret",
 			Issuer: "tag-test",
 		},
-	}
+	})
 
 	admin := &models.UserModel{
 		Username: "admin_user",
@@ -88,7 +87,7 @@ func TestTagCRUDAndOptions(t *testing.T) {
 	}
 
 	var tag models.TagModel
-	if err := global.DB.Where("title = ?", "Golang").First(&tag).Error; err != nil {
+	if err := testutil.DB().Where("title = ?", "Golang").First(&tag).Error; err != nil {
 		t.Fatalf("查询标签失败: %v", err)
 	}
 
@@ -156,7 +155,7 @@ func TestTagCRUDAndOptions(t *testing.T) {
 	}
 
 	var deleted models.TagModel
-	if err := global.DB.Unscoped().Take(&deleted, tag.ID).Error; err != nil {
+	if err := testutil.DB().Unscoped().Take(&deleted, tag.ID).Error; err != nil {
 		t.Fatalf("查询已删除标签失败: %v", err)
 	}
 	if !deleted.DeletedAt.Valid {
@@ -164,7 +163,7 @@ func TestTagCRUDAndOptions(t *testing.T) {
 	}
 
 	var activeCount int64
-	if err := global.DB.Model(&models.TagModel{}).Where("title = ?", "Go").Count(&activeCount).Error; err != nil {
+	if err := testutil.DB().Model(&models.TagModel{}).Where("title = ?", "Go").Count(&activeCount).Error; err != nil {
 		t.Fatalf("统计活跃标签失败: %v", err)
 	}
 	if activeCount != 0 {
@@ -178,7 +177,7 @@ func TestTagUpdateKeepsArticleTagRelation(t *testing.T) {
 	claims := &jwts.MyClaims{Claims: jwts.Claims{UserID: admin.ID, Role: enum.RoleAdmin, Username: admin.Username}}
 
 	tag := models.TagModel{Title: "Golang", IsEnabled: true}
-	if err := global.DB.Create(&tag).Error; err != nil {
+	if err := testutil.DB().Create(&tag).Error; err != nil {
 		t.Fatalf("创建标签失败: %v", err)
 	}
 
@@ -188,10 +187,10 @@ func TestTagUpdateKeepsArticleTagRelation(t *testing.T) {
 		AuthorID: admin.ID,
 		Status:   enum.ArticleStatusPublished,
 	}
-	if err := global.DB.Create(&article).Error; err != nil {
+	if err := testutil.DB().Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)
 	}
-	if err := global.DB.Create(&models.ArticleTagModel{ArticleID: article.ID, TagID: tag.ID}).Error; err != nil {
+	if err := testutil.DB().Create(&models.ArticleTagModel{ArticleID: article.ID, TagID: tag.ID}).Error; err != nil {
 		t.Fatalf("创建文章标签关系失败: %v", err)
 	}
 
@@ -209,7 +208,7 @@ func TestTagUpdateKeepsArticleTagRelation(t *testing.T) {
 	}
 
 	var updated models.ArticleModel
-	if err := global.DB.Preload("Tags").Take(&updated, article.ID).Error; err != nil {
+	if err := testutil.DB().Preload("Tags").Take(&updated, article.ID).Error; err != nil {
 		t.Fatalf("回查文章失败: %v", err)
 	}
 	if len(updated.Tags) != 1 || updated.Tags[0].ID != tag.ID || updated.Tags[0].Title != "Go" {

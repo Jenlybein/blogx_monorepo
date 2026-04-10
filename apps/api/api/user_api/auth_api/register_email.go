@@ -3,7 +3,6 @@ package auth_api
 import (
 	"errors"
 	"myblogx/common/res"
-	"myblogx/global"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/enum"
@@ -23,6 +22,7 @@ type RegisterEmailRequest struct {
 }
 
 func (AuthApi) RegisterEmailView(c *gin.Context) {
+	app := mustApp(c)
 	if !site_service.GetRuntimeLogin().EmailLogin {
 		log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, "", 0, "站点未启用邮箱注册", nil)
 		res.FailWithMsg("站点未启用邮箱注册功能", c)
@@ -47,7 +47,7 @@ func (AuthApi) RegisterEmailView(c *gin.Context) {
 	}
 	username, err := redis_user.NextAutoUsername()
 	if err != nil {
-		global.Logger.Errorf("邮箱注册生成用户名失败: %v", err)
+		app.Logger.Errorf("邮箱注册生成用户名失败: %v", err)
 		log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱注册失败", nil)
 		res.FailWithMsg("邮箱注册失败", c)
 		return
@@ -66,7 +66,7 @@ func (AuthApi) RegisterEmailView(c *gin.Context) {
 			Role:           enum.RoleUser,
 		}
 		var resultRows int64
-		err = global.DB.Transaction(func(tx *gorm.DB) error {
+		err = app.DB.Transaction(func(tx *gorm.DB) error {
 			result := tx.Clauses(clause.OnConflict{
 				Columns:   []clause.Column{{Name: "email"}},
 				DoNothing: true,
@@ -99,7 +99,7 @@ func (AuthApi) RegisterEmailView(c *gin.Context) {
 
 		username, err = redis_user.NextAutoUsername()
 		if err != nil {
-			global.Logger.Errorf("邮箱注册生成用户名失败: %v", err)
+			app.Logger.Errorf("邮箱注册生成用户名失败: %v", err)
 			log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱注册失败", nil)
 			res.FailWithMsg("邮箱注册失败", c)
 			return
@@ -108,13 +108,13 @@ func (AuthApi) RegisterEmailView(c *gin.Context) {
 	if err != nil {
 		log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱注册失败", nil)
 		res.FailWithMsg("邮箱注册失败", c)
-		global.Logger.Errorf("邮箱注册失败 %v", err)
+		app.Logger.Errorf("邮箱注册失败 %v", err)
 		return
 	}
 	if user.ID == 0 {
 		log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱注册失败", nil)
 		res.FailWithMsg("邮箱注册失败", c)
-		global.Logger.Errorf("邮箱注册失败: 自动用户名重试次数耗尽")
+		app.Logger.Errorf("邮箱注册失败: 自动用户名重试次数耗尽")
 		return
 	}
 
