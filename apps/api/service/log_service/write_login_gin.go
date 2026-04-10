@@ -10,11 +10,12 @@ import (
 
 // EmitLoginEventFromGin 基于 Gin 请求上下文补齐 IP、地域、UA 和 request_id 后记录登录事件。
 func EmitLoginEventFromGin(c *gin.Context, eventName string, loginType enum.LoginType, success bool, username string, userID ctype.ID, reason string, extra map[string]any) {
+	deps := DepsFromGin(c)
 	// 从 Gin 上下文补齐 IP、地域、UA。
 	meta := requestmeta.BuildSessionMeta(c)
 
 	// 记录登录事件。
-	EmitLoginEvent(LoginEventInput{
+	EmitLoginEvent(deps, LoginEventInput{
 		EventName: eventName,
 		Username:  username,
 		LoginType: loginType,

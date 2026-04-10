@@ -9,6 +9,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/enum/chat_msg_enum"
 	"myblogx/service/chat_service"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_ws_ticket"
 	"myblogx/service/user_service"
 	"myblogx/utils/jwts"
@@ -40,6 +41,7 @@ var chatWSUpgrader = websocket.Upgrader{
 
 // ChatWsTicketView 生成聊天票据
 func (ChatApi) ChatWsTicketView(c *gin.Context) {
+	redisDeps := redis_service.DepsFromGin(c)
 	claims := jwts.MustGetClaimsByGin(c)
 	raw := make([]byte, 24)
 	if _, err := rand.Read(raw); err != nil {
@@ -48,7 +50,7 @@ func (ChatApi) ChatWsTicketView(c *gin.Context) {
 	}
 
 	ticket := base64.RawURLEncoding.EncodeToString(raw)
-	if err := redis_ws_ticket.Store(ticket, redis_ws_ticket.TicketPayload{
+	if err := redis_ws_ticket.Store(redisDeps, ticket, redis_ws_ticket.TicketPayload{
 		UserID:    claims.UserID,
 		SessionID: claims.SessionID,
 	}, time.Minute); err != nil {
@@ -63,6 +65,7 @@ func (ChatApi) ChatWsTicketView(c *gin.Context) {
 func (ChatApi) ChatWsView(c *gin.Context) {
 	logger := mustApp(c).Logger
 	db := mustApp(c).DB
+	redisDeps := redis_service.DepsFromGin(c)
 	// 尝试从 Header 中的 token 中获取用户
 	authResult := user_service.MustAuthenticateAccessTokenByGin(c)
 	if authResult == nil {
@@ -73,7 +76,7 @@ func (ChatApi) ChatWsView(c *gin.Context) {
 			return
 		}
 
-		payload, err := redis_ws_ticket.Consume(ticket)
+		payload, err := redis_ws_ticket.Consume(redisDeps, ticket)
 		if err != nil {
 			res.FailWithMsg(user_service.ErrAuthInvalid.Error(), c)
 			return
@@ -155,7 +158,7 @@ func (ChatApi) ChatWsView(c *gin.Context) {
 		}
 
 		// 检测发送权限
-		reservation, err := chat_service.CheckAndReserveChatSend(claims.UserID, &revUser)
+		reservation, err := chat_service.CheckAndReserveChatSend(db, redisDeps, claims.UserID, &revUser)
 		if err != nil {
 			if err := res.SendConnFailWithMsg(err.Error(), conn, chatWSWriteWait); err != nil {
 				logger.Warnf("聊天 WebSocket 写入失败: 用户ID=%d 错误=%v", claims.UserID, err)
@@ -169,19 +172,19 @@ func (ChatApi) ChatWsView(c *gin.Context) {
 		var msgErr error
 		switch req.MsgType {
 		case chat_msg_enum.MsgTypeText:
-			msgModel, msgErr = chat_service.ToTextChat(chat_service.ToTextChatRequest{
+			msgModel, msgErr = chat_service.ToTextChat(db, logger, chat_service.ToTextChatRequest{
 				SenderID:   claims.UserID,
 				ReceiverID: req.ReceiverID,
 				Text:       req.Content,
 			})
 		case chat_msg_enum.MsgTypeImage:
-			msgModel, msgErr = chat_service.ToImageChat(chat_service.ToImageChatRequest{
+			msgModel, msgErr = chat_service.ToImageChat(db, logger, chat_service.ToImageChatRequest{
 				SenderID:   claims.UserID,
 				ReceiverID: req.ReceiverID,
 				ImageURL:   req.Content,
 			})
 		case chat_msg_enum.MsgTypeMarkdown:
-			msgModel, msgErr = chat_service.ToMarkdownChat(chat_service.ToMarkdownChatRequest{
+			msgModel, msgErr = chat_service.ToMarkdownChat(db, logger, chat_service.ToMarkdownChatRequest{
 				SenderID:   claims.UserID,
 				ReceiverID: req.ReceiverID,
 				Markdown:   req.Content,

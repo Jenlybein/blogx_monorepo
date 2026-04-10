@@ -17,22 +17,22 @@ const (
 )
 
 // saveUploadTask 保存上传任务到 Redis
-func saveUploadTask(task *ImageUploadTask, ttl time.Duration) error {
+func saveUploadTask(deps Deps, task *ImageUploadTask, ttl time.Duration) error {
 	data, err := json.Marshal(task)
 	if err != nil {
 		return err
 	}
 
-	if err = redis_image.StoreTask(task.ID, task.ObjectKey, data, ttl); err != nil {
+	if err = redis_image.StoreTask(deps.RedisDeps(), task.ID, task.ObjectKey, data, ttl); err != nil {
 		return err
 	}
 	return nil
 }
 
 // getUploadTaskByID 根据任务ID从Redis获取上传任务
-func getUploadTaskByID(taskID ctype.ID) (*ImageUploadTask, error) {
+func getUploadTaskByID(deps Deps, taskID ctype.ID) (*ImageUploadTask, error) {
 	// 从Redis获取任务原始数据
-	data, err := redis_image.GetTaskDataByID(taskID)
+	data, err := redis_image.GetTaskDataByID(deps.RedisDeps(), taskID)
 	if err != nil {
 		// Redis不存在该任务，返回任务不存在错误
 		if errors.Is(err, redis.Nil) {
@@ -50,9 +50,9 @@ func getUploadTaskByID(taskID ctype.ID) (*ImageUploadTask, error) {
 }
 
 // getUploadTaskIDByObjectKey 根据七牛对象 key 查询上传任务 ID。
-func getUploadTaskIDByObjectKey(objectKey string) (ctype.ID, error) {
+func getUploadTaskIDByObjectKey(deps Deps, objectKey string) (ctype.ID, error) {
 	// 根据对象key查询任务ID
-	taskID, err := redis_image.GetTaskIDByObjectKey(objectKey)
+	taskID, err := redis_image.GetTaskIDByObjectKey(deps.RedisDeps(), objectKey)
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return 0, ErrUploadTaskNotFound
@@ -64,18 +64,18 @@ func getUploadTaskIDByObjectKey(objectKey string) (ctype.ID, error) {
 
 // getUploadTaskByObjectKey 根据七牛对象key获取上传任务
 // 先通过objectKey查找到taskID，再通过taskID获取任务
-func getUploadTaskByObjectKey(objectKey string) (*ImageUploadTask, error) {
-	taskID, err := getUploadTaskIDByObjectKey(objectKey)
+func getUploadTaskByObjectKey(deps Deps, objectKey string) (*ImageUploadTask, error) {
+	taskID, err := getUploadTaskIDByObjectKey(deps, objectKey)
 	if err != nil {
 		return nil, err
 	}
-	return getUploadTaskByID(taskID)
+	return getUploadTaskByID(deps, taskID)
 }
 
 // lockUploadTask 对上传任务加分布式锁
 // 防止并发重复确认上传任务，返回解锁函数、是否加锁成功、错误
-func lockUploadTask(taskID ctype.ID, ttl time.Duration) (unlock func(), locked bool, err error) {
-	unlock, locked, err = redis_image.LockTask(taskID, ttl)
+func lockUploadTask(deps Deps, taskID ctype.ID, ttl time.Duration) (unlock func(), locked bool, err error) {
+	unlock, locked, err = redis_image.LockTask(deps.RedisDeps(), taskID, ttl)
 	return unlock, locked, err
 }
 

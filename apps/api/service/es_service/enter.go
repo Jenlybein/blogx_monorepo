@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/elastic/go-elasticsearch/v7/esapi"
 )
 
@@ -70,8 +71,8 @@ func handleError(res *esapi.Response) error {
 }
 
 // 执行ES请求，处理错误响应
-func doRequest(req esapi.Request) (res *esapi.Response, err error) {
-	res, err = req.Do(context.Background(), esClient)
+func doRequest(client *elasticsearch.Client, req esapi.Request) (res *esapi.Response, err error) {
+	res, err = req.Do(context.Background(), client)
 	if err != nil {
 		return nil, err
 	}
@@ -143,14 +144,14 @@ type Mapping map[string]struct {
 // --- 业务操作封装 ---
 
 // 创建通用文档（泛型）
-func CreateDocument(index string, data any) ESResponse {
+func CreateDocument(client *elasticsearch.Client, index string, data any) ESResponse {
 	body, _ := json.Marshal(data)
 	req := esapi.IndexRequest{
 		Index: index,
 		Body:  bytes.NewReader(body),
 	}
 
-	res, err := doRequest(req)
+	res, err := doRequest(client, req)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
 	}
@@ -160,7 +161,7 @@ func CreateDocument(index string, data any) ESResponse {
 }
 
 // Search 分页查询封装
-func Search[T any](index string, page, limit int, query map[string]any, extraBody ...map[string]any) ESResponse {
+func Search[T any](client *elasticsearch.Client, index string, page, limit int, query map[string]any, extraBody ...map[string]any) ESResponse {
 	from := (page - 1) * limit
 	searchBody := map[string]any{"from": from, "size": limit, "query": query}
 	if len(extraBody) > 0 {
@@ -175,7 +176,7 @@ func Search[T any](index string, page, limit int, query map[string]any, extraBod
 		Body:  bytes.NewReader(body),
 	}
 
-	res, err := doRequest(req)
+	res, err := doRequest(client, req)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
 	}
@@ -196,7 +197,7 @@ func Search[T any](index string, page, limit int, query map[string]any, extraBod
 
 // SearchBody 允许上层直接传入完整搜索请求体。
 // 适合需要自定义 size、track_total_hits 或 has_more 语义的读服务。
-func SearchBody(index string, body map[string]any) ESResponse {
+func SearchBody(client *elasticsearch.Client, index string, body map[string]any) ESResponse {
 	payload, _ := json.Marshal(body)
 
 	req := esapi.SearchRequest{
@@ -204,7 +205,7 @@ func SearchBody(index string, body map[string]any) ESResponse {
 		Body:  bytes.NewReader(payload),
 	}
 
-	res, err := doRequest(req)
+	res, err := doRequest(client, req)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
 	}
@@ -234,7 +235,7 @@ func SearchBody(index string, body map[string]any) ESResponse {
 }
 
 // 更新通用文档
-func UpdateDocument(index, docID string, updateData map[string]any) ESResponse {
+func UpdateDocument(client *elasticsearch.Client, index, docID string, updateData map[string]any) ESResponse {
 	body, _ := json.Marshal(map[string]any{"doc": updateData})
 	req := esapi.UpdateRequest{
 		Index:      index,
@@ -243,7 +244,7 @@ func UpdateDocument(index, docID string, updateData map[string]any) ESResponse {
 		Refresh:    "true",
 	}
 
-	res, err := doRequest(req)
+	res, err := doRequest(client, req)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
 	}
@@ -253,14 +254,14 @@ func UpdateDocument(index, docID string, updateData map[string]any) ESResponse {
 }
 
 // DeleteDocument 删除通用文档
-func DeleteDocument(index, docID string) ESResponse {
+func DeleteDocument(client *elasticsearch.Client, index, docID string) ESResponse {
 	req := esapi.DeleteRequest{
 		Index:      index,
 		DocumentID: docID,
 		Refresh:    "true",
 	}
 
-	res, err := doRequest(req)
+	res, err := doRequest(client, req)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
 	}
@@ -328,7 +329,7 @@ func buildBulkBody(items []*BulkRequest) ([]byte, error) {
 }
 
 // Bulk 发送批量请求
-func Bulk(items []*BulkRequest) ESResponse {
+func Bulk(client *elasticsearch.Client, items []*BulkRequest) ESResponse {
 	body, err := buildBulkBody(items)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
@@ -338,7 +339,7 @@ func Bulk(items []*BulkRequest) ESResponse {
 		Body: bytes.NewReader(body),
 	}
 
-	res, err := doRequest(req)
+	res, err := doRequest(client, req)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
 	}
@@ -348,7 +349,7 @@ func Bulk(items []*BulkRequest) ESResponse {
 }
 
 // IndexBulk 发送针对索引的批量请求
-func IndexBulk(index string, items []*BulkRequest) ESResponse {
+func IndexBulk(client *elasticsearch.Client, index string, items []*BulkRequest) ESResponse {
 	body, err := buildBulkBody(items)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
@@ -359,7 +360,7 @@ func IndexBulk(index string, items []*BulkRequest) ESResponse {
 		Body:  bytes.NewReader(body),
 	}
 
-	res, err := doRequest(req)
+	res, err := doRequest(client, req)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
 	}
@@ -369,7 +370,7 @@ func IndexBulk(index string, items []*BulkRequest) ESResponse {
 }
 
 // IndexTypeBulk 发送针对索引和文档类型的批量请求
-func IndexTypeBulk(index, docType string, items []*BulkRequest) ESResponse {
+func IndexTypeBulk(client *elasticsearch.Client, index, docType string, items []*BulkRequest) ESResponse {
 	body, err := buildBulkBody(items)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
@@ -380,7 +381,7 @@ func IndexTypeBulk(index, docType string, items []*BulkRequest) ESResponse {
 		Body:  bytes.NewReader(body),
 	}
 
-	res, err := doRequest(req)
+	res, err := doRequest(client, req)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
 	}
@@ -392,12 +393,12 @@ func IndexTypeBulk(index, docType string, items []*BulkRequest) ESResponse {
 // --- 映射管理函数 ---
 
 // CreateMapping 创建ES映射
-func CreateMapping(index, docType string, mapping map[string]interface{}) ESResponse {
+func CreateMapping(client *elasticsearch.Client, index, docType string, mapping map[string]interface{}) ESResponse {
 	// 先检查索引是否存在
 	existsReq := esapi.IndicesExistsRequest{
 		Index: []string{index},
 	}
-	existsRes, err := existsReq.Do(context.Background(), esClient)
+	existsRes, err := existsReq.Do(context.Background(), client)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
 	}
@@ -410,7 +411,7 @@ func CreateMapping(index, docType string, mapping map[string]interface{}) ESResp
 		}
 		var createRes *esapi.Response
 		var createErr error
-		createRes, createErr = createReq.Do(context.Background(), esClient)
+		createRes, createErr = createReq.Do(context.Background(), client)
 		if createErr != nil {
 			return ESResponse{Success: false, Msg: createErr.Error()}
 		}
@@ -426,7 +427,7 @@ func CreateMapping(index, docType string, mapping map[string]interface{}) ESResp
 		Index: []string{index},
 		Body:  bytes.NewReader([]byte(fmt.Sprintf(`{"properties":%s}`, string(mappingJSON)))),
 	}
-	mapRes, err := mapReq.Do(context.Background(), esClient)
+	mapRes, err := mapReq.Do(context.Background(), client)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
 	}
@@ -440,12 +441,12 @@ func CreateMapping(index, docType string, mapping map[string]interface{}) ESResp
 }
 
 // GetMapping 获取映射
-func GetMapping(index, docType string) ESResponse {
+func GetMapping(client *elasticsearch.Client, index, docType string) ESResponse {
 	req := esapi.IndicesGetMappingRequest{
 		Index: []string{index},
 	}
 
-	res, err := doRequest(req)
+	res, err := doRequest(client, req)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
 	}
@@ -457,12 +458,12 @@ func GetMapping(index, docType string) ESResponse {
 // --- 索引管理函数 ---
 
 // DeleteIndexWithResponse 删除索引并返回响应
-func DeleteIndexWithResponse(index string) ESResponse {
+func DeleteIndexWithResponse(client *elasticsearch.Client, index string) ESResponse {
 	req := esapi.IndicesDeleteRequest{
 		Index: []string{index},
 	}
 
-	res, err := doRequest(req)
+	res, err := doRequest(client, req)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
 	}
@@ -474,13 +475,13 @@ func DeleteIndexWithResponse(index string) ESResponse {
 // --- 文档操作函数 ---
 
 // Get 根据ID获取文档
-func Get(index, docType, id string) ESResponse {
+func Get(client *elasticsearch.Client, index, docType, id string) ESResponse {
 	req := esapi.GetRequest{
 		Index:      index,
 		DocumentID: id,
 	}
 
-	res, err := doRequest(req)
+	res, err := doRequest(client, req)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
 	}
@@ -490,13 +491,13 @@ func Get(index, docType, id string) ESResponse {
 }
 
 // Exists 检查文档是否存在
-func Exists(index, docType, id string) ESResponse {
+func Exists(client *elasticsearch.Client, index, docType, id string) ESResponse {
 	req := esapi.ExistsRequest{
 		Index:      index,
 		DocumentID: id,
 	}
 
-	res, err := req.Do(context.Background(), esClient)
+	res, err := req.Do(context.Background(), client)
 	if err != nil {
 		return ESResponse{Success: false, Msg: err.Error()}
 	}

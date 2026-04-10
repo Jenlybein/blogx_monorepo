@@ -6,6 +6,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_article"
 	"myblogx/service/redis_service/redis_comment"
 	"myblogx/utils/jwts"
@@ -77,28 +78,28 @@ func (CommentApi) CommentRemoveView(c *gin.Context) {
 		logger.Errorf("删除评论点赞记录失败: 评论ID列表=%v 错误=%v", deleteIDs, err)
 	}
 	for _, commentID := range deleteIDs {
-		if err := redis_comment.DelCacheDigg(commentID); err != nil {
+		if err := redis_comment.DelCacheDigg(redis_service.DepsFromGin(c), commentID); err != nil {
 			logger.Errorf("删除评论点赞缓存失败: 评论ID=%d 错误=%v", commentID, err)
 		}
 	}
 
 	// 删除已发布评论时，回滚文章评论数缓存。
 	if articleDelta != 0 {
-		if err := redis_article.SetCacheComment(target.ArticleID, articleDelta); err != nil {
+		if err := redis_article.SetCacheComment(redis_service.DepsFromGin(c), target.ArticleID, articleDelta); err != nil {
 			logger.Errorf("回写文章评论缓存失败: 文章ID=%d 增量=%d 错误=%v", target.ArticleID, articleDelta, err)
 		}
 	}
 
 	// 删除一级评论时，删除根评论回复数缓存。
 	if isRoot {
-		if err := redis_comment.DelCacheReply(target.ID); err != nil {
+		if err := redis_comment.DelCacheReply(redis_service.DepsFromGin(c), target.ID); err != nil {
 			logger.Errorf("删除评论回复缓存失败: 根评论ID=%d 错误=%v", target.ID, err)
 		}
 	}
 
 	// 删除已发布二级评论时，回滚根评论回复数缓存。
 	if !isRoot && target.Status == enum.CommentStatusPublished && target.RootID != 0 {
-		if err := redis_comment.SetCacheReply(target.RootID, -1); err != nil {
+		if err := redis_comment.SetCacheReply(redis_service.DepsFromGin(c), target.RootID, -1); err != nil {
 			logger.Errorf("回写根评论回复缓存失败: 根评论ID=%d 增量=-1 错误=%v", target.RootID, err)
 		}
 	}

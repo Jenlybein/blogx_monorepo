@@ -10,10 +10,12 @@ import (
 )
 
 func (AIApi) AIArticleMetaInfoView(c *gin.Context) {
+	app := mustApp(c)
+	
 	cr := middleware.GetBindJson[AIBaseRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
 
-	data, err := ai_metainfo.GenerateArticleMetainfo(claims.UserID, cr.Content)
+	data, err := ai_metainfo.GenerateArticleMetainfo(app.DB, app.Logger, claims.UserID, cr.Content)
 	if err != nil {
 		res.FailWithMsg(err.Error(), c)
 		return

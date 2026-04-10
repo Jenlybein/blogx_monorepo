@@ -66,10 +66,10 @@ func TestCommentRootListView(t *testing.T) {
 		t.Fatalf("创建二级评论失败: %v", err)
 	}
 
-	if err := redis_comment.SetCacheReply(root1.ID, 1); err != nil {
+	if err := redis_comment.SetCacheReply(testRedisDeps(), root1.ID, 1); err != nil {
 		t.Fatalf("写入一级评论回复缓存失败: %v", err)
 	}
-	if err := redis_comment.SetCacheDigg(root1.ID, 2); err != nil {
+	if err := redis_comment.SetCacheDigg(testRedisDeps(), root1.ID, 2); err != nil {
 		t.Fatalf("写入一级评论点赞缓存失败: %v", err)
 	}
 	if err := testutil.DB().Create(&models.CommentDiggModel{CommentID: root1.ID, UserID: viewer.ID}).Error; err != nil {

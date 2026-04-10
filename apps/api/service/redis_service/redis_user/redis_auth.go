@@ -10,37 +10,37 @@ import (
 )
 
 // CheckLoginAllowed 检查账号和IP是否允许登录
-func CheckLoginAllowed(account, ip string) bool {
-	if redis_service.Client() == nil {
+func CheckLoginAllowed(deps redis_service.Deps, account, ip string) bool {
+	if deps.Client == nil {
 		return true
 	}
 	ctx := context.Background()
 
 	// 检查账号和IP是否都未被锁定
-	return !keyExists(ctx, loginLockUserKey(account)) && !keyExists(ctx, loginLockIPKey(ip))
+	return !keyExists(deps, ctx, loginLockUserKey(account)) && !keyExists(deps, ctx, loginLockIPKey(ip))
 }
 
 // RecordLoginFailure 记录登录失败，并在达到阈值时触发锁定
-func RecordLoginFailure(account, ip string) {
-	if redis_service.Client() == nil {
+func RecordLoginFailure(deps redis_service.Deps, account, ip string) {
+	if deps.Client == nil {
 		return
 	}
 	ctx := context.Background()
 	conf := site_service.GetRuntimeLogin()
 	window := time.Duration(conf.LoginFailWindowMinute) * time.Minute
 	// 分别记录账号和IP的失败次数
-	recordFailure(ctx, loginFailUserKey(account), loginLockUserKey(account), window, conf.LoginFailUserMax)
-	recordFailure(ctx, loginFailIPKey(ip), loginLockIPKey(ip), window, conf.LoginFailIPMax)
+	recordFailure(deps, ctx, loginFailUserKey(account), loginLockUserKey(account), window, conf.LoginFailUserMax)
+	recordFailure(deps, ctx, loginFailIPKey(ip), loginLockIPKey(ip), window, conf.LoginFailIPMax)
 }
 
 // ResetLoginFailures 重置账号和IP的登录失败计数与锁定状态
-func ResetLoginFailures(account, ip string) {
-	if redis_service.Client() == nil {
+func ResetLoginFailures(deps redis_service.Deps, account, ip string) {
+	if deps.Client == nil {
 		return
 	}
 	ctx := context.Background()
 	// 删除账号和IP的失败计数key、锁定key
-	_ = redis_service.Client().Del(ctx,
+	_ = deps.Client.Del(ctx,
 		loginFailUserKey(account),
 		loginFailIPKey(ip),
 		loginLockUserKey(account),
@@ -49,57 +49,57 @@ func ResetLoginFailures(account, ip string) {
 }
 
 // AllowEmailSend 检查邮箱发送是否在频率限制范围内
-func AllowEmailSend(email, ip string, sendType int8) bool {
-	if redis_service.Client() == nil {
+func AllowEmailSend(deps redis_service.Deps, email, ip string, sendType int8) bool {
+	if deps.Client == nil {
 		return true
 	}
 	ctx := context.Background()
 	conf := site_service.GetRuntimeLogin()
 	window := time.Duration(conf.EmailSendWindowSecond) * time.Second
 	// 分别检查邮箱和IP的发送频率
-	okEmail := allowWithinWindow(ctx, emailSendKeyByEmail(email, sendType), window, conf.EmailSendPerEmailMax)
-	okIP := allowWithinWindow(ctx, emailSendKeyByIP(ip, sendType), window, conf.EmailSendPerIPMax)
+	okEmail := allowWithinWindow(deps, ctx, emailSendKeyByEmail(email, sendType), window, conf.EmailSendPerEmailMax)
+	okIP := allowWithinWindow(deps, ctx, emailSendKeyByIP(ip, sendType), window, conf.EmailSendPerIPMax)
 	// 只有邮箱和IP都未超限才允许发送
 	return okEmail && okIP
 }
 
 // recordFailure 记录失败次数，并在达到阈值时设置锁定
-func recordFailure(ctx context.Context, countKey, lockKey string, ttl time.Duration, max int64) {
+func recordFailure(deps redis_service.Deps, ctx context.Context, countKey, lockKey string, ttl time.Duration, max int64) {
 	// countKey - 失败计数的Redis Key
 	//	lockKey - 锁定状态的Redis Key
 	//	ttl - 时间窗口（计数和锁定的过期时间）
 	//	max - 最大失败次数阈值
 
 	// 增加失败计数（首次调用会自动创建Key并初始化为1）
-	count, err := redis_service.Client().Incr(ctx, countKey).Result()
+	count, err := deps.Client.Incr(ctx, countKey).Result()
 	if err != nil {
 		return
 	}
 	// 如果是第一次计数，设置Key的过期时间
 	if count == 1 {
-		_ = redis_service.Client().Expire(ctx, countKey, ttl).Err()
+		_ = deps.Client.Expire(ctx, countKey, ttl).Err()
 	}
 	// 如果达到最大失败次数，设置锁定Key
 	if count >= max {
-		_ = redis_service.Client().Set(ctx, lockKey, "1", ttl).Err()
+		_ = deps.Client.Set(ctx, lockKey, "1", ttl).Err()
 	}
 }
 
 // allowWithinWindow 检查操作是否在时间窗口内的允许次数范围内
-func allowWithinWindow(ctx context.Context, key string, ttl time.Duration, max int64) bool {
+func allowWithinWindow(deps redis_service.Deps, ctx context.Context, key string, ttl time.Duration, max int64) bool {
 	//	key - 计数的Redis Key
 	//	ttl - 时间窗口
 	//	max - 最大允许次数
 
 	// 增加操作计数（首次调用会自动创建Key并初始化为1）
-	count, err := redis_service.Client().Incr(ctx, key).Result()
+	count, err := deps.Client.Incr(ctx, key).Result()
 	if err != nil {
 		// Redis操作失败时默认允许（降级处理）
 		return true
 	}
 	// 如果是第一次计数，设置Key的过期时间
 	if count == 1 {
-		_ = redis_service.Client().Expire(ctx, key, ttl).Err()
+		_ = deps.Client.Expire(ctx, key, ttl).Err()
 	}
 	// 检查计数是否在允许范围内
 	return count <= max

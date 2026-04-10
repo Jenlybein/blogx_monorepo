@@ -102,13 +102,13 @@ func buildTagArticleCountDelta(oldTagIDs, newTagIDs []ctype.ID) map[ctype.ID]int
 	return deltaMap
 }
 
-func applyTagArticleCountDelta(deltaMap map[ctype.ID]int) {
+func applyTagArticleCountDelta(deps redis_service.Deps, deltaMap map[ctype.ID]int) {
 	for tagID, delta := range deltaMap {
 		if delta == 0 {
 			continue
 		}
-		if err := redis_tag.SetCacheArticleCount(tagID, delta); err != nil {
-			redis_service.Logger().Errorf("标签文章数缓存更新失败: 标签ID=%d 增量=%d 错误=%v", tagID, delta, err)
+		if err := redis_tag.SetCacheArticleCount(deps, tagID, delta); err != nil && deps.Logger != nil {
+			deps.Logger.Errorf("标签文章数缓存更新失败: 标签ID=%d 增量=%d 错误=%v", tagID, delta, err)
 		}
 	}
 }

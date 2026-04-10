@@ -43,9 +43,7 @@ func VerifyImageFormat(whitelist []string, fileHeader *multipart.FileHeader) err
 
 	file, err := fileHeader.Open()
 	if err != nil {
-		serr := fmt.Errorf("图片格式验证时，创建文件读取器失败：%w", err)
-		imageLogger.Error(serr)
-		return serr
+		return fmt.Errorf("图片格式验证时，创建文件读取器失败：%w", err)
 	}
 	defer file.Close()
 

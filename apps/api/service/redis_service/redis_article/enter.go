@@ -29,49 +29,58 @@ const (
 )
 
 // 设置缓存
-func set(t ArticleCacheType, articleID ctype.ID, increase int) error {
-	return redis_service.Client().HIncrBy(context.Background(), string(t), articleID.String(), int64(increase)).Err()
+func set(deps redis_service.Deps, t ArticleCacheType, articleID ctype.ID, increase int) error {
+	if deps.Client == nil {
+		return nil
+	}
+	return deps.Client.HIncrBy(context.Background(), string(t), articleID.String(), int64(increase)).Err()
 }
 
-func get(t ArticleCacheType, articleID ctype.ID) int {
-	num, _ := redis_service.Client().HGet(context.Background(), string(t), articleID.String()).Int()
+func get(deps redis_service.Deps, t ArticleCacheType, articleID ctype.ID) int {
+	if deps.Client == nil {
+		return 0
+	}
+	num, _ := deps.Client.HGet(context.Background(), string(t), articleID.String()).Int()
 	return num
 }
 
 // 浏览量缓存
-func SetCacheView(articleID ctype.ID, increase int) error {
-	return set(ArticleCacheView, articleID, increase)
+func SetCacheView(deps redis_service.Deps, articleID ctype.ID, increase int) error {
+	return set(deps, ArticleCacheView, articleID, increase)
 }
-func GetCacheView(articleID ctype.ID) int {
-	return get(ArticleCacheView, articleID)
+func GetCacheView(deps redis_service.Deps, articleID ctype.ID) int {
+	return get(deps, ArticleCacheView, articleID)
 }
 
 // 点赞缓存
-func SetCacheDigg(articleID ctype.ID, increase int) error {
-	return set(ArticleCacheDigg, articleID, increase)
+func SetCacheDigg(deps redis_service.Deps, articleID ctype.ID, increase int) error {
+	return set(deps, ArticleCacheDigg, articleID, increase)
 }
-func GetCacheDigg(articleID ctype.ID) int {
-	return get(ArticleCacheDigg, articleID)
+func GetCacheDigg(deps redis_service.Deps, articleID ctype.ID) int {
+	return get(deps, ArticleCacheDigg, articleID)
 }
 
 // 收藏缓存
-func SetCacheFavorite(articleID ctype.ID, increase int) error {
-	return set(ArticleCacheFavorite, articleID, increase)
+func SetCacheFavorite(deps redis_service.Deps, articleID ctype.ID, increase int) error {
+	return set(deps, ArticleCacheFavorite, articleID, increase)
 }
-func GetCacheFavorite(articleID ctype.ID) int {
-	return get(ArticleCacheFavorite, articleID)
+func GetCacheFavorite(deps redis_service.Deps, articleID ctype.ID) int {
+	return get(deps, ArticleCacheFavorite, articleID)
 }
 
 // 评论缓存
-func SetCacheComment(articleID ctype.ID, increase int) error {
-	return set(ArticleCacheComment, articleID, increase)
+func SetCacheComment(deps redis_service.Deps, articleID ctype.ID, increase int) error {
+	return set(deps, ArticleCacheComment, articleID, increase)
 }
-func GetCacheComment(articleID ctype.ID) int {
-	return get(ArticleCacheComment, articleID)
+func GetCacheComment(deps redis_service.Deps, articleID ctype.ID) int {
+	return get(deps, ArticleCacheComment, articleID)
 }
 
-func GetAll(t ArticleCacheType) map[ctype.ID]int {
-	res, err := redis_service.Client().HGetAll(context.Background(), string(t)).Result()
+func GetAll(deps redis_service.Deps, t ArticleCacheType) map[ctype.ID]int {
+	if deps.Client == nil {
+		return nil
+	}
+	res, err := deps.Client.HGetAll(context.Background(), string(t)).Result()
 	if err != nil {
 		return nil
 	}
@@ -88,48 +97,48 @@ func GetAll(t ArticleCacheType) map[ctype.ID]int {
 	return numMap
 }
 
-func getBatch(t ArticleCacheType, articleIDs []ctype.ID) map[ctype.ID]int {
+func getBatch(deps redis_service.Deps, t ArticleCacheType, articleIDs []ctype.ID) map[ctype.ID]int {
 	result := make(map[ctype.ID]int, len(articleIDs))
-	if redis_service.Client() == nil || len(articleIDs) == 0 {
+	if deps.Client == nil || len(articleIDs) == 0 {
 		return result
 	}
 
-	values, err := redis_service.Client().HMGet(context.Background(), string(t), buildBatchFields(articleIDs)...).Result()
+	values, err := deps.Client.HMGet(context.Background(), string(t), buildBatchFields(articleIDs)...).Result()
 	if err != nil {
 		return result
 	}
 	return decodeBatchValues(articleIDs, values)
 }
 
-func GetBatchCacheView(articleIDs []ctype.ID) map[ctype.ID]int {
-	return getBatch(ArticleCacheView, articleIDs)
+func GetBatchCacheView(deps redis_service.Deps, articleIDs []ctype.ID) map[ctype.ID]int {
+	return getBatch(deps, ArticleCacheView, articleIDs)
 }
-func GetBatchCacheDigg(articleIDs []ctype.ID) map[ctype.ID]int {
-	return getBatch(ArticleCacheDigg, articleIDs)
+func GetBatchCacheDigg(deps redis_service.Deps, articleIDs []ctype.ID) map[ctype.ID]int {
+	return getBatch(deps, ArticleCacheDigg, articleIDs)
 }
-func GetBatchCacheFavorite(articleIDs []ctype.ID) map[ctype.ID]int {
-	return getBatch(ArticleCacheFavorite, articleIDs)
+func GetBatchCacheFavorite(deps redis_service.Deps, articleIDs []ctype.ID) map[ctype.ID]int {
+	return getBatch(deps, ArticleCacheFavorite, articleIDs)
 }
-func GetBatchCacheComment(articleIDs []ctype.ID) map[ctype.ID]int {
-	return getBatch(ArticleCacheComment, articleIDs)
+func GetBatchCacheComment(deps redis_service.Deps, articleIDs []ctype.ID) map[ctype.ID]int {
+	return getBatch(deps, ArticleCacheComment, articleIDs)
 }
 
 // GetBatchCounters 通过一次 Redis Pipeline 批量读取文章的四类计数增量，
 // 减少搜索列表阶段的 Redis 往返次数。
-func GetBatchCounters(articleIDs []ctype.ID) BatchCounters {
+func GetBatchCounters(deps redis_service.Deps, articleIDs []ctype.ID) BatchCounters {
 	counters := BatchCounters{
 		ViewMap:    make(map[ctype.ID]int),
 		DiggMap:    make(map[ctype.ID]int),
 		FavorMap:   make(map[ctype.ID]int),
 		CommentMap: make(map[ctype.ID]int),
 	}
-	if redis_service.Client() == nil || len(articleIDs) == 0 {
+	if deps.Client == nil || len(articleIDs) == 0 {
 		return counters
 	}
 
 	ctx := context.Background()
 	fields := buildBatchFields(articleIDs)
-	pipe := redis_service.Client().Pipeline()
+	pipe := deps.Client.Pipeline()
 	defer pipe.Close()
 
 	viewCmd := pipe.HMGet(ctx, string(ArticleCacheView), fields...)
@@ -180,21 +189,24 @@ func decodeBatchValues(articleIDs []ctype.ID, values []any) map[ctype.ID]int {
 	return result
 }
 
-func GetAllCacheView() map[ctype.ID]int {
-	return GetAll(ArticleCacheView)
+func GetAllCacheView(deps redis_service.Deps) map[ctype.ID]int {
+	return GetAll(deps, ArticleCacheView)
 }
-func GetAllCacheDigg() map[ctype.ID]int {
-	return GetAll(ArticleCacheDigg)
+func GetAllCacheDigg(deps redis_service.Deps) map[ctype.ID]int {
+	return GetAll(deps, ArticleCacheDigg)
 }
-func GetAllCacheFavorite() map[ctype.ID]int {
-	return GetAll(ArticleCacheFavorite)
+func GetAllCacheFavorite(deps redis_service.Deps) map[ctype.ID]int {
+	return GetAll(deps, ArticleCacheFavorite)
 }
-func GetAllCacheComment() map[ctype.ID]int {
-	return GetAll(ArticleCacheComment)
+func GetAllCacheComment(deps redis_service.Deps) map[ctype.ID]int {
+	return GetAll(deps, ArticleCacheComment)
 }
 
-func ClearAllCacheArticle() error {
-	return redis_service.Client().Del(
+func ClearAllCacheArticle(deps redis_service.Deps) error {
+	if deps.Client == nil {
+		return nil
+	}
+	return deps.Client.Del(
 		context.Background(),
 		string(ArticleCacheView),
 		string(ArticleCacheDigg),
@@ -204,32 +216,38 @@ func ClearAllCacheArticle() error {
 }
 
 // 设置用户阅读历史
-func SetUserArticleHistoryCache(articleID, userID int) {
+func SetUserArticleHistoryCache(deps redis_service.Deps, articleID, userID int) {
+	if deps.Client == nil {
+		return
+	}
 	key := fmt.Sprintf("user_history_%d", userID)
 	field := fmt.Sprintf("%d", articleID)
 
 	now := time.Now()
 	nextDay := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
 
-	if err := redis_service.Client().HSet(context.Background(), key, field, "").Err(); err != nil {
-		if redis_service.Logger() != nil {
-			redis_service.Logger().Errorf("写入用户阅读历史缓存失败: 错误=%v", err)
+	if err := deps.Client.HSet(context.Background(), key, field, "").Err(); err != nil {
+		if deps.Logger != nil {
+			deps.Logger.Errorf("写入用户阅读历史缓存失败: 错误=%v", err)
 		}
 		return
 	}
 
-	if err := redis_service.Client().ExpireAt(context.Background(), key, nextDay).Err(); err != nil {
-		if redis_service.Logger() != nil {
-			redis_service.Logger().Errorf("设置用户阅读历史缓存过期时间失败: 错误=%v", err)
+	if err := deps.Client.ExpireAt(context.Background(), key, nextDay).Err(); err != nil {
+		if deps.Logger != nil {
+			deps.Logger.Errorf("设置用户阅读历史缓存过期时间失败: 错误=%v", err)
 		}
 		return
 	}
 }
-func GetUserArticleHistoryCache(articleID, userID int) bool {
+func GetUserArticleHistoryCache(deps redis_service.Deps, articleID, userID int) bool {
+	if deps.Client == nil {
+		return false
+	}
 	key := fmt.Sprintf("user_history_%d", userID)
 	field := fmt.Sprintf("%d", articleID)
 
-	_, err := redis_service.Client().HGet(context.Background(), key, field).Result()
+	_, err := deps.Client.HGet(context.Background(), key, field).Result()
 	if err != nil {
 		return false
 	}
@@ -237,32 +255,38 @@ func GetUserArticleHistoryCache(articleID, userID int) bool {
 }
 
 // 访客阅读记录
-func SetGuestArticleHistoryCache(articleID int, hash string) {
+func SetGuestArticleHistoryCache(deps redis_service.Deps, articleID int, hash string) {
+	if deps.Client == nil {
+		return
+	}
 	key := fmt.Sprintf("guest_history_%s", hash)
 	field := fmt.Sprintf("%d", articleID)
 
 	now := time.Now()
 	nextDay := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
 
-	if err := redis_service.Client().HSet(context.Background(), key, field, "").Err(); err != nil {
-		if redis_service.Logger() != nil {
-			redis_service.Logger().Errorf("写入访客阅读历史缓存失败: 错误=%v", err)
+	if err := deps.Client.HSet(context.Background(), key, field, "").Err(); err != nil {
+		if deps.Logger != nil {
+			deps.Logger.Errorf("写入访客阅读历史缓存失败: 错误=%v", err)
 		}
 		return
 	}
 
-	if err := redis_service.Client().ExpireAt(context.Background(), key, nextDay).Err(); err != nil {
-		if redis_service.Logger() != nil {
-			redis_service.Logger().Errorf("设置访客阅读历史缓存过期时间失败: 错误=%v", err)
+	if err := deps.Client.ExpireAt(context.Background(), key, nextDay).Err(); err != nil {
+		if deps.Logger != nil {
+			deps.Logger.Errorf("设置访客阅读历史缓存过期时间失败: 错误=%v", err)
 		}
 		return
 	}
 }
-func GetGuestArticleHistoryCache(articleID int, hash string) bool {
+func GetGuestArticleHistoryCache(deps redis_service.Deps, articleID int, hash string) bool {
+	if deps.Client == nil {
+		return false
+	}
 	key := fmt.Sprintf("guest_history_%s", hash)
 	field := fmt.Sprintf("%d", articleID)
 
-	_, err := redis_service.Client().HGet(context.Background(), key, field).Result()
+	_, err := deps.Client.HGet(context.Background(), key, field).Result()
 	if err != nil {
 		return false
 	}

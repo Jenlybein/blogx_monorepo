@@ -7,13 +7,14 @@ import (
 	"myblogx/utils/pwd"
 	"os"
 
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh/terminal"
 	"gorm.io/gorm"
 )
 
 type FlagUser struct{}
 
-func (u *FlagUser) Create(db *gorm.DB) {
+func (u *FlagUser) Create(db *gorm.DB, logger *logrus.Logger) {
 	var role enum.RoleType
 	fmt.Println("请输入数字选择用户角色: ")
 	for r := 1; r <= enum.RoleTypeCount; r++ {
@@ -74,5 +75,7 @@ func (u *FlagUser) Create(db *gorm.DB) {
 		return
 	}
 	msg := fmt.Sprintf("用户 %s 创建成功\n", username)
-	flagLogger.Info(msg)
+	if logger != nil {
+		logger.Info(msg)
+	}
 }

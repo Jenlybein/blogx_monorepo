@@ -7,6 +7,7 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/enum"
+	"myblogx/service/redis_service"
 	redis_email "myblogx/service/redis_service/redis_email"
 	redis_jwt "myblogx/service/redis_service/redis_jwt"
 	"myblogx/test/testutil"
@@ -83,6 +84,10 @@ func setupAuthEnv(t *testing.T) {
 	})
 }
 
+func testRedisDeps() redis_service.Deps {
+	return redis_service.Deps{Client: testutil.Redis(), Logger: testutil.Logger()}
+}
+
 func TestAuthAndAdminMiddleware(t *testing.T) {
 	setupAuthEnv(t)
 	gin.SetMode(gin.TestMode)
@@ -138,7 +143,7 @@ func TestAuthAndAdminMiddleware(t *testing.T) {
 	}
 
 	{
-		redis_jwt.SetTokenBlack(userToken, redis_jwt.UserBlackType)
+		redis_jwt.SetTokenBlack(testRedisDeps(), testutil.Config().Jwt, userToken, redis_jwt.UserBlackType)
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, "/auth", nil)
 		req.Header.Set("token", userToken)
@@ -199,7 +204,7 @@ func TestCaptchaAndEmailVerifyMiddleware(t *testing.T) {
 		}
 	}
 
-	if err := redis_email.Store("eid", "u@example.com", "8888", 1, 3); err != nil {
+	if err := redis_email.Store(testRedisDeps(), "eid", "u@example.com", "8888", 1, 3); err != nil {
 		t.Fatalf("存储邮箱验证码失败: %v", err)
 	}
 	{

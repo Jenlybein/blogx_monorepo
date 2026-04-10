@@ -69,17 +69,11 @@ func GetAddr(ip string) string {
 	}
 
 	if err != nil || region == "" {
-		if ipmetaLogger != nil {
-			ipmetaLogger.Warnf("IP 地址 %s 区域查询失败", ip)
-		}
 		return "未知地址"
 	}
 
 	addrList := strings.Split(region, "|")
 	if len(addrList) < 4 {
-		if ipmetaLogger != nil {
-			ipmetaLogger.Warnf("IP 地址 %s 区域查询结果格式错误", ip)
-		}
 		return "未知地址"
 	}
 

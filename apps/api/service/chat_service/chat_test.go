@@ -209,7 +209,7 @@ func TestToTextChatCreatesMessageAndSessions(t *testing.T) {
 	userA, userB := setupChatServiceTestDB(t)
 	sendTime := time.Date(2026, 3, 12, 10, 0, 0, 0, time.Local)
 
-	msg, err := ToTextChat(ToTextChatRequest{
+	msg, err := ToTextChat(testutil.DB(), testutil.Logger(), ToTextChatRequest{
 		SenderID:   userA.ID,
 		ReceiverID: userB.ID,
 		Text:       "hello",
@@ -271,7 +271,7 @@ func TestToTextChatCreatesMessageAndSessions(t *testing.T) {
 func TestToTextChatReusesSessions(t *testing.T) {
 	userA, userB := setupChatServiceTestDB(t)
 
-	_, err := ToTextChat(ToTextChatRequest{
+	_, err := ToTextChat(testutil.DB(), testutil.Logger(), ToTextChatRequest{
 		SenderID:   userA.ID,
 		ReceiverID: userB.ID,
 		Text:       "first",
@@ -281,7 +281,7 @@ func TestToTextChatReusesSessions(t *testing.T) {
 		t.Fatalf("第一次发送失败: %v", err)
 	}
 
-	secondMsg, err := ToTextChat(ToTextChatRequest{
+	secondMsg, err := ToTextChat(testutil.DB(), testutil.Logger(), ToTextChatRequest{
 		SenderID:   userA.ID,
 		ReceiverID: userB.ID,
 		Text:       "second",
@@ -316,7 +316,7 @@ func TestToTextChatReusesSessions(t *testing.T) {
 func TestToTextChatRestoresDeletedSession(t *testing.T) {
 	userA, userB := setupChatServiceTestDB(t)
 
-	_, err := ToTextChat(ToTextChatRequest{
+	_, err := ToTextChat(testutil.DB(), testutil.Logger(), ToTextChatRequest{
 		SenderID:   userA.ID,
 		ReceiverID: userB.ID,
 		Text:       "first",
@@ -334,7 +334,7 @@ func TestToTextChatRestoresDeletedSession(t *testing.T) {
 		t.Fatalf("软删会话失败: %v", err)
 	}
 
-	_, err = ToTextChat(ToTextChatRequest{
+	_, err = ToTextChat(testutil.DB(), testutil.Logger(), ToTextChatRequest{
 		SenderID:   userB.ID,
 		ReceiverID: userA.ID,
 		Text:       "second",
@@ -360,7 +360,7 @@ func TestToTextChatSupportsSelfChat(t *testing.T) {
 	userA, _ := setupChatServiceTestDB(t)
 	sendTime := time.Date(2026, 3, 13, 18, 10, 0, 0, time.Local)
 
-	msg, err := ToTextChat(ToTextChatRequest{
+	msg, err := ToTextChat(testutil.DB(), testutil.Logger(), ToTextChatRequest{
 		SenderID:   userA.ID,
 		ReceiverID: userA.ID,
 		Text:       "备忘一下",
@@ -397,7 +397,7 @@ func TestToTextChatSupportsSelfChat(t *testing.T) {
 func TestToImageChatStoresJSONAndUpdatesSession(t *testing.T) {
 	userA, userB := setupChatServiceTestDB(t)
 
-	msg, err := ToImageChat(ToImageChatRequest{
+	msg, err := ToImageChat(testutil.DB(), testutil.Logger(), ToImageChatRequest{
 		SenderID:    userA.ID,
 		ReceiverID:  userB.ID,
 		ImageURL:    "https://cdn.example.com/image.png",

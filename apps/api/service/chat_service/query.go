@@ -79,7 +79,7 @@ func (s *QueryService) ListSessions(query SessionListQuery) ([]SessionListItem, 
 	for _, row := range rows {
 		receiverIDs = append(receiverIDs, row.ReceiverID)
 	}
-	relationMap := follow_service.CalUserRelationshipBatch(query.UserID, receiverIDs)
+	relationMap := follow_service.CalUserRelationshipBatch(s.DB, query.UserID, receiverIDs)
 
 	list := make([]SessionListItem, 0, len(rows))
 	for _, row := range rows {

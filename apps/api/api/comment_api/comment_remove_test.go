@@ -70,7 +70,7 @@ func TestCommentRemoveView(t *testing.T) {
 			t.Fatalf("创建待审核二级评论失败: %v", err)
 		}
 
-		if err := redis_article.SetCacheComment(articleOwner.ID, 5); err != nil {
+		if err := redis_article.SetCacheComment(testRedisDeps(), articleOwner.ID, 5); err != nil {
 			t.Fatalf("写入文章评论缓存失败: %v", err)
 		}
 
@@ -93,8 +93,8 @@ func TestCommentRemoveView(t *testing.T) {
 			t.Fatalf("根评论删除应级联删除二级评论, count=%d", count)
 		}
 
-		if redis_article.GetCacheComment(articleOwner.ID) != 3 {
-			t.Fatalf("文章评论缓存未按已发布评论回滚: %d", redis_article.GetCacheComment(articleOwner.ID))
+		if redis_article.GetCacheComment(testRedisDeps(), articleOwner.ID) != 3 {
+			t.Fatalf("文章评论缓存未按已发布评论回滚: %d", redis_article.GetCacheComment(testRedisDeps(), articleOwner.ID))
 		}
 	})
 
@@ -108,7 +108,7 @@ func TestCommentRemoveView(t *testing.T) {
 		if err := testutil.DB().Create(&selfComment).Error; err != nil {
 			t.Fatalf("创建自评论失败: %v", err)
 		}
-		if err := redis_article.SetCacheComment(articleOther.ID, 2); err != nil {
+		if err := redis_article.SetCacheComment(testRedisDeps(), articleOther.ID, 2); err != nil {
 			t.Fatalf("写入文章评论缓存失败: %v", err)
 		}
 
@@ -128,8 +128,8 @@ func TestCommentRemoveView(t *testing.T) {
 		if count != 0 {
 			t.Fatalf("用户删除自己评论失败, count=%d", count)
 		}
-		if redis_article.GetCacheComment(articleOther.ID) != 1 {
-			t.Fatalf("文章评论缓存未正确回滚: %d", redis_article.GetCacheComment(articleOther.ID))
+		if redis_article.GetCacheComment(testRedisDeps(), articleOther.ID) != 1 {
+			t.Fatalf("文章评论缓存未正确回滚: %d", redis_article.GetCacheComment(testRedisDeps(), articleOther.ID))
 		}
 	})
 
@@ -154,7 +154,7 @@ func TestCommentRemoveView(t *testing.T) {
 		if err := testutil.DB().Create(&reply).Error; err != nil {
 			t.Fatalf("创建二级评论失败: %v", err)
 		}
-		if err := redis_comment.SetCacheReply(root.ID, 3); err != nil {
+		if err := redis_comment.SetCacheReply(testRedisDeps(), root.ID, 3); err != nil {
 			t.Fatalf("写入根评论reply缓存失败: %v", err)
 		}
 
@@ -173,8 +173,8 @@ func TestCommentRemoveView(t *testing.T) {
 		if count != 0 {
 			t.Fatalf("二级评论应被删除, count=%d", count)
 		}
-		if redis_comment.GetCacheReply(root.ID) != 2 {
-			t.Fatalf("根评论reply缓存未回滚, got=%d", redis_comment.GetCacheReply(root.ID))
+		if redis_comment.GetCacheReply(testRedisDeps(), root.ID) != 2 {
+			t.Fatalf("根评论reply缓存未回滚, got=%d", redis_comment.GetCacheReply(testRedisDeps(), root.ID))
 		}
 	})
 
@@ -188,7 +188,7 @@ func TestCommentRemoveView(t *testing.T) {
 		if err := testutil.DB().Create(&target).Error; err != nil {
 			t.Fatalf("创建管理员删除目标失败: %v", err)
 		}
-		before := redis_article.GetCacheComment(articleOwner.ID)
+		before := redis_article.GetCacheComment(testRedisDeps(), articleOwner.ID)
 
 		c, w := newCommentCtx()
 		c.Set("claims", &jwts.MyClaims{Claims: jwts.Claims{UserID: admin.ID, Role: enum.RoleAdmin, Username: admin.Username}})
@@ -206,8 +206,8 @@ func TestCommentRemoveView(t *testing.T) {
 		if count != 0 {
 			t.Fatalf("管理员删除评论失败, count=%d", count)
 		}
-		if redis_article.GetCacheComment(articleOwner.ID) != before-1 {
-			t.Fatalf("管理员删除后文章评论缓存未正确回滚: before=%d after=%d", before, redis_article.GetCacheComment(articleOwner.ID))
+		if redis_article.GetCacheComment(testRedisDeps(), articleOwner.ID) != before-1 {
+			t.Fatalf("管理员删除后文章评论缓存未正确回滚: before=%d after=%d", before, redis_article.GetCacheComment(testRedisDeps(), articleOwner.ID))
 		}
 	})
 

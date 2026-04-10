@@ -9,8 +9,11 @@ import (
 )
 
 // keyExists 检查Redis Key是否存在
-func keyExists(ctx context.Context, key string) bool {
-	exists, err := redis_service.Client().Exists(ctx, key).Result()
+func keyExists(deps redis_service.Deps, ctx context.Context, key string) bool {
+	if deps.Client == nil {
+		return false
+	}
+	exists, err := deps.Client.Exists(ctx, key).Result()
 	return err == nil && exists > 0
 }
 

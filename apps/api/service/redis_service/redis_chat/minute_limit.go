@@ -75,8 +75,8 @@ type MinuteReservation struct {
 }
 
 // Release 撤销一次分钟级预占，用于消息最终未落库时回滚本次占用。
-func (r *MinuteReservation) Release() error {
-	client := redis_service.Client()
+func (r *MinuteReservation) Release(deps redis_service.Deps) error {
+	client := deps.Client
 	if r == nil || client == nil {
 		return nil
 	}
@@ -93,8 +93,8 @@ func (r *MinuteReservation) Release() error {
 // 1. reservation 非空：预占成功；
 // 2. reservation 为空且 limitedBy 非空：被限流；
 // 3. err 非空：Redis 执行异常。
-func ReserveChatMinuteRate(senderID ctype.ID, sessionID string, now time.Time) (*MinuteReservation, string, error) {
-	client := redis_service.Client()
+func ReserveChatMinuteRate(deps redis_service.Deps, senderID ctype.ID, sessionID string, now time.Time) (*MinuteReservation, string, error) {
+	client := deps.Client
 	if client == nil {
 		return nil, "", fmt.Errorf("redis 未初始化")
 	}

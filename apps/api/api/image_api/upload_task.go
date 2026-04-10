@@ -22,11 +22,12 @@ import (
 // 前端调用：获取上传凭证、判断是否需要上传（秒传）
 func (ImageApi) CreateUploadTaskView(c *gin.Context) {
 	app := mustApp(c)
+	imageDeps := image_service.DepsFromApp(app)
 	cr := middleware.GetBindJson[CreateImageUploadTaskRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
 
 	// 调用服务层创建上传任务
-	result, err := image_service.CreateUploadTask(claims.UserID, cr.FileName, cr.Size, cr.MimeType, cr.Hash)
+	result, err := image_service.CreateUploadTask(imageDeps, claims.UserID, cr.FileName, cr.Size, cr.MimeType, cr.Hash)
 	if err != nil {
 		res.FailWithMsg(err.Error(), c)
 		return
@@ -63,12 +64,13 @@ func (ImageApi) CreateUploadTaskView(c *gin.Context) {
 // 作用：前端上传完成后，主动通知后端确认文件上传成功
 // 备注：正式环境优先使用七牛回调，此接口用于本地调试/兜底
 func (ImageApi) CompleteUploadTaskView(c *gin.Context) {
+	imageDeps := image_service.DepsFromGin(c)
 	cr := middleware.GetBindJson[CompleteImageUploadTaskRequest](c)
 
 	claims := jwts.MustGetClaimsByGin(c)
 
 	// 调用服务层确认上传任务完成
-	result, err := image_service.ConfirmUploadTaskByUser(cr.UploadID, claims.UserID, cr.ObjectKey)
+	result, err := image_service.ConfirmUploadTaskByUser(imageDeps, cr.UploadID, claims.UserID, cr.ObjectKey)
 	if err != nil {
 		res.FailWithMsg(err.Error(), c)
 		return
@@ -85,11 +87,12 @@ func (ImageApi) CompleteUploadTaskView(c *gin.Context) {
 // UploadTaskStatusView 查询上传任务状态
 // 前端轮询使用：实时获取任务是否完成、失败、成功
 func (ImageApi) UploadTaskStatusView(c *gin.Context) {
+	imageDeps := image_service.DepsFromGin(c)
 	claims := jwts.MustGetClaimsByGin(c)
 	cr := middleware.GetBindUri[models.IDRequest](c)
 
 	// 查询任务状态
-	result, err := image_service.GetUploadTaskStatusByUser(cr.ID, claims.UserID)
+	result, err := image_service.GetUploadTaskStatusByUser(imageDeps, cr.ID, claims.UserID)
 	if err != nil {
 		// 任务不存在
 		if errors.Is(err, image_service.ErrUploadTaskNotFound) {
@@ -128,7 +131,7 @@ func (ImageApi) QiniuCallbackView(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewReader(body))
 
 	// 校验七牛回调签名合法性（防止伪造请求）
-	ok, err := image_service.VerifyQiniuCallback(c.Request)
+	ok, err := image_service.VerifyQiniuCallback(image_service.DepsFromGin(c), c.Request)
 	if err != nil || !ok {
 		res.FailWithMsg(fmt.Sprintf("校验七牛回调失败: %v", err), c)
 		return
@@ -148,7 +151,7 @@ func (ImageApi) QiniuCallbackView(c *gin.Context) {
 	}
 
 	// 根据文件key自动完成上传任务
-	result, err := image_service.ConfirmUploadTaskByCallback(payload.Key, payload.Bucket, payload.Hash, payload.Fsize)
+	result, err := image_service.ConfirmUploadTaskByCallback(image_service.DepsFromGin(c), payload.Key, payload.Bucket, payload.Hash, payload.Fsize)
 	if err != nil {
 		if errors.Is(err, image_service.ErrUploadTaskNotFound) {
 			res.FailWithMsg("上传任务不存在", c)
@@ -177,13 +180,13 @@ func (ImageApi) QiniuAuditCallbackView(c *gin.Context) {
 	}
 	c.Request.Body = io.NopCloser(bytes.NewReader(body))
 
-	ok, err := image_service.VerifyQiniuCallback(c.Request)
+	ok, err := image_service.VerifyQiniuCallback(image_service.DepsFromGin(c), c.Request)
 	if err != nil || !ok {
 		res.FailWithMsg(fmt.Sprintf("校验七牛审核回调失败: %v", err), c)
 		return
 	}
 
-	if err = image_service.HandleQiniuAuditCallback(body); err != nil {
+	if err = image_service.HandleQiniuAuditCallback(image_service.DepsFromGin(c), body); err != nil {
 		res.FailWithMsg(err.Error(), c)
 		return
 	}

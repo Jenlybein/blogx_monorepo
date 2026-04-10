@@ -22,6 +22,7 @@ import (
 
 // ErrInvalidOrder 表示前端传入了未授权的排序字段。
 var ErrInvalidOrder = errors.New("排序字段错误")
+var ErrListQueryDBRequired = errors.New("缺少查询数据库依赖")
 
 // TODO: 添加时间范围筛选支持。
 type PageInfo struct {
@@ -101,6 +102,9 @@ type IDPageOptions struct {
 // 如果查询需要先拿主键，再回表查详情，应改用 PageIDQuery。
 func ListQuery[T any](model T, option Options) (list []T, count int, err error) {
 	baseQuery := buildListQuery(model, option)
+	if baseQuery == nil {
+		return nil, 0, ErrListQueryDBRequired
+	}
 
 	count, err = CountQuery(baseQuery)
 	if err != nil {
@@ -145,6 +149,9 @@ func ListQuery[T any](model T, option Options) (list []T, count int, err error) 
 // 查询时会多取一条记录，用来判断 has_more，从而避免额外 count 开销。
 func ListQueryHasMore[T any](model T, option Options) (list []T, hasMore bool, err error) {
 	baseQuery := buildListQuery(model, option)
+	if baseQuery == nil {
+		return nil, false, ErrListQueryDBRequired
+	}
 
 	listQuery := baseQuery.Session(&gorm.Session{})
 	limit := option.PageInfo.GetLimit()
@@ -296,7 +303,7 @@ func PageIDHasMoreQuery(query *gorm.DB, option IDPageOptions) (ids []ctype.ID, h
 func buildListQuery[T any](model T, option Options) *gorm.DB {
 	queryDB := option.DB
 	if queryDB == nil {
-		queryDB = defaultDB
+		return nil
 	}
 
 	query := queryDB.Model(model)
@@ -325,7 +332,7 @@ func buildListQuery[T any](model T, option Options) *gorm.DB {
 // buildLikeCondition 构造多个列的 OR LIKE 条件。
 func buildLikeCondition(db *gorm.DB, columns []string, key string) *gorm.DB {
 	if db == nil {
-		db = defaultDB
+		return nil
 	}
 	pattern := "%" + key + "%"
 	likeQuery := db.Where(fmt.Sprintf("%s LIKE ?", columns[0]), pattern)

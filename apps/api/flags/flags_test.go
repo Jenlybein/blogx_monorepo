@@ -62,12 +62,12 @@ func TestParse(t *testing.T) {
 
 func TestRunNoOp(t *testing.T) {
 	testutil.InitGlobals()
-	Run(&FlagOptions{}, nil)
+	Run(&FlagOptions{}, Deps{})
 }
 
 func TestFlagDB(t *testing.T) {
 	db := testutil.SetupSQLite(t)
-	FlagDB(db)
+	FlagDB(db, nil)
 
 	if !db.Migrator().HasTable(&models.UserModel{}) {
 		t.Fatal("UserModel 表未迁移")
@@ -84,7 +84,7 @@ func TestFlagESIndexNoOp(t *testing.T) {
 	})
 
 	withStdin(t, "3\n3\n", func() {
-		FlagESIndex()
+		FlagESIndex(Deps{ESIndex: testutil.Config().ES.Index})
 	})
 }
 
@@ -94,7 +94,7 @@ func TestFlagUserCreateInvalidRoleAndExistsUser(t *testing.T) {
 	t.Run("非法角色直接返回", func(t *testing.T) {
 		withStdin(t, "0\n", func() {
 			u := FlagUser{}
-			u.Create(db)
+			u.Create(db, nil)
 		})
 		var cnt int64
 		_ = db.Model(&models.UserModel{}).Count(&cnt).Error
@@ -114,7 +114,7 @@ func TestFlagUserCreateInvalidRoleAndExistsUser(t *testing.T) {
 
 		withStdin(t, "1\nexists_u\n", func() {
 			u := FlagUser{}
-			u.Create(db)
+			u.Create(db, nil)
 		})
 
 		var cnt int64
@@ -330,7 +330,7 @@ func TestSyncArticleDocuments(t *testing.T) {
 		}
 	})
 
-	total, err := syncArticleDocuments(db, "article_index", 2)
+	total, err := syncArticleDocuments(db, testutil.ESClient(), "article_index", 2, nil)
 	if err != nil {
 		t.Fatalf("同步文章到 ES 失败: %v", err)
 	}

@@ -6,6 +6,7 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_tag"
 
 	"github.com/gin-gonic/gin"
@@ -37,7 +38,7 @@ func (TagsApi) TagListView(c *gin.Context) {
 		tagIDs = append(tagIDs, item.ID)
 	}
 
-	deltaMap := redis_tag.GetBatchCacheArticleCount(tagIDs)
+	deltaMap := redis_tag.GetBatchCacheArticleCount(redis_service.DepsFromGin(c), tagIDs)
 	responseList := make([]TagListResponse, 0, len(list))
 	for _, item := range list {
 		item.ArticleCount += deltaMap[item.ID]

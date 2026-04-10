@@ -34,6 +34,7 @@ func TestGetAccessToken(t *testing.T) {
 	testutil.SetConfig(&conf.Config{
 		QQ: conf.QQ{AppID: "1", AppKey: "2", Redirect: "http://localhost/cb"},
 	})
+	qqConf := testutil.Config().QQ
 
 	withMockQQTransport(t, func(req *http.Request) (string, int) {
 		if req.URL.Query().Get("grant_type") == "authorization_code" {
@@ -42,7 +43,7 @@ func TestGetAccessToken(t *testing.T) {
 		return `{"ret":0,"nickname":"nick","figureurl_qq_2":"avatar"}`, 200
 	})
 
-	resp, err := getAccessToken("code1")
+	resp, err := getAccessToken(qqConf, "code1")
 	if err != nil {
 		t.Fatalf("getAccessToken 失败: %v", err)
 	}
@@ -56,6 +57,7 @@ func TestGetUserInfoAndGetUserInfoFlow(t *testing.T) {
 	testutil.SetConfig(&conf.Config{
 		QQ: conf.QQ{AppID: "1", AppKey: "2", Redirect: "http://localhost/cb"},
 	})
+	qqConf := testutil.Config().QQ
 
 	withMockQQTransport(t, func(req *http.Request) (string, int) {
 		if req.URL.Query().Get("grant_type") == "authorization_code" {
@@ -64,7 +66,7 @@ func TestGetUserInfoAndGetUserInfoFlow(t *testing.T) {
 		return `{"ret":0,"nickname":"nick","figureurl_qq_2":"avatar"}`, 200
 	})
 
-	user, err := GetUserInfo("code2")
+	user, err := GetUserInfo(qqConf, "code2")
 	if err != nil {
 		t.Fatalf("GetUserInfo 失败: %v", err)
 	}
@@ -78,12 +80,13 @@ func TestGetAccessTokenFail(t *testing.T) {
 	testutil.SetConfig(&conf.Config{
 		QQ: conf.QQ{AppID: "1", AppKey: "2", Redirect: "http://localhost/cb"},
 	})
+	qqConf := testutil.Config().QQ
 
 	withMockQQTransport(t, func(req *http.Request) (string, int) {
 		return `{"error_description":"bad code"}`, 200
 	})
 
-	if _, err := getAccessToken("bad"); err == nil {
+	if _, err := getAccessToken(qqConf, "bad"); err == nil {
 		t.Fatal("access_token 缺失应报错")
 	}
 }

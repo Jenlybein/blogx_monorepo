@@ -12,6 +12,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_article"
 	"myblogx/service/user_service"
 	"myblogx/utils/user_info"
@@ -42,17 +43,17 @@ func (ArticleApi) ArticleVisitView(c *gin.Context) {
 		hash := md5.Sum([]byte(fmt.Sprintf("%s:%s", ip, ua)))
 		key := fmt.Sprintf("g:%s", hex.EncodeToString(hash[:]))
 
-		if redis_article.GetGuestArticleHistoryCache(int(cr.ArticleID), key) {
+		if redis_article.GetGuestArticleHistoryCache(redis_service.DepsFromGin(c), int(cr.ArticleID), key) {
 			fmt.Printf("访客已经阅读过该文章, %d", cr.ArticleID)
 			res.OkWithMsg("访客已访问过该文章", c)
 			return
 		}
 
-		redis_article.SetGuestArticleHistoryCache(int(cr.ArticleID), key)
+		redis_article.SetGuestArticleHistoryCache(redis_service.DepsFromGin(c), int(cr.ArticleID), key)
 	} else {
 		claims := authResult.Claims
 		// 已登录用户，靠用户 id 进行确认
-		if redis_article.GetUserArticleHistoryCache(int(cr.ArticleID), int(claims.UserID)) {
+		if redis_article.GetUserArticleHistoryCache(redis_service.DepsFromGin(c), int(cr.ArticleID), int(claims.UserID)) {
 			// TODO：加消息队列通知数据库更新访问历史
 			res.OkWithMsg("用户已访问过该文章", c)
 			return
@@ -95,9 +96,9 @@ func (ArticleApi) ArticleVisitView(c *gin.Context) {
 			return
 		}
 
-		redis_article.SetUserArticleHistoryCache(int(cr.ArticleID), int(claims.UserID))
+		redis_article.SetUserArticleHistoryCache(redis_service.DepsFromGin(c), int(cr.ArticleID), int(claims.UserID))
 	}
 
-	redis_article.SetCacheView(cr.ArticleID, 1)
+	redis_article.SetCacheView(redis_service.DepsFromGin(c), cr.ArticleID, 1)
 	res.OkWithMsg("文章访问量增加成功", c)
 }

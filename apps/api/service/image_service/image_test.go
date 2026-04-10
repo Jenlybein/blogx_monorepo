@@ -16,6 +16,20 @@ import (
 	"time"
 )
 
+func imageTestDeps() Deps {
+	cfg := testutil.Config()
+	if cfg == nil {
+		cfg = &conf.Config{}
+	}
+	return Deps{
+		QiNiu:  cfg.QiNiu,
+		Upload: cfg.Upload,
+		DB:     testutil.DB(),
+		Redis:  testutil.Redis(),
+		Logger: testutil.Logger(),
+	}
+}
+
 func TestCreateUploadToken(t *testing.T) {
 	testutil.InitGlobals()
 	testutil.SetConfig(&conf.Config{
@@ -26,7 +40,7 @@ func TestCreateUploadToken(t *testing.T) {
 		},
 	})
 
-	ret, err := CreateUploadToken(UploadPolicy{
+	ret, err := CreateUploadToken(imageTestDeps(), UploadPolicy{
 		Bucket:      "bucket",
 		ObjectKey:   "blogx/images/test.png",
 		CallbackURL: "https://api.example.com/api/images/qiniu/callback",
@@ -55,7 +69,7 @@ func TestCreateUploadTokenWithoutCallback(t *testing.T) {
 		},
 	})
 
-	ret, err := CreateUploadToken(UploadPolicy{
+	ret, err := CreateUploadToken(imageTestDeps(), UploadPolicy{
 		Bucket:    "bucket",
 		ObjectKey: "blogx/images/test-no-callback.png",
 		ExpireAt:  time.Now().Add(time.Hour),
@@ -80,7 +94,7 @@ func TestCreateUploadTokenInvalidPolicy(t *testing.T) {
 		},
 	})
 
-	ret, err := CreateUploadToken(UploadPolicy{
+	ret, err := CreateUploadToken(imageTestDeps(), UploadPolicy{
 		Bucket:      "",
 		ObjectKey:   "blogx/images/test.png",
 		CallbackURL: "https://api.example.com/api/images/qiniu/callback",
@@ -176,7 +190,7 @@ func TestHandleQiniuAuditCallbackUpdateExistingImage(t *testing.T) {
 			},
 		},
 	})
-	if err := HandleQiniuAuditCallback(body); err != nil {
+	if err := HandleQiniuAuditCallback(imageTestDeps(), body); err != nil {
 		t.Fatalf("处理审核回调失败: %v", err)
 	}
 
@@ -206,7 +220,7 @@ func TestHandleQiniuAuditCallbackCacheAndApplyLater(t *testing.T) {
 			},
 		},
 	})
-	if err := HandleQiniuAuditCallback(body); err != nil {
+	if err := HandleQiniuAuditCallback(imageTestDeps(), body); err != nil {
 		t.Fatalf("处理审核回调失败: %v", err)
 	}
 
@@ -226,7 +240,7 @@ func TestHandleQiniuAuditCallbackCacheAndApplyLater(t *testing.T) {
 		t.Fatalf("创建图片记录失败: %v", err)
 	}
 
-	if err := applyPendingAuditStatusIfAny(&image); err != nil {
+	if err := applyPendingAuditStatusIfAny(imageTestDeps(), &image); err != nil {
 		t.Fatalf("应用缓存审核结果失败: %v", err)
 	}
 	if image.Status != enum.ImageStatusReviewing {

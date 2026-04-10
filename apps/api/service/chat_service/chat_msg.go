@@ -7,6 +7,9 @@ import (
 	"myblogx/models/enum/chat_msg_enum"
 	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 // ToTextChatRequest 用于创建纯文本消息。
@@ -19,14 +22,14 @@ type ToTextChatRequest struct {
 }
 
 // ToTextChat 创建文本消息。
-func ToTextChat(req ToTextChatRequest) (*models.ChatMsgModel, error) {
+func ToTextChat(db *gorm.DB, logger *logrus.Logger, req ToTextChatRequest) (*models.ChatMsgModel, error) {
 	text := strings.TrimSpace(req.Text)
 	if text == "" {
 		return nil, errors.New("消息内容不能为空")
 	}
 
 	// 文本消息不做额外包装，直接存文本，保证查询和预览最简单。
-	return ToChat(ToChatRequest{
+	return ToChat(db, logger, ToChatRequest{
 		SenderID:   req.SenderID,
 		ReceiverID: req.ReceiverID,
 		MsgType:    chat_msg_enum.MsgTypeText,
@@ -67,14 +70,14 @@ type imageChatContent struct {
 	Alt         string `json:"alt,omitempty"`
 }
 
-func ToImageChat(req ToImageChatRequest) (*models.ChatMsgModel, error) {
+func ToImageChat(db *gorm.DB, logger *logrus.Logger, req ToImageChatRequest) (*models.ChatMsgModel, error) {
 	req.ImageURL = strings.TrimSpace(req.ImageURL)
 	if req.ImageURL == "" {
 		return nil, errors.New("图片消息缺少图片地址")
 	}
 
 	// 图片消息统一序列化成 JSON，避免后续再去猜 Content 字段语义。
-	content, err := marshalChatContent(imageChatContent{
+	content, err := marshalChatContent(logger, imageChatContent{
 		Kind:        "image",
 		ImageURL:    req.ImageURL,
 		PreviewURL:  strings.TrimSpace(req.PreviewURL),
@@ -90,7 +93,7 @@ func ToImageChat(req ToImageChatRequest) (*models.ChatMsgModel, error) {
 		return nil, err
 	}
 
-	return ToChat(ToChatRequest{
+	return ToChat(db, logger, ToChatRequest{
 		SenderID:   req.SenderID,
 		ReceiverID: req.ReceiverID,
 		MsgType:    chat_msg_enum.MsgTypeImage,
@@ -120,14 +123,14 @@ type markdownChatContent struct {
 }
 
 // ToMarkdownChat 创建 Markdown 消息。
-func ToMarkdownChat(req ToMarkdownChatRequest) (*models.ChatMsgModel, error) {
+func ToMarkdownChat(db *gorm.DB, logger *logrus.Logger, req ToMarkdownChatRequest) (*models.ChatMsgModel, error) {
 	text := strings.TrimSpace(req.Markdown)
 	if text == "" {
 		return nil, errors.New("消息内容不能为空")
 	}
 
 	// TODO：Markdown处理
-	return ToChat(ToChatRequest{
+	return ToChat(db, logger, ToChatRequest{
 		SenderID:   req.SenderID,
 		ReceiverID: req.ReceiverID,
 		MsgType:    chat_msg_enum.MsgTypeMarkdown,
@@ -137,25 +140,25 @@ func ToMarkdownChat(req ToMarkdownChatRequest) (*models.ChatMsgModel, error) {
 }
 
 // 暂时不考虑 Audio 消息，先保留统一签名，避免后续再改调用层。
-func ToAudioChat(req ToChatRequest) (*models.ChatMsgModel, error) {
+func ToAudioChat(db *gorm.DB, logger *logrus.Logger, req ToChatRequest) (*models.ChatMsgModel, error) {
 	req.MsgType = chat_msg_enum.MsgTypeAudio
-	return ToChat(req)
+	return ToChat(db, logger, req)
 }
 
 // 暂时不考虑 Video 消息，先保留统一签名，避免后续再改调用层。
-func ToVideoChat(req ToChatRequest) (*models.ChatMsgModel, error) {
+func ToVideoChat(db *gorm.DB, logger *logrus.Logger, req ToChatRequest) (*models.ChatMsgModel, error) {
 	req.MsgType = chat_msg_enum.MsgTypeVideo
-	return ToChat(req)
+	return ToChat(db, logger, req)
 }
 
 // 暂时不考虑 File 消息，先保留统一签名，避免后续再改调用层。
-func ToFileChat(req ToChatRequest) (*models.ChatMsgModel, error) {
+func ToFileChat(db *gorm.DB, logger *logrus.Logger, req ToChatRequest) (*models.ChatMsgModel, error) {
 	req.MsgType = chat_msg_enum.MsgTypeFile
-	return ToChat(req)
+	return ToChat(db, logger, req)
 }
 
 // 暂时不考虑 Emoji 消息，先保留统一签名，避免后续再改调用层。
-func ToEmojiChat(req ToChatRequest) (*models.ChatMsgModel, error) {
+func ToEmojiChat(db *gorm.DB, logger *logrus.Logger, req ToChatRequest) (*models.ChatMsgModel, error) {
 	req.MsgType = chat_msg_enum.MsgTypeEmoji
-	return ToChat(req)
+	return ToChat(db, logger, req)
 }

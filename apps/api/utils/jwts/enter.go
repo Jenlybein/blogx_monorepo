@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"myblogx/appctx"
+	"myblogx/conf"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
 
@@ -31,12 +33,12 @@ type MyClaims struct {
 }
 
 // 生成 token 的工具函数
-func GetToken(claims Claims) (string, error) {
+func GetToken(config conf.Jwt, claims Claims) (string, error) {
 	// 从配置文件中获取 jwt 相关配置
 	var (
-		TokenExpireDuration = time.Duration(jwtConfig.Expire) * time.Hour // 令牌过期时间
-		Secret              = []byte(jwtConfig.Secret)                    // 密钥
-		Issuer              = jwtConfig.Issuer                            // jwt 签发者
+		TokenExpireDuration = time.Duration(config.Expire) * time.Hour // 令牌过期时间
+		Secret              = []byte(config.Secret)                    // 密钥
+		Issuer              = config.Issuer                            // jwt 签发者
 	)
 
 	// 构造自定义的Claims（JWT的载荷部分）
@@ -59,14 +61,14 @@ func GetToken(claims Claims) (string, error) {
 }
 
 // 解析 token 的工具函数
-func ParseToken(tokenString string) (*MyClaims, error) {
+func ParseToken(config conf.Jwt, tokenString string) (*MyClaims, error) {
 	if tokenString == "" {
 		return nil, errors.New("请登录：token 为空")
 	}
 
 	// 从配置文件中获取 jwt 相关配置
 	var (
-		Secret = []byte(jwtConfig.Secret) // 密钥
+		Secret = []byte(config.Secret) // 密钥
 	)
 
 	// 解析 tokenString 字符串到指定的 MyClaims 结构体
@@ -107,7 +109,8 @@ func GetTokenByGin(c *gin.Context) string {
 
 func ParseTokenByGin(c *gin.Context) (*MyClaims, error) {
 	tokenString := GetTokenByGin(c)
-	return ParseToken(tokenString)
+	ctx := appctx.MustFromGin(c)
+	return ParseToken(ctx.Config.Jwt, tokenString)
 }
 
 func GetClaimsByGin(c *gin.Context) (claims *MyClaims) {

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/elastic/go-elasticsearch/v7"
 	"gorm.io/gorm"
 )
 
@@ -48,24 +49,24 @@ type ArticleModelDelta struct {
 
 // SyncArticleSearchProjection 是文章搜索读模型的统一更新入口。
 // River 在监听到相关表变更后，统一通过该入口路由到“单字段或小范围字段”更新逻辑。
-func SyncArticleSearchProjection(event ArticleSearchProjectionEvent) error {
+func SyncArticleSearchProjection(db *gorm.DB, client *elasticsearch.Client, event ArticleSearchProjectionEvent) error {
 	switch event.Type {
 	case ArticleSearchProjectionArticleUpsert:
-		return SyncESDocs(event.IDs)
+		return SyncESDocs(db, client, event.IDs)
 	case ArticleSearchProjectionArticleDelete:
-		return DeleteESDocs(event.IDs)
+		return DeleteESDocs(db, client, event.IDs)
 	case ArticleSearchProjectionAuthorSnapshot:
-		return SyncESDocsByAuthorIDs(event.IDs)
+		return SyncESDocsByAuthorIDs(db, client, event.IDs)
 	case ArticleSearchProjectionCategorySnapshot:
-		return SyncESDocsByCategoryIDs(event.IDs)
+		return SyncESDocsByCategoryIDs(db, client, event.IDs)
 	case ArticleSearchProjectionTagSnapshot:
-		return UpdateESDocsTagsByTagIDs(event.IDs)
+		return UpdateESDocsTagsByTagIDs(db, client, event.IDs)
 	case ArticleSearchProjectionArticleTagsChanged:
-		return UpdateESDocsTags(event.IDs)
+		return UpdateESDocsTags(db, client, event.IDs)
 	case ArticleSearchProjectionArticleTopChanged:
-		return UpdateESDocsTop(event.IDs)
+		return UpdateESDocsTop(db, client, event.IDs)
 	case ArticleSearchProjectionTopUserChanged:
-		return UpdateESDocsTopByTopUserIDs(event.IDs)
+		return UpdateESDocsTopByTopUserIDs(db, client, event.IDs)
 	default:
 		return nil
 	}
@@ -76,8 +77,8 @@ func SyncArticleSearchProjection(event ArticleSearchProjectionEvent) error {
 // 1. 仅更新真正变更的展示字段，避免每次 update 都整篇重建 ES 文档。
 // 2. 对 category/author 这类快照字段，会批量查询必要信息后再补齐。
 // 3. 当 author_id 变更时，会同步重算 top 字段，确保 author_top 语义正确。
-func UpdateESDocsByArticleDeltas(deltas []ArticleModelDelta) error {
-	if esDB == nil || esClient == nil {
+func UpdateESDocsByArticleDeltas(db *gorm.DB, client *elasticsearch.Client, deltas []ArticleModelDelta) error {
+	if db == nil || client == nil {
 		return nil
 	}
 
@@ -103,15 +104,15 @@ func UpdateESDocsByArticleDeltas(deltas []ArticleModelDelta) error {
 		}
 	}
 
-	categoryTitleMap, err := loadCategoryTitleMap(esDB, categoryIDs)
+	categoryTitleMap, err := loadCategoryTitleMap(db, categoryIDs)
 	if err != nil {
 		return err
 	}
-	authorMap, err := loadAuthorSnapshotMap(esDB, authorIDs)
+	authorMap, err := loadAuthorSnapshotMap(db, authorIDs)
 	if err != nil {
 		return err
 	}
-	topMap, err := loadArticleESTopMap(esDB, topRecalcArticleIDs)
+	topMap, err := loadArticleESTopMap(db, topRecalcArticleIDs)
 	if err != nil {
 		return err
 	}
@@ -217,7 +218,7 @@ func UpdateESDocsByArticleDeltas(deltas []ArticleModelDelta) error {
 		})
 	}
 
-	return applyArticlePartialBulkUpdate(reqs, "按 article_models 差异更新 ES 文档失败")
+	return applyArticlePartialBulkUpdate(client, reqs, "按 article_models 差异更新 ES 文档失败")
 }
 
 // BuildArticleESDocument 将文章及其聚合字段转换为 ES 文档。
@@ -283,8 +284,8 @@ func BuildArticleESDocument(article models.ArticleModel, adminTop, authorTop boo
 
 // SyncESDocs 按文章 ID 批量重建 ES 文档。
 // 这里会从数据库重新读取文章、标签和置顶信息，再统一索引到 ES。
-func SyncESDocs(articleIDs []ctype.ID) error {
-	if esDB == nil || esClient == nil {
+func SyncESDocs(db *gorm.DB, client *elasticsearch.Client, articleIDs []ctype.ID) error {
+	if db == nil || client == nil {
 		return nil
 	}
 
@@ -293,7 +294,7 @@ func SyncESDocs(articleIDs []ctype.ID) error {
 		return nil
 	}
 
-	articleList, err := loadArticlesForES(esDB, articleIDs)
+	articleList, err := loadArticlesForES(db, articleIDs)
 	if err != nil {
 		return err
 	}
@@ -301,7 +302,7 @@ func SyncESDocs(articleIDs []ctype.ID) error {
 		return nil
 	}
 
-	topMap, err := loadArticleESTopMap(esDB, articleIDs)
+	topMap, err := loadArticleESTopMap(db, articleIDs)
 	if err != nil {
 		return err
 	}
@@ -320,7 +321,7 @@ func SyncESDocs(articleIDs []ctype.ID) error {
 		return nil
 	}
 
-	resp := IndexBulk(models.ArticleModel{}.Index(), reqs)
+	resp := IndexBulk(client, models.ArticleModel{}.Index(), reqs)
 	if !resp.Success {
 		return fmt.Errorf("同步文章 ES 文档失败: %s", resp.Msg)
 	}
@@ -333,13 +334,13 @@ func SyncESDocs(articleIDs []ctype.ID) error {
 }
 
 // UpdateESDocsTags 在文章标签关系变化后刷新对应文章的 ES 文档。
-func UpdateESDocsTags(articleIDs []ctype.ID) error {
+func UpdateESDocsTags(db *gorm.DB, client *elasticsearch.Client, articleIDs []ctype.ID) error {
 	articleIDs = normalizeArticleIDs(articleIDs)
-	if len(articleIDs) == 0 || esDB == nil || esClient == nil {
+	if len(articleIDs) == 0 || db == nil || client == nil {
 		return nil
 	}
 
-	articleList, err := loadArticlesForESTags(esDB, articleIDs)
+	articleList, err := loadArticlesForESTags(db, articleIDs)
 	if err != nil {
 		return err
 	}
@@ -363,17 +364,17 @@ func UpdateESDocsTags(articleIDs []ctype.ID) error {
 		})
 	}
 
-	return applyArticlePartialBulkUpdate(reqs, "更新文章 ES 标签失败")
+	return applyArticlePartialBulkUpdate(client, reqs, "更新文章 ES 标签失败")
 }
 
 // UpdateESDocsContent 在文章正文变化后刷新对应文章的 ES 文档。
-func UpdateESDocsContent(articleIDs []ctype.ID) error {
+func UpdateESDocsContent(db *gorm.DB, client *elasticsearch.Client, articleIDs []ctype.ID) error {
 	articleIDs = normalizeArticleIDs(articleIDs)
-	if len(articleIDs) == 0 || esDB == nil || esClient == nil {
+	if len(articleIDs) == 0 || db == nil || client == nil {
 		return nil
 	}
 
-	articleList, err := loadArticlesForESContentUpdate(esDB, articleIDs)
+	articleList, err := loadArticlesForESContentUpdate(db, articleIDs)
 	if err != nil {
 		return err
 	}
@@ -422,17 +423,17 @@ func UpdateESDocsContent(articleIDs []ctype.ID) error {
 		})
 	}
 
-	return applyArticlePartialBulkUpdate(reqs, "更新文章 ES 正文失败")
+	return applyArticlePartialBulkUpdate(client, reqs, "更新文章 ES 正文失败")
 }
 
 // UpdateESDocsTop 在文章置顶状态变化后刷新对应文章的 ES 文档。
-func UpdateESDocsTop(articleIDs []ctype.ID) error {
+func UpdateESDocsTop(db *gorm.DB, client *elasticsearch.Client, articleIDs []ctype.ID) error {
 	articleIDs = normalizeArticleIDs(articleIDs)
-	if len(articleIDs) == 0 || esDB == nil || esClient == nil {
+	if len(articleIDs) == 0 || db == nil || client == nil {
 		return nil
 	}
 
-	topMap, err := loadArticleESTopMap(esDB, articleIDs)
+	topMap, err := loadArticleESTopMap(db, articleIDs)
 	if err != nil {
 		return err
 	}
@@ -454,13 +455,13 @@ func UpdateESDocsTop(articleIDs []ctype.ID) error {
 		})
 	}
 
-	return applyArticlePartialBulkUpdate(reqs, "更新文章 ES 置顶字段失败")
+	return applyArticlePartialBulkUpdate(client, reqs, "更新文章 ES 置顶字段失败")
 }
 
 // DeleteESDocs 按文章 ID 删除 ES 文档。
-func DeleteESDocs(articleIDs []ctype.ID) error {
+func DeleteESDocs(_ *gorm.DB, client *elasticsearch.Client, articleIDs []ctype.ID) error {
 	articleIDs = normalizeArticleIDs(articleIDs)
-	if len(articleIDs) == 0 || esClient == nil {
+	if len(articleIDs) == 0 || client == nil {
 		return nil
 	}
 
@@ -471,11 +472,11 @@ func DeleteESDocs(articleIDs []ctype.ID) error {
 			ID:     strconv.FormatUint(uint64(articleID), 10),
 		})
 	}
-	return applyArticlePartialBulkUpdate(reqs, "删除文章 ES 文档失败")
+	return applyArticlePartialBulkUpdate(client, reqs, "删除文章 ES 文档失败")
 }
 
-func SyncESDocsByCategoryIDs(categoryIDs []ctype.ID) error {
-	if esDB == nil || esClient == nil {
+func SyncESDocsByCategoryIDs(db *gorm.DB, client *elasticsearch.Client, categoryIDs []ctype.ID) error {
+	if db == nil || client == nil {
 		return nil
 	}
 	categoryIDs = normalizeArticleIDs(categoryIDs)
@@ -488,7 +489,7 @@ func SyncESDocsByCategoryIDs(categoryIDs []ctype.ID) error {
 		CategoryID *ctype.ID
 	}
 	var rows []articleCategoryRow
-	if err := esDB.Model(&models.ArticleModel{}).
+	if err := db.Model(&models.ArticleModel{}).
 		Select("id", "category_id").
 		Where("category_id IN ?", categoryIDs).
 		Order("id asc").
@@ -505,7 +506,7 @@ func SyncESDocsByCategoryIDs(categoryIDs []ctype.ID) error {
 			affectedCategoryIDs = append(affectedCategoryIDs, *row.CategoryID)
 		}
 	}
-	categoryTitleMap, err := loadCategoryTitleMap(esDB, affectedCategoryIDs)
+	categoryTitleMap, err := loadCategoryTitleMap(db, affectedCategoryIDs)
 	if err != nil {
 		return err
 	}
@@ -530,11 +531,11 @@ func SyncESDocsByCategoryIDs(categoryIDs []ctype.ID) error {
 			},
 		})
 	}
-	return applyArticlePartialBulkUpdate(reqs, "按分类同步文章 ES 分类快照失败")
+	return applyArticlePartialBulkUpdate(client, reqs, "按分类同步文章 ES 分类快照失败")
 }
 
-func SyncESDocsByAuthorIDs(userIDs []ctype.ID) error {
-	if esDB == nil || esClient == nil {
+func SyncESDocsByAuthorIDs(db *gorm.DB, client *elasticsearch.Client, userIDs []ctype.ID) error {
+	if db == nil || client == nil {
 		return nil
 	}
 	userIDs = normalizeArticleIDs(userIDs)
@@ -547,7 +548,7 @@ func SyncESDocsByAuthorIDs(userIDs []ctype.ID) error {
 		AuthorID ctype.ID
 	}
 	var rows []articleAuthorRow
-	if err := esDB.Model(&models.ArticleModel{}).
+	if err := db.Model(&models.ArticleModel{}).
 		Select("id", "author_id").
 		Where("author_id IN ?", userIDs).
 		Order("id asc").
@@ -562,7 +563,7 @@ func SyncESDocsByAuthorIDs(userIDs []ctype.ID) error {
 	for _, row := range rows {
 		authorIDs = append(authorIDs, row.AuthorID)
 	}
-	authorMap, err := loadAuthorSnapshotMap(esDB, authorIDs)
+	authorMap, err := loadAuthorSnapshotMap(db, authorIDs)
 	if err != nil {
 		return err
 	}
@@ -583,12 +584,12 @@ func SyncESDocsByAuthorIDs(userIDs []ctype.ID) error {
 			},
 		})
 	}
-	return applyArticlePartialBulkUpdate(reqs, "按作者同步文章 ES 作者快照失败")
+	return applyArticlePartialBulkUpdate(client, reqs, "按作者同步文章 ES 作者快照失败")
 }
 
 // UpdateESDocsTagsByTagIDs 在标签信息变化后按 tag_id 批量刷新相关文章的 tags 字段。
-func UpdateESDocsTagsByTagIDs(tagIDs []ctype.ID) error {
-	if esDB == nil || esClient == nil {
+func UpdateESDocsTagsByTagIDs(db *gorm.DB, client *elasticsearch.Client, tagIDs []ctype.ID) error {
+	if db == nil || client == nil {
 		return nil
 	}
 	tagIDs = normalizeArticleIDs(tagIDs)
@@ -597,18 +598,18 @@ func UpdateESDocsTagsByTagIDs(tagIDs []ctype.ID) error {
 	}
 
 	var articleIDs []ctype.ID
-	if err := esDB.Model(&models.ArticleTagModel{}).
+	if err := db.Model(&models.ArticleTagModel{}).
 		Select("article_id").
 		Where("tag_id IN ?", tagIDs).
 		Pluck("article_id", &articleIDs).Error; err != nil {
 		return err
 	}
-	return UpdateESDocsTags(articleIDs)
+	return UpdateESDocsTags(db, client, articleIDs)
 }
 
 // UpdateESDocsTopByTopUserIDs 在置顶用户信息变化后按 user_id 批量刷新相关文章 top 字段。
-func UpdateESDocsTopByTopUserIDs(userIDs []ctype.ID) error {
-	if esDB == nil || esClient == nil {
+func UpdateESDocsTopByTopUserIDs(db *gorm.DB, client *elasticsearch.Client, userIDs []ctype.ID) error {
+	if db == nil || client == nil {
 		return nil
 	}
 	userIDs = normalizeArticleIDs(userIDs)
@@ -617,21 +618,21 @@ func UpdateESDocsTopByTopUserIDs(userIDs []ctype.ID) error {
 	}
 
 	var articleIDs []ctype.ID
-	if err := esDB.Model(&models.UserTopArticleModel{}).
+	if err := db.Model(&models.UserTopArticleModel{}).
 		Select("article_id").
 		Where("user_id IN ?", userIDs).
 		Pluck("article_id", &articleIDs).Error; err != nil {
 		return err
 	}
-	return UpdateESDocsTop(articleIDs)
+	return UpdateESDocsTop(db, client, articleIDs)
 }
 
-func applyArticlePartialBulkUpdate(reqs []*BulkRequest, errPrefix string) error {
+func applyArticlePartialBulkUpdate(client *elasticsearch.Client, reqs []*BulkRequest, errPrefix string) error {
 	if len(reqs) == 0 {
 		return nil
 	}
 
-	resp := IndexBulk(models.ArticleModel{}.Index(), reqs)
+	resp := IndexBulk(client, models.ArticleModel{}.Index(), reqs)
 	if !resp.Success {
 		return fmt.Errorf("%s: %s", errPrefix, resp.Msg)
 	}

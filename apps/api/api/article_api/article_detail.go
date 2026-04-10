@@ -6,6 +6,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_article"
 	"myblogx/service/user_service"
 	"myblogx/utils/jwts"
@@ -58,7 +59,7 @@ func (ArticleApi) ArticleDetailView(c *gin.Context) {
 	}
 
 	// 获取 redis 里的点赞、收藏、评论数增量
-	counters := redis_article.GetBatchCounters([]ctype.ID{article.ID})
+	counters := redis_article.GetBatchCounters(redis_service.DepsFromGin(c), []ctype.ID{article.ID})
 	article.DiggCount += counters.DiggMap[article.ID]
 	article.ViewCount += counters.ViewMap[article.ID]
 	article.FavorCount += counters.FavorMap[article.ID]

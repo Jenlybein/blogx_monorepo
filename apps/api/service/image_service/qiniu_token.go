@@ -6,7 +6,7 @@ import (
 	"github.com/qiniu/go-sdk/v7/storage"
 )
 
-func CreateUploadToken(policy UploadPolicy) (*UploadTokenResult, error) {
+func CreateUploadToken(deps Deps, policy UploadPolicy) (*UploadTokenResult, error) {
 	if policy.Bucket == "" {
 		return nil, errors.New("七牛 bucket 不能为空")
 	}
@@ -34,7 +34,7 @@ func CreateUploadToken(policy UploadPolicy) (*UploadTokenResult, error) {
 	}
 
 	return &UploadTokenResult{
-		Token:     putPolicy.UploadToken(getQiniuRuntime().mac),
+		Token:     putPolicy.UploadToken(getQiniuRuntime(deps.QiNiu).mac),
 		Bucket:    policy.Bucket,
 		ObjectKey: policy.ObjectKey,
 		ExpireAt:  policy.ExpireAt,

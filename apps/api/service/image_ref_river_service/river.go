@@ -3,29 +3,41 @@ package image_ref_river_service
 import (
 	"strings"
 
+	"myblogx/conf"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/image_ref_enum"
 
 	"github.com/go-mysql-org/go-mysql/canal"
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 // River 基于 MySQL Binlog 的图片引用关系监听服务
 // 作用：监听文章/用户/横幅/收藏表的数据变化，自动维护图片引用关系
 type River struct {
 	canal *canal.Canal
+	cfg   conf.ImageRefRiver
+	qiNiu conf.QiNiu
+	log   *logrus.Logger
+	db    *gorm.DB
 }
 
 // NewRiver 初始化图片引用关系监听服务
-func NewRiver() (*River, error) {
-	r := &River{}
+func NewRiver(config conf.ImageRefRiver, qiNiuConfig conf.QiNiu, logger *logrus.Logger, db *gorm.DB) (*River, error) {
+	r := &River{
+		cfg:   config,
+		qiNiu: qiNiuConfig,
+		log:   logger,
+		db:    db,
+	}
 	// 初始化 canal 客户端
 	if err := r.newCanal(); err != nil {
 		return nil, err
 	}
 	// 设置 binlog 事件处理器
-	r.canal.SetEventHandler(&eventHandler{})
+	r.canal.SetEventHandler(&eventHandler{river: r})
 	return r, nil
 }
 
@@ -34,20 +46,20 @@ func (r *River) newCanal() error {
 	// 创建默认 canal 配置
 	cfg := canal.NewDefaultConfig()
 	// 绑定日志适配器
-	cfg.Logger = logrusToSlogAdapter(imageRefLogger)
+	cfg.Logger = logrusToSlogAdapter(r.log)
 	// 从全局配置加载 MySQL 连接信息
-	cfg.Addr = imageRefRiverConfig.Mysql.Addr
-	cfg.User = imageRefRiverConfig.Mysql.User
-	cfg.Password = imageRefRiverConfig.Mysql.Password
-	cfg.Charset = imageRefRiverConfig.Charset
-	cfg.Flavor = imageRefRiverConfig.Flavor
-	cfg.ServerID = imageRefRiverConfig.ServerID
+	cfg.Addr = r.cfg.Mysql.Addr
+	cfg.User = r.cfg.Mysql.User
+	cfg.Password = r.cfg.Mysql.Password
+	cfg.Charset = r.cfg.Charset
+	cfg.Flavor = r.cfg.Flavor
+	cfg.ServerID = r.cfg.ServerID
 	// 全量数据备份相关配置
-	cfg.Dump.ExecutionPath = imageRefRiverConfig.DumpExec
-	cfg.Dump.SkipMasterData = imageRefRiverConfig.SkipMasterData
+	cfg.Dump.ExecutionPath = r.cfg.DumpExec
+	cfg.Dump.SkipMasterData = r.cfg.SkipMasterData
 
 	// 获取要监听的数据库名
-	schema := strings.TrimSpace(imageRefRiverConfig.Schema)
+	schema := strings.TrimSpace(r.cfg.Schema)
 	// 监听四张核心业务表
 	for _, table := range []string{"article_models", "user_models", "banner_models", "favorite_models"} {
 		cfg.IncludeTableRegex = append(cfg.IncludeTableRegex, schema+"\\."+table)
@@ -70,7 +82,7 @@ func (r *River) Run() error {
 }
 
 // eventHandler 实现 canal.EventHandler 接口，处理数据库行事件
-type eventHandler struct{}
+type eventHandler struct{ river *River }
 
 // OnRow 处理数据表行变化（增/删/改）
 func (h *eventHandler) OnRow(e *canal.RowsEvent) error {
@@ -93,14 +105,14 @@ func (h *eventHandler) OnRow(e *canal.RowsEvent) error {
 	case canal.DeleteAction:
 		// 删除操作：删除该业务对象关联的所有图片引用
 		for _, ownerID := range extractRowIDs(e) {
-			if err := DeleteOwnerRefs(imageRefDB, refType, ownerID); err != nil {
+			if err := DeleteOwnerRefs(h.river.db, refType, ownerID); err != nil {
 				return err
 			}
 		}
 	case canal.InsertAction:
 		// 新增操作：重建该条数据的图片引用关系
 		for _, row := range e.Rows {
-			if err := rebuildByRow(newRowSnapshot(layout, row)); err != nil {
+			if err := rebuildByRow(h.river.db, h.river.qiNiu, newRowSnapshot(layout, row)); err != nil {
 				return err
 			}
 		}
@@ -112,7 +124,7 @@ func (h *eventHandler) OnRow(e *canal.RowsEvent) error {
 			if !shouldRebuildOnUpdate(e.Table.Name, before, after) {
 				continue
 			}
-			if err := rebuildByRow(after); err != nil {
+			if err := rebuildByRow(h.river.db, h.river.qiNiu, after); err != nil {
 				return err
 			}
 		}
@@ -143,7 +155,7 @@ func (h *eventHandler) String() string {
 }
 
 // tableHandler 根据表名映射：图片引用类型 + 对应行数据处理函数
-func tableHandler(table string) (image_ref_enum.RefType, func(rowSnapshot) error, bool) {
+func tableHandler(table string) (image_ref_enum.RefType, func(*gorm.DB, conf.QiNiu, rowSnapshot) error, bool) {
 	switch table {
 	case "article_models":
 		return image_ref_enum.RefTypeArticle, RebuildArticleRefsByRow, true

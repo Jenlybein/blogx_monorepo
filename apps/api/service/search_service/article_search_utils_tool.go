@@ -2,6 +2,7 @@ package search_service
 
 import (
 	"myblogx/models/ctype"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_article"
 )
 
@@ -39,7 +40,7 @@ func extractSearchBoolQuery(query map[string]any) (map[string]any, bool) {
 
 // loadSearchArticleCounterMaps 批量读取 Redis 中的文章计数增量。
 // 搜索结果里的计数字段以 ES 文档为基础值，再叠加 Redis 中尚未落库的实时增量。
-func loadSearchArticleCounterMaps(articleIDs []ctype.ID) (favorMap, diggMap, viewMap, commentMap map[ctype.ID]int) {
+func loadSearchArticleCounterMaps(redisDeps redis_service.Deps, articleIDs []ctype.ID) (favorMap, diggMap, viewMap, commentMap map[ctype.ID]int) {
 	favorMap = make(map[ctype.ID]int)
 	diggMap = make(map[ctype.ID]int)
 	viewMap = make(map[ctype.ID]int)
@@ -48,7 +49,7 @@ func loadSearchArticleCounterMaps(articleIDs []ctype.ID) (favorMap, diggMap, vie
 		return favorMap, diggMap, viewMap, commentMap
 	}
 
-	counters := redis_article.GetBatchCounters(articleIDs)
+	counters := redis_article.GetBatchCounters(redisDeps, articleIDs)
 	favorMap = counters.FavorMap
 	diggMap = counters.DiggMap
 	viewMap = counters.ViewMap
@@ -78,12 +79,12 @@ func buildSearchHighlight(highlightMap map[string]any) *SearchHighlight {
 	return highlight
 }
 
-func normalizeSearchResponseMeta(list []SearchListResponse) []SearchListResponse {
+func normalizeSearchResponseMeta(redisDeps redis_service.Deps, list []SearchListResponse) []SearchListResponse {
 	articleIDs := make([]ctype.ID, 0, len(list))
 	for _, item := range list {
 		articleIDs = append(articleIDs, item.ID)
 	}
-	favorMap, diggMap, viewMap, commentMap := loadSearchArticleCounterMaps(articleIDs)
+	favorMap, diggMap, viewMap, commentMap := loadSearchArticleCounterMaps(redisDeps, articleIDs)
 	for index := range list {
 		list[index].FavorCount += favorMap[list[index].ID]
 		list[index].DiggCount += diggMap[list[index].ID]
@@ -114,7 +115,7 @@ func normalizeSearchResponseMeta(list []SearchListResponse) []SearchListResponse
 }
 
 // extractArticleSearchResults 提取文章搜索结果
-func extractArticleSearchResults(data map[string]any) (list []SearchListResponse) {
+func extractArticleSearchResults(redisDeps redis_service.Deps, data map[string]any) (list []SearchListResponse) {
 	hits, _ := data["hits"].([]any)
 	list = make([]SearchListResponse, 0, len(hits))
 
@@ -183,5 +184,5 @@ func extractArticleSearchResults(data map[string]any) (list []SearchListResponse
 			Score:         sourceFloatValue(item, "_score"),
 		})
 	}
-	return normalizeSearchResponseMeta(list)
+	return normalizeSearchResponseMeta(redisDeps, list)
 }

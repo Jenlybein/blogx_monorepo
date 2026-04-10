@@ -6,16 +6,20 @@ import (
 	"myblogx/middleware"
 	"myblogx/models/ctype"
 	"myblogx/service/ai_service/ai_search"
+	"myblogx/service/redis_service"
 	"myblogx/service/search_service"
 	"strings"
 
+	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func (AIApi) AIArticleSearchListView(c *gin.Context) {
+	app := mustApp(c)
 	cr := middleware.GetBindJson[AIBaseRequest](c)
 
-	rewrite, err := ai_search.RewriteArticleSearch(cr.Content)
+	rewrite, err := ai_search.RewriteArticleSearch(app.DB, cr.Content)
 	if err != nil {
 		res.FailWithMsg(err.Error(), c)
 		return
@@ -33,7 +37,7 @@ func (AIApi) AIArticleSearchListView(c *gin.Context) {
 		return
 	}
 
-	list, err := searchAIArticleList(rewrite)
+	list, err := searchAIArticleList(rewrite, app.DB, redis_service.DepsFromApp(app), app.ESClient, app.Config.ES.Index)
 	if err != nil {
 		res.FailWithMsg(err.Error(), c)
 		return
@@ -43,11 +47,12 @@ func (AIApi) AIArticleSearchListView(c *gin.Context) {
 }
 
 func (AIApi) AIArticleSearchLLMView(c *gin.Context) {
+	app := mustApp(c)
 	cr := middleware.GetBindJson[AIBaseRequest](c)
 	prepareAISSE(c)
 
 	// 意图识别与搜索重写
-	rewrite, err := ai_search.RewriteArticleSearch(cr.Content)
+	rewrite, err := ai_search.RewriteArticleSearch(app.DB, cr.Content)
 	if err != nil {
 		res.SSEFail(err.Error(), c)
 		return
@@ -68,7 +73,7 @@ func (AIApi) AIArticleSearchLLMView(c *gin.Context) {
 		return
 	}
 
-	list, err := searchAIArticleList(rewrite)
+	list, err := searchAIArticleList(rewrite, app.DB, redis_service.DepsFromApp(app), app.ESClient, app.Config.ES.Index)
 	if err != nil {
 		res.SSEFail(err.Error(), c)
 		return
@@ -136,7 +141,7 @@ func appendUniqueSearchResults(
 	return list
 }
 
-func searchAIArticleList(rewrite *ai_search.ArticleSearchRewrite) ([]search_service.SearchListResponse, error) {
+func searchAIArticleList(rewrite *ai_search.ArticleSearchRewrite, db *gorm.DB, redisDeps redis_service.Deps, esClient *elasticsearch.Client, index string) ([]search_service.SearchListResponse, error) {
 	key := buildAIArticleSearchKey(rewrite.Query)
 	if key == "" {
 		return nil, nil
@@ -152,7 +157,7 @@ func searchAIArticleList(rewrite *ai_search.ArticleSearchRewrite) ([]search_serv
 			LegacyTagList: rewrite.TagList,
 			Key:           key,
 			PageInfo:      common.PageInfo{Page: 1, Limit: 10},
-		}, nil)
+		}, nil, db, redisDeps, esClient, index)
 		if err != nil {
 			return nil, err
 		}
@@ -164,7 +169,7 @@ func searchAIArticleList(rewrite *ai_search.ArticleSearchRewrite) ([]search_serv
 		Sort:     rewrite.Sort,
 		Key:      key,
 		PageInfo: common.PageInfo{Page: 1, Limit: 10},
-	}, nil)
+	}, nil, db, redisDeps, esClient, index)
 	if err != nil {
 		return nil, err
 	}

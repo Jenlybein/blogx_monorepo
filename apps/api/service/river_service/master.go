@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/pingcap/errors"
+	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 )
 
@@ -22,11 +23,13 @@ type masterInfo struct {
 
 	filePath     string    // 文件路径
 	lastSaveTime time.Time // 最后保存时间
+	logger       *logrus.Logger
 }
 
 // loadMasterInfo 从指定目录加载master信息
-func loadMasterInfo(dataDir string) (*masterInfo, error) {
+func loadMasterInfo(dataDir string, logger *logrus.Logger) (*masterInfo, error) {
 	var m masterInfo
+	m.logger = logger
 
 	if len(dataDir) == 0 {
 		return &m, nil
@@ -54,8 +57,8 @@ func loadMasterInfo(dataDir string) (*masterInfo, error) {
 
 // Save 保存MySQL位置信息到文件
 func (m *masterInfo) Save(pos mysql.Position) error {
-	if riverLogger != nil {
-		riverLogger.Debugf("保存同步位点: %s", pos)
+	if m.logger != nil {
+		m.logger.Debugf("保存同步位点: %s", pos)
 	}
 
 	m.Lock()
@@ -90,8 +93,8 @@ func (m *masterInfo) Save(pos mysql.Position) error {
 	}
 
 	if err = WriteFileAtomic(m.filePath, buf.Bytes(), 0644); err != nil {
-		if riverLogger != nil {
-			riverLogger.Errorf("保存 Canal 主库位点文件失败: 文件=%s 错误=%v", m.filePath, err)
+		if m.logger != nil {
+			m.logger.Errorf("保存 Canal 主库位点文件失败: 文件=%s 错误=%v", m.filePath, err)
 		}
 	}
 

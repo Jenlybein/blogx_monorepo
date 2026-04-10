@@ -7,6 +7,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/service/log_service"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_user"
 	"myblogx/service/site_service"
 	"myblogx/service/user_service"
@@ -23,6 +24,7 @@ type RegisterEmailRequest struct {
 
 func (AuthApi) RegisterEmailView(c *gin.Context) {
 	app := mustApp(c)
+	redisDeps := redis_service.DepsFromGin(c)
 	if !site_service.GetRuntimeLogin().EmailLogin {
 		log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, "", 0, "站点未启用邮箱注册", nil)
 		res.FailWithMsg("站点未启用邮箱注册功能", c)
@@ -45,7 +47,7 @@ func (AuthApi) RegisterEmailView(c *gin.Context) {
 		res.FailWithMsg("邮箱注册失败", c)
 		return
 	}
-	username, err := redis_user.NextAutoUsername()
+	username, err := redis_user.NextAutoUsername(redisDeps)
 	if err != nil {
 		app.Logger.Errorf("邮箱注册生成用户名失败: %v", err)
 		log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱注册失败", nil)
@@ -97,7 +99,7 @@ func (AuthApi) RegisterEmailView(c *gin.Context) {
 			break
 		}
 
-		username, err = redis_user.NextAutoUsername()
+		username, err = redis_user.NextAutoUsername(redisDeps)
 		if err != nil {
 			app.Logger.Errorf("邮箱注册生成用户名失败: %v", err)
 			log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱注册失败", nil)
@@ -118,13 +120,14 @@ func (AuthApi) RegisterEmailView(c *gin.Context) {
 		return
 	}
 
-	jwtToken, refreshToken, _, err := user_service.CreateLoginTokens(&user, user_service.BuildSessionMetaFromGin(c))
+	deps := user_service.DepsFromApp(app)
+	jwtToken, refreshToken, _, err := user_service.CreateLoginTokens(deps, &user, user_service.BuildSessionMetaFromGin(c))
 	if err != nil {
 		log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, user.Username, user.ID, "邮箱登录失败", nil)
 		res.FailWithMsg("邮箱登录失败", c)
 		return
 	}
-	user_service.SetRefreshTokenCookie(c, refreshToken)
+	user_service.SetRefreshTokenCookie(c, refreshToken, deps)
 	log_service.EmitLoginEventFromGin(c, "register_success", enum.EmailLoginType, true, user.Username, user.ID, "", map[string]any{
 		"email": email,
 	})

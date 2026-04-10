@@ -18,12 +18,12 @@ func ResolveLogDir(dir string) string {
 }
 
 // ResolveLogApp 统一解析日志应用名，避免空应用名生成 .log 文件。
-func ResolveLogApp(app string) string {
+func ResolveLogApp(app string, defaultApp string) string {
 	if app != "" {
 		return app
 	}
-	if logSettings.App != "" {
-		return logSettings.App
+	if defaultApp != "" {
+		return defaultApp
 	}
 	if runningUnderGoTest() {
 		return "test"

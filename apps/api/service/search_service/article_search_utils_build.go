@@ -5,6 +5,8 @@ import (
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
 	"strings"
+
+	"gorm.io/gorm"
 )
 
 // buildDefaultArticleSearchQuery 构建默认文章搜索查询
@@ -148,12 +150,12 @@ func buildArticleSearchQuery(key string, boolQuery map[string]any) map[string]an
 }
 
 // buildLikeTagsQuery 构建喜欢标签查询
-func buildLikeTagsQuery(query map[string]any, userID ctype.ID) map[string]any {
-	if userID == 0 {
+func buildLikeTagsQuery(query map[string]any, userID ctype.ID, db *gorm.DB) map[string]any {
+	if userID == 0 || db == nil {
 		return query
 	}
 	var userConf models.UserConfModel
-	if err := searchDB.Select("user_id", "like_tags").Take(&userConf, userID).Error; err != nil {
+	if err := db.Select("user_id", "like_tags").Take(&userConf, userID).Error; err != nil {
 		return query
 	}
 	if len(userConf.LikeTags) == 0 {

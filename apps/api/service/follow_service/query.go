@@ -71,7 +71,7 @@ func (s *QueryService) ListFollowing(ownerUserID, viewerUserID, followedUserID c
 	for _, row := range rows {
 		userIDs = append(userIDs, row.FollowedUserID)
 	}
-	relationMap := CalUserRelationshipBatch(viewerUserID, userIDs)
+	relationMap := CalUserRelationshipBatch(s.DB, viewerUserID, userIDs)
 
 	list := make([]FollowListItem, 0, len(rows))
 	for _, row := range rows {
@@ -124,7 +124,7 @@ func (s *QueryService) ListFans(ownerUserID, viewerUserID, fansUserID ctype.ID, 
 	for _, row := range rows {
 		userIDs = append(userIDs, row.FansUserID)
 	}
-	relationMap := CalUserRelationshipBatch(viewerUserID, userIDs)
+	relationMap := CalUserRelationshipBatch(s.DB, viewerUserID, userIDs)
 
 	list := make([]FansListItem, 0, len(rows))
 	for _, row := range rows {

@@ -51,8 +51,8 @@ type WeekQuotaReservation struct {
 }
 
 // Release 撤销一次自然周配额预占，用于消息最终未发送成功时回滚。
-func (r *WeekQuotaReservation) Release() error {
-	client := redis_service.Client()
+func (r *WeekQuotaReservation) Release(deps redis_service.Deps) error {
+	client := deps.Client
 	if r == nil || client == nil {
 		return nil
 	}
@@ -68,8 +68,8 @@ func (r *WeekQuotaReservation) Release() error {
 // 1. reservation 非空且 allowed=true：预占成功；
 // 2. reservation 为空且 allowed=false：本周额度已满；
 // 3. err 非空：Redis 执行异常。
-func ReserveChatWeekQuota(senderID, receiverID ctype.ID, limit int, now time.Time) (*WeekQuotaReservation, bool, error) {
-	client := redis_service.Client()
+func ReserveChatWeekQuota(deps redis_service.Deps, senderID, receiverID ctype.ID, limit int, now time.Time) (*WeekQuotaReservation, bool, error) {
+	client := deps.Client
 	if client == nil {
 		return nil, false, fmt.Errorf("redis 未初始化")
 	}
@@ -98,8 +98,8 @@ func ReserveChatWeekQuota(senderID, receiverID ctype.ID, limit int, now time.Tim
 
 // ResetChatWeekQuota 清空一个方向在当前自然周内的已用额度。
 // 这个动作在“对方成功回复后”调用，用于恢复反向的周配额。
-func ResetChatWeekQuota(senderID, receiverID ctype.ID, now time.Time) error {
-	client := redis_service.Client()
+func ResetChatWeekQuota(deps redis_service.Deps, senderID, receiverID ctype.ID, now time.Time) error {
+	client := deps.Client
 	if client == nil {
 		return fmt.Errorf("redis 未初始化")
 	}

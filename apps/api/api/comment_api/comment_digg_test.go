@@ -63,8 +63,8 @@ func TestCommentDiggView(t *testing.T) {
 		if cnt != 1 {
 			t.Fatalf("点赞记录数量错误: %d", cnt)
 		}
-		if redis_comment.GetCacheDigg(published.ID) != 1 {
-			t.Fatalf("点赞缓存计数错误: %d", redis_comment.GetCacheDigg(published.ID))
+		if redis_comment.GetCacheDigg(testRedisDeps(), published.ID) != 1 {
+			t.Fatalf("点赞缓存计数错误: %d", redis_comment.GetCacheDigg(testRedisDeps(), published.ID))
 		}
 
 		c2, w2 := newCommentCtx()
@@ -82,8 +82,8 @@ func TestCommentDiggView(t *testing.T) {
 		if cnt != 0 {
 			t.Fatalf("点赞记录应删除: %d", cnt)
 		}
-		if redis_comment.GetCacheDigg(published.ID) != 0 {
-			t.Fatalf("取消点赞后缓存应归零: %d", redis_comment.GetCacheDigg(published.ID))
+		if redis_comment.GetCacheDigg(testRedisDeps(), published.ID) != 0 {
+			t.Fatalf("取消点赞后缓存应归零: %d", redis_comment.GetCacheDigg(testRedisDeps(), published.ID))
 		}
 
 		c3, w3 := newCommentCtx()

@@ -222,7 +222,7 @@ func TestEmailLoginView(t *testing.T) {
 	if token == "" {
 		t.Fatalf("邮箱登录返回的 access token 不能为空, body=%s", w.Body.String())
 	}
-	if _, err := jwts.ParseToken(token); err != nil {
+	if _, err := jwts.ParseToken(testutil.Config().Jwt, token); err != nil {
 		t.Fatalf("邮箱登录返回的 token 无法解析: %v", err)
 	}
 

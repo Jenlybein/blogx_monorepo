@@ -8,6 +8,7 @@ import (
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
 	"myblogx/service/read_service"
+	"myblogx/service/redis_service"
 
 	"gorm.io/gorm"
 )
@@ -60,10 +61,10 @@ type QueryService struct {
 	ArticleReader read_service.ArticleCounterReader
 }
 
-func NewQueryService(db *gorm.DB) *QueryService {
+func NewQueryService(db *gorm.DB, redisDeps redis_service.Deps) *QueryService {
 	return &QueryService{
 		DB:            db,
-		ArticleReader: read_service.NewArticleCounterReader(),
+		ArticleReader: read_service.NewArticleCounterReader(redisDeps),
 	}
 }
 

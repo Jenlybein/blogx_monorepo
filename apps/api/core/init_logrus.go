@@ -226,7 +226,7 @@ func InitLogrus(l *conf.Logrus, system *conf.System) *logrus.Logger {
 	}
 
 	// 注册公共字段钩子
-	serviceName := log_service.ResolveLogApp(l.App)
+	serviceName := log_service.ResolveLogApp(l.App, l.App)
 	env := ""
 	instanceID := ""
 	if system != nil {

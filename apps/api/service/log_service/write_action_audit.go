@@ -52,7 +52,7 @@ type ActionAuditInput struct {
 // EmitActionAudit 写入一条操作审计日志，并自动补齐基础字段与默认级别。
 // 核心函数：统一处理操作审计日志的组装、序列化、文件写入
 // 参数：input - 业务层传入的审计日志输入参数
-func EmitActionAudit(input ActionAuditInput) {
+func EmitActionAudit(deps Deps, input ActionAuditInput) {
 	// 自动设置日志级别：未指定时，成功=info，失败=warn
 	level := input.Level
 	if level == "" {
@@ -70,7 +70,7 @@ func EmitActionAudit(input ActionAuditInput) {
 	}
 
 	// 创建基础日志事件（公共字段：时间、服务、环境、实例等）
-	base := newBaseEvent("action_audit", level, message)
+	base := newBaseEvent(deps, "action_audit", level, message)
 	// 填充公共审计字段
 	base.RequestID = input.RequestID
 	base.UserID = uint64(input.UserID)
@@ -101,9 +101,9 @@ func EmitActionAudit(input ActionAuditInput) {
 	}
 
 	// 写入审计日志文件，写入失败则打印错误日志
-	if err := actionAuditSink().write(event); err != nil {
-		if logLogger != nil {
-			logLogger.Errorf("写入操作审计日志失败: %v", err)
+	if err := actionAuditSink().write(deps, event); err != nil {
+		if deps.Logger != nil {
+			deps.Logger.Errorf("写入操作审计日志失败: %v", err)
 		}
 	}
 }

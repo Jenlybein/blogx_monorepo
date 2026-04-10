@@ -1,9 +1,11 @@
 package image_ref_river_service
 
 import (
+	"errors"
 	"net/url"
 	"strings"
 
+	"myblogx/conf"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/image_ref_enum"
@@ -19,14 +21,14 @@ type refCandidate struct {
 
 func DeleteOwnerRefs(tx *gorm.DB, refType image_ref_enum.RefType, ownerID ctype.ID) error {
 	if tx == nil {
-		tx = imageRefDB
+		return errors.New("tx is required")
 	}
 	return tx.Unscoped().Where("ref_type = ? AND owner_id = ?", refType, ownerID).Delete(&models.ImageRefModel{}).Error
 }
 
 func DeleteImageRefsByImageIDs(tx *gorm.DB, imageIDs []ctype.ID) error {
 	if tx == nil {
-		tx = imageRefDB
+		return errors.New("tx is required")
 	}
 	if len(imageIDs) == 0 {
 		return nil
@@ -34,7 +36,7 @@ func DeleteImageRefsByImageIDs(tx *gorm.DB, imageIDs []ctype.ID) error {
 	return tx.Unscoped().Where("image_id IN ?", imageIDs).Delete(&models.ImageRefModel{}).Error
 }
 
-func replaceOwnerRefs(tx *gorm.DB, refType image_ref_enum.RefType, ownerID ctype.ID, candidates []refCandidate) error {
+func replaceOwnerRefs(tx *gorm.DB, qiNiuConfig conf.QiNiu, refType image_ref_enum.RefType, ownerID ctype.ID, candidates []refCandidate) error {
 	if err := DeleteOwnerRefs(tx, refType, ownerID); err != nil {
 		return err
 	}
@@ -42,7 +44,7 @@ func replaceOwnerRefs(tx *gorm.DB, refType image_ref_enum.RefType, ownerID ctype
 		return nil
 	}
 
-	objectKeys := uniqueObjectKeys(candidates)
+	objectKeys := uniqueObjectKeys(candidates, qiNiuConfig)
 	if len(objectKeys) == 0 {
 		return nil
 	}
@@ -59,7 +61,7 @@ func replaceOwnerRefs(tx *gorm.DB, refType image_ref_enum.RefType, ownerID ctype
 
 	refs := make([]models.ImageRefModel, 0, len(candidates))
 	for _, candidate := range candidates {
-		objectKey := extractObjectKey(candidate.URL)
+		objectKey := extractObjectKey(candidate.URL, qiNiuConfig)
 		imageID, ok := imageIDMap[objectKey]
 		if !ok {
 			continue
@@ -78,11 +80,11 @@ func replaceOwnerRefs(tx *gorm.DB, refType image_ref_enum.RefType, ownerID ctype
 	return tx.Create(&refs).Error
 }
 
-func uniqueObjectKeys(candidates []refCandidate) []string {
+func uniqueObjectKeys(candidates []refCandidate, qiNiuConfig conf.QiNiu) []string {
 	seen := make(map[string]struct{}, len(candidates))
 	result := make([]string, 0, len(candidates))
 	for _, candidate := range candidates {
-		objectKey := extractObjectKey(candidate.URL)
+		objectKey := extractObjectKey(candidate.URL, qiNiuConfig)
 		if objectKey == "" {
 			continue
 		}
@@ -95,12 +97,12 @@ func uniqueObjectKeys(candidates []refCandidate) []string {
 	return result
 }
 
-func extractObjectKey(raw string) string {
+func extractObjectKey(raw string, qiNiuConfig conf.QiNiu) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return ""
 	}
-	prefix := strings.Trim(imageRefQiNiuConfig.Prefix, "/")
+	prefix := strings.Trim(qiNiuConfig.Prefix, "/")
 	if prefix == "" {
 		prefix = "images"
 	}

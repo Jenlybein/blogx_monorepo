@@ -2,6 +2,7 @@ package user_service_test
 
 import (
 	"myblogx/models"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_user"
 	"myblogx/service/user_service"
 	"myblogx/test/testutil"
@@ -20,8 +21,9 @@ func TestNewUserService(t *testing.T) {
 
 func TestNextAutoUsername(t *testing.T) {
 	testutil.SetupMiniRedis(t)
+	deps := redis_service.Deps{Client: testutil.Redis(), Logger: testutil.Logger()}
 
-	username1, err := redis_user.NextAutoUsername()
+	username1, err := redis_user.NextAutoUsername(deps)
 	if err != nil {
 		t.Fatalf("首次生成用户名失败: %v", err)
 	}
@@ -29,7 +31,7 @@ func TestNextAutoUsername(t *testing.T) {
 		t.Fatalf("首次用户名错误: got=%s want=100001", username1)
 	}
 
-	username2, err := redis_user.NextAutoUsername()
+	username2, err := redis_user.NextAutoUsername(deps)
 	if err != nil {
 		t.Fatalf("第二次生成用户名失败: %v", err)
 	}

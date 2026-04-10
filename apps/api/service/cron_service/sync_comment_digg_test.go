@@ -5,6 +5,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/cron_service"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_comment"
 	"myblogx/test/testutil"
 	"testing"
@@ -36,7 +37,7 @@ func TestSyncCommentDiggApplyIncrements(t *testing.T) {
 		t.Fatalf("设置 digg 缓存失败: %v", err)
 	}
 
-	cron_service.SyncCommentDigg()
+	cron_service.NewSchedulerRaw(db, testutil.Redis(), testutil.Logger()).SyncCommentDigg()
 
 	var got struct {
 		DiggCount int
@@ -77,7 +78,7 @@ func TestSyncCommentDiggNotBelowZeroAndLockSkip(t *testing.T) {
 	if err := setupDiggCounter(comment.ID, -5); err != nil {
 		t.Fatalf("设置 digg 缓存失败: %v", err)
 	}
-	cron_service.SyncCommentDigg()
+	cron_service.NewSchedulerRaw(db, testutil.Redis(), testutil.Logger()).SyncCommentDigg()
 
 	var got struct {
 		DiggCount int
@@ -98,7 +99,7 @@ func TestSyncCommentDiggNotBelowZeroAndLockSkip(t *testing.T) {
 	if err := setDiggLockKey("cron:sync_comment_digg:lock", "manual-lock"); err != nil {
 		t.Fatalf("设置锁失败: %v", err)
 	}
-	cron_service.SyncCommentDigg()
+	cron_service.NewSchedulerRaw(db, testutil.Redis(), testutil.Logger()).SyncCommentDigg()
 
 	if err := db.Model(&models.CommentModel{}).
 		Select("digg_count").
@@ -109,8 +110,9 @@ func TestSyncCommentDiggNotBelowZeroAndLockSkip(t *testing.T) {
 	if got.DiggCount != 0 {
 		t.Fatalf("加锁后不应更新 digg_count: %d", got.DiggCount)
 	}
-	if redis_comment.GetCacheDigg(comment.ID) != 9 {
-		t.Fatalf("加锁后缓存应保留: %d", redis_comment.GetCacheDigg(comment.ID))
+	deps := redis_service.Deps{Client: testutil.Redis(), Logger: testutil.Logger()}
+	if redis_comment.GetCacheDigg(deps, comment.ID) != 9 {
+		t.Fatalf("加锁后缓存应保留: %d", redis_comment.GetCacheDigg(deps, comment.ID))
 	}
 }
 

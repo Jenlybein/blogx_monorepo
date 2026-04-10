@@ -28,9 +28,10 @@ type GinAuditInput struct {
 
 // EmitActionAuditFromGin 从 Gin 上下文提取请求元信息并写入操作审计日志。
 func EmitActionAuditFromGin(c *gin.Context, input GinAuditInput) {
+	deps := DepsFromGin(c)
 	// 处理 Gin 上下文为空的边界情况，直接记录基础审计日志
 	if c == nil {
-		EmitActionAudit(ActionAuditInput{
+		EmitActionAudit(deps, ActionAuditInput{
 			Level:        input.Level,
 			Message:      input.Message,
 			ActionName:   input.ActionName,
@@ -91,7 +92,7 @@ func EmitActionAuditFromGin(c *gin.Context, input GinAuditInput) {
 		rawResponseHeader = GetRawResponseHeader(c)
 	}
 
-	EmitActionAudit(ActionAuditInput{
+	EmitActionAudit(deps, ActionAuditInput{
 		Level:             input.Level,
 		Message:           input.Message,
 		RequestID:         requestmeta.GetRequestID(c), // 从上下文获取请求ID，用于全链路追踪

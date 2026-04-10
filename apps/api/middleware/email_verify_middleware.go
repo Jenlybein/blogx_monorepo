@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"myblogx/common/res"
+	"myblogx/service/redis_service"
 	redis_email "myblogx/service/redis_service/redis_email"
 	"myblogx/utils/io_util"
 
@@ -24,7 +25,7 @@ func EmailVerifyMiddleware(c *gin.Context) {
 		return
 	}
 
-	email, ok, err := redis_email.Verify(cr.EmailID, cr.EmailCode)
+	email, ok, err := redis_email.Verify(redis_service.DepsFromGin(c), cr.EmailID, cr.EmailCode)
 	if err != nil {
 		app.Logger.Errorf("邮箱验证失败：校验异常：%v", err)
 		res.FailWithMsg("邮箱验证失败", c)

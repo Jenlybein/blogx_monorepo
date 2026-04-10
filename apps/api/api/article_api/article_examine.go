@@ -15,29 +15,30 @@ import (
 )
 
 func (ArticleApi) ArticleExamineView(c *gin.Context) {
+	app := mustApp(c)
 	id := middleware.GetBindUri[models.IDRequest](c)
 	cr := middleware.GetBindJson[ArticleExamineRequest](c)
 
 	var article models.ArticleModel
-	if err := mustApp(c).DB.Take(&article, id.ID).Error; err != nil {
+	if err := app.DB.Take(&article, id.ID).Error; err != nil {
 		res.FailWithMsg("文章不存在", c)
 		return
 	}
 
-	if err := mustApp(c).DB.Model(&article).Updates(models.ArticleModel{
+	if err := app.DB.Model(&article).Updates(models.ArticleModel{
 		Status: cr.Status,
 	}).Error; err != nil {
 		res.FailWithMsg("文章审核失败", c)
 		return
 	}
-	if err := read_service.SyncArticleFavorSnapshots(mustApp(c).DB, []ctype.ID{article.ID}); err != nil {
-		mustApp(c).Logger.Errorf("同步文章收藏快照失败: 文章ID=%d 错误=%v", article.ID, err)
+	if err := read_service.SyncArticleFavorSnapshots(app.DB, []ctype.ID{article.ID}); err != nil {
+		app.Logger.Errorf("同步文章收藏快照失败: 文章ID=%d 错误=%v", article.ID, err)
 	}
 
 	// 给文章创作者发送系统通知
 	switch cr.Status {
 	case 3: // 审核成功
-		go message_service.InsertSystemMessage(message_service.SystemMessage{
+		go message_service.InsertSystemMessage(app.DB, app.Logger, message_service.SystemMessage{
 			ReceiverID:   article.AuthorID,
 			ActionUserID: &article.AuthorID,
 			Content:      fmt.Sprintf("您的文章《%s》审核通过!", article.Title),
@@ -45,7 +46,7 @@ func (ArticleApi) ArticleExamineView(c *gin.Context) {
 			LinkHerf:     fmt.Sprintf("/article/%d", article.ID),
 		})
 	case 4: // 审核失败
-		go message_service.InsertSystemMessage(message_service.SystemMessage{
+		go message_service.InsertSystemMessage(app.DB, app.Logger, message_service.SystemMessage{
 			ReceiverID:   article.AuthorID,
 			ActionUserID: &article.AuthorID,
 			Content:      fmt.Sprintf("您的文章《%s》审核失败，请修改后再提交!\n失败原因：%s", article.Title, ""),

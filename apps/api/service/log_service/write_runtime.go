@@ -7,14 +7,14 @@ import (
 )
 
 // RuntimeEntry 基于公共字段创建一条运行日志 entry，供业务模块继续补充字段后输出。
-func RuntimeEntry(fields logrus.Fields) *logrus.Entry {
+func RuntimeEntry(deps Deps, fields logrus.Fields) *logrus.Entry {
 	// 空值处理：传入字段为nil时，初始化空字段map
 	if fields == nil {
 		fields = logrus.Fields{}
 	}
 
 	// 获取基础公共日志事件（包含服务、环境、实例ID等通用信息）
-	base := newBaseEvent("runtime", "info", "")
+	base := newBaseEvent(deps, "runtime", "info", "")
 
 	// 填充字段，部分字段填入时为空则使用基础公共配置的默认值
 	// 分别是：日志类型、服务名称、运行环境、实例ID、时间戳
@@ -27,10 +27,10 @@ func RuntimeEntry(fields logrus.Fields) *logrus.Entry {
 	}
 
 	// 绑定所有字段并返回日志实例
-	if logLogger == nil {
+	if deps.Logger == nil {
 		return logrus.New().WithFields(fields)
 	}
-	return logLogger.WithFields(fields)
+	return deps.Logger.WithFields(fields)
 }
 
 // defaultIfEmptyString 在字段为空时回退到默认值。

@@ -3,6 +3,7 @@ package site_api
 import (
 	"myblogx/common/res"
 	"myblogx/middleware"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_site"
 	"myblogx/service/site_service"
 
@@ -18,7 +19,7 @@ func (s SiteApi) SiteInfoView(c *gin.Context) {
 	switch cr.Name {
 	// 站点版本
 	case "site":
-		redis_site.SetFlow()
+		redis_site.SetFlow(redis_service.DepsFromGin(c))
 		rep := site_service.GetRuntimeSite()
 		rep.About.Version = mustApp(c).Version
 		data = rep

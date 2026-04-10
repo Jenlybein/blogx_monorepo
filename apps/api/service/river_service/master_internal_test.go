@@ -15,7 +15,7 @@ func TestLoadMasterInfoAndSaveReload(t *testing.T) {
 	testutil.InitGlobals()
 	dir := t.TempDir()
 
-	m, err := loadMasterInfo(dir)
+	m, err := loadMasterInfo(dir, nil)
 	if err != nil {
 		t.Fatalf("loadMasterInfo 初次加载失败: %v", err)
 	}
@@ -38,7 +38,7 @@ func TestLoadMasterInfoAndSaveReload(t *testing.T) {
 		t.Fatalf("master.yaml 内容异常: %s", content)
 	}
 
-	m2, err := loadMasterInfo(dir)
+	m2, err := loadMasterInfo(dir, nil)
 	if err != nil {
 		t.Fatalf("loadMasterInfo 二次加载失败: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestLoadMasterInfoAndSaveReload(t *testing.T) {
 func TestMasterSaveThrottleAndClose(t *testing.T) {
 	testutil.InitGlobals()
 	dir := t.TempDir()
-	m, err := loadMasterInfo(dir)
+	m, err := loadMasterInfo(dir, nil)
 	if err != nil {
 		t.Fatalf("loadMasterInfo 失败: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestLoadMasterInfoInvalidYAML(t *testing.T) {
 		t.Fatalf("写入非法 yaml 失败: %v", err)
 	}
 
-	_, err := loadMasterInfo(dir)
+	_, err := loadMasterInfo(dir, nil)
 	if err == nil {
 		t.Fatal("非法 master.yaml 应返回错误")
 	}
@@ -85,7 +85,7 @@ func TestLoadMasterInfoInvalidYAML(t *testing.T) {
 
 func TestLoadMasterInfoEmptyDir(t *testing.T) {
 	testutil.InitGlobals()
-	m, err := loadMasterInfo("")
+	m, err := loadMasterInfo("", nil)
 	if err != nil {
 		t.Fatalf("空 dataDir 不应报错: %v", err)
 	}

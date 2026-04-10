@@ -4,18 +4,20 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+
+	"github.com/elastic/go-elasticsearch/v7"
 )
 
 // 创建索引
-func CreateIndex(index, mapping string) error {
+func CreateIndex(client *elasticsearch.Client, index, mapping string) error {
 	// 构建创建索引的请求体
 	req := bytes.NewBufferString(mapping)
 
 	// 调用ES的Create Index API
-	res, err := esClient.Indices.Create(
+	res, err := client.Indices.Create(
 		index,
-		esClient.Indices.Create.WithBody(req),
-		esClient.Indices.Create.WithContext(context.Background()),
+		client.Indices.Create.WithBody(req),
+		client.Indices.Create.WithContext(context.Background()),
 	)
 	if err != nil {
 		return fmt.Errorf("创建索引 %s 失败: %v", index, err)
@@ -31,10 +33,10 @@ func CreateIndex(index, mapping string) error {
 }
 
 // 判断索引是否存在
-func ExistsIndex(index string) (bool, error) {
-	res, err := esClient.Indices.Exists(
+func ExistsIndex(client *elasticsearch.Client, index string) (bool, error) {
+	res, err := client.Indices.Exists(
 		[]string{index},
-		esClient.Indices.Exists.WithContext(context.Background()),
+		client.Indices.Exists.WithContext(context.Background()),
 	)
 	if err != nil {
 		return false, fmt.Errorf("检查索引 %s 是否存在失败: %v", index, err)
@@ -52,10 +54,10 @@ func ExistsIndex(index string) (bool, error) {
 }
 
 // 删除索引
-func DeleteIndex(index string) error {
-	res, err := esClient.Indices.Delete(
+func DeleteIndex(client *elasticsearch.Client, index string) error {
+	res, err := client.Indices.Delete(
 		[]string{index},
-		esClient.Indices.Delete.WithContext(context.Background()),
+		client.Indices.Delete.WithContext(context.Background()),
 	)
 	if err != nil {
 		return fmt.Errorf("删除索引 %s 失败: %v", index, err)
@@ -70,25 +72,25 @@ func DeleteIndex(index string) error {
 }
 
 // 强制创建索引
-func CreateIndexForce(index, mapping string) error {
-	if exists, err := ExistsIndex(index); err != nil {
+func CreateIndexForce(client *elasticsearch.Client, index, mapping string) error {
+	if exists, err := ExistsIndex(client, index); err != nil {
 		return err
 	} else if exists {
-		if err := DeleteIndex(index); err != nil {
+		if err := DeleteIndex(client, index); err != nil {
 			return err
 		}
 	}
-	return CreateIndex(index, mapping)
+	return CreateIndex(client, index, mapping)
 }
 
 // EnsureIndex 确保索引存在；已存在时不做破坏性操作。
-func EnsureIndex(index, mapping string) error {
-	exists, err := ExistsIndex(index)
+func EnsureIndex(client *elasticsearch.Client, index, mapping string) error {
+	exists, err := ExistsIndex(client, index)
 	if err != nil {
 		return err
 	}
 	if exists {
 		return nil
 	}
-	return CreateIndex(index, mapping)
+	return CreateIndex(client, index, mapping)
 }

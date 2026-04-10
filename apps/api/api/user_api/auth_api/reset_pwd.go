@@ -39,7 +39,7 @@ func (AuthApi) ResetPwdByEmailView(c *gin.Context) {
 		res.FailWithError(err, c)
 		return
 	}
-	if err := user_service.UpdatePasswordAndRevokeSessions(&user, hashPwd); err != nil {
+	if err := user_service.UpdatePasswordAndRevokeSessions(user_service.DepsFromApp(app), &user, hashPwd); err != nil {
 		res.FailWithError(err, c)
 		return
 	}

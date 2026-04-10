@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"myblogx/appctx"
+	"myblogx/conf"
 	"myblogx/models"
 	"myblogx/models/ctype"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_jwt"
 	"myblogx/utils/jwts"
 	"myblogx/utils/requestmeta"
@@ -23,6 +25,8 @@ const refreshTokenCookieName = "refresh_token"
 type Authenticator struct {
 	DB     *gorm.DB
 	Logger *logrus.Logger
+	JWT    conf.Jwt
+	Redis  redis_service.Deps
 }
 
 type SessionMeta struct {
@@ -38,16 +42,18 @@ type AuthResult struct {
 	Session *models.UserSessionModel // 对应用户会话信息
 }
 
-func NewAuthenticator(db *gorm.DB, logger *logrus.Logger) *Authenticator {
+func NewAuthenticator(db *gorm.DB, logger *logrus.Logger, jwt conf.Jwt, redisDeps redis_service.Deps) *Authenticator {
 	return &Authenticator{
 		DB:     db,
 		Logger: logger,
+		JWT:    jwt,
+		Redis:  redisDeps,
 	}
 }
 
 func AuthenticatorFromGin(c *gin.Context) *Authenticator {
 	app := appctx.MustFromGin(c)
-	return NewAuthenticator(app.DB, app.Logger)
+	return NewAuthenticator(app.DB, app.Logger, app.Config.Jwt, redis_service.DepsFromApp(app))
 }
 
 // BuildSessionMetaFromGin 从Gin上下文构建会话元数据
@@ -91,7 +97,7 @@ func (a *Authenticator) AuthenticateAccessToken(token string) (*AuthResult, erro
 	}
 
 	// 解析令牌
-	claims, err := jwts.ParseToken(token)
+	claims, err := jwts.ParseToken(a.JWT, token)
 	if err != nil {
 		if logger != nil {
 			logger.Warnf("访问令牌鉴权失败: 解析访问令牌失败，错误=%v", err)
@@ -106,7 +112,7 @@ func (a *Authenticator) AuthenticateAccessToken(token string) (*AuthResult, erro
 	}
 
 	// 校验令牌是否在Redis黑名单中
-	if blackType, ok := redis_jwt.HasTokenBlack(token); !ok {
+	if blackType, ok := redis_jwt.HasTokenBlack(a.Redis, token); !ok {
 		if logger != nil {
 			logger.Warnf(
 				"访问令牌鉴权失败: 访问令牌命中黑名单或黑名单检查异常，用户ID=%s 会话ID=%s 原因=%s",

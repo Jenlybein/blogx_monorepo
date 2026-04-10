@@ -22,7 +22,7 @@ type jsonLineSink struct {
 }
 
 // write 将一条结构化日志序列化为单行 JSON 并追加到当日日志文件。
-func (s *jsonLineSink) write(record any) error {
+func (s *jsonLineSink) write(deps Deps, record any) error {
 	// json 序列化
 	line, err := json.Marshal(record)
 	if err != nil {
@@ -33,7 +33,7 @@ func (s *jsonLineSink) write(record any) error {
 	defer s.mu.Unlock()
 
 	// 确保当前日期对应的日志文件已打开
-	file, err := s.ensureFile(time.Now())
+	file, err := s.ensureFile(deps, time.Now())
 	if err != nil {
 		return err
 	}
@@ -51,10 +51,10 @@ func (s *jsonLineSink) write(record any) error {
 //  3. 打开/创建日志文件，设置文件权限
 //
 // 返回：打开的文件句柄、错误信息
-func (s *jsonLineSink) ensureFile(now time.Time) (*os.File, error) {
+func (s *jsonLineSink) ensureFile(deps Deps, now time.Time) (*os.File, error) {
 	// 解析日志根目录和应用名称
-	logDir := ResolveLogDir(runtimeLogDir())
-	appName := ResolveLogApp(s.appName)
+	logDir := ResolveLogDir(runtimeLogDir(deps))
+	appName := ResolveLogApp(s.appName, deps.LogConfig.App)
 
 	// 格式化当前日期
 	currentDate := now.Format("2006-01-02")
@@ -107,14 +107,14 @@ var (
 
 // EnsureDailyLogFiles 提前创建当天日志文件，避免采集器在无文件时持续告警。
 // 服务启动时调用，主动初始化今日所有类型的日志文件
-func EnsureDailyLogFiles() error {
+func EnsureDailyLogFiles(deps Deps) error {
 	now := time.Now()
 	// 初始化登录事件日志文件
-	if _, err := loginEventSink().ensureFile(now); err != nil {
+	if _, err := loginEventSink().ensureFile(deps, now); err != nil {
 		return err
 	}
 	// 初始化操作审计日志文件
-	if _, err := actionAuditSink().ensureFile(now); err != nil {
+	if _, err := actionAuditSink().ensureFile(deps, now); err != nil {
 		return err
 	}
 	return nil
@@ -124,7 +124,7 @@ func EnsureDailyLogFiles() error {
 // 用于统一管理登录相关日志的写入，全局唯一实例
 func loginEventSink() *jsonLineSink {
 	loginEventSinkOnce.Do(func() {
-		loginEventSinkValue = newJSONLineSink(LoginEventLogDirName, ResolveLogApp(""))
+		loginEventSinkValue = newJSONLineSink(LoginEventLogDirName, "")
 	})
 	return loginEventSinkValue
 }
@@ -133,7 +133,7 @@ func loginEventSink() *jsonLineSink {
 // 用于统一管理操作审计日志，全局唯一实例
 func actionAuditSink() *jsonLineSink {
 	actionAuditSinkOnce.Do(func() {
-		actionAuditSinkVal = newJSONLineSink(ActionAuditLogDirName, ResolveLogApp(""))
+		actionAuditSinkVal = newJSONLineSink(ActionAuditLogDirName, "")
 	})
 	return actionAuditSinkVal
 }
@@ -146,6 +146,6 @@ func newJSONLineSink(dirName, appName string) *jsonLineSink {
 	}
 }
 
-func runtimeLogDir() string {
-	return logSettings.Dir
+func runtimeLogDir(deps Deps) string {
+	return deps.LogConfig.Dir
 }

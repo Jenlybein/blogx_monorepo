@@ -1,19 +1,25 @@
 package redis_chat_test
 
 import (
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_chat"
 	"myblogx/test/testutil"
 	"testing"
 	"time"
 )
 
+func testRedisDeps() redis_service.Deps {
+	return redis_service.Deps{Client: testutil.Redis(), Logger: testutil.Logger()}
+}
+
 // TestReserveChatMinuteRateSessionAndUserLimit 验证分钟级滑动窗口限流会同时约束会话级和用户级发送频率。
 func TestReserveChatMinuteRateSessionAndUserLimit(t *testing.T) {
 	_ = testutil.SetupMiniRedis(t)
+	deps := testRedisDeps()
 	now := time.Now()
 
 	for i := 0; i < 30; i++ {
-		reservation, limitedBy, err := redis_chat.ReserveChatMinuteRate(1, "chat:1:2", now.Add(time.Duration(i)*time.Millisecond))
+		reservation, limitedBy, err := redis_chat.ReserveChatMinuteRate(deps, 1, "chat:1:2", now.Add(time.Duration(i)*time.Millisecond))
 		if err != nil {
 			t.Fatalf("第 %d 次会话预占失败: %v", i+1, err)
 		}
@@ -22,7 +28,7 @@ func TestReserveChatMinuteRateSessionAndUserLimit(t *testing.T) {
 		}
 	}
 
-	reservation, limitedBy, err := redis_chat.ReserveChatMinuteRate(1, "chat:1:2", now.Add(31*time.Millisecond))
+	reservation, limitedBy, err := redis_chat.ReserveChatMinuteRate(deps, 1, "chat:1:2", now.Add(31*time.Millisecond))
 	if err != nil {
 		t.Fatalf("第 31 次同会话预占失败: %v", err)
 	}
@@ -31,7 +37,7 @@ func TestReserveChatMinuteRateSessionAndUserLimit(t *testing.T) {
 	}
 
 	for i := 0; i < 30; i++ {
-		reservation, limitedBy, err = redis_chat.ReserveChatMinuteRate(1, "chat:1:3", now.Add(time.Duration(100+i)*time.Millisecond))
+		reservation, limitedBy, err = redis_chat.ReserveChatMinuteRate(deps, 1, "chat:1:3", now.Add(time.Duration(100+i)*time.Millisecond))
 		if err != nil {
 			t.Fatalf("第 %d 次跨会话预占失败: %v", i+1, err)
 		}
@@ -40,7 +46,7 @@ func TestReserveChatMinuteRateSessionAndUserLimit(t *testing.T) {
 		}
 	}
 
-	reservation, limitedBy, err = redis_chat.ReserveChatMinuteRate(1, "chat:1:4", now.Add(200*time.Millisecond))
+	reservation, limitedBy, err = redis_chat.ReserveChatMinuteRate(deps, 1, "chat:1:4", now.Add(200*time.Millisecond))
 	if err != nil {
 		t.Fatalf("用户级限流检测失败: %v", err)
 	}
@@ -52,15 +58,16 @@ func TestReserveChatMinuteRateSessionAndUserLimit(t *testing.T) {
 // TestReserveChatMinuteRateSlidingWindow 验证滑动 60 秒窗口会随时间推进自动释放旧额度。
 func TestReserveChatMinuteRateSlidingWindow(t *testing.T) {
 	_ = testutil.SetupMiniRedis(t)
+	deps := testRedisDeps()
 	now := time.Now()
 
 	for i := 0; i < 30; i++ {
-		if _, limitedBy, err := redis_chat.ReserveChatMinuteRate(1, "chat:1:2", now.Add(time.Duration(i)*time.Millisecond)); err != nil || limitedBy != "" {
+		if _, limitedBy, err := redis_chat.ReserveChatMinuteRate(deps, 1, "chat:1:2", now.Add(time.Duration(i)*time.Millisecond)); err != nil || limitedBy != "" {
 			t.Fatalf("预热分钟限流失败 limitedBy=%s err=%v", limitedBy, err)
 		}
 	}
 
-	if _, limitedBy, err := redis_chat.ReserveChatMinuteRate(1, "chat:1:2", now.Add(61*time.Second)); err != nil || limitedBy != "" {
+	if _, limitedBy, err := redis_chat.ReserveChatMinuteRate(deps, 1, "chat:1:2", now.Add(61*time.Second)); err != nil || limitedBy != "" {
 		t.Fatalf("滑动窗口后应重新允许发送 limitedBy=%s err=%v", limitedBy, err)
 	}
 }
@@ -68,10 +75,11 @@ func TestReserveChatMinuteRateSlidingWindow(t *testing.T) {
 // TestReserveChatWeekQuotaAndReset 验证自然周配额上限以及被回复后的重置行为。
 func TestReserveChatWeekQuotaAndReset(t *testing.T) {
 	_ = testutil.SetupMiniRedis(t)
+	deps := testRedisDeps()
 	now := time.Now().In(time.Local)
 
 	for i := 0; i < 3; i++ {
-		reservation, allowed, err := redis_chat.ReserveChatWeekQuota(1, 2, 3, now)
+		reservation, allowed, err := redis_chat.ReserveChatWeekQuota(deps, 1, 2, 3, now)
 		if err != nil {
 			t.Fatalf("第 %d 次自然周配额预占失败: %v", i+1, err)
 		}
@@ -80,7 +88,7 @@ func TestReserveChatWeekQuotaAndReset(t *testing.T) {
 		}
 	}
 
-	reservation, allowed, err := redis_chat.ReserveChatWeekQuota(1, 2, 3, now)
+	reservation, allowed, err := redis_chat.ReserveChatWeekQuota(deps, 1, 2, 3, now)
 	if err != nil {
 		t.Fatalf("第 4 次自然周配额检测失败: %v", err)
 	}
@@ -88,11 +96,11 @@ func TestReserveChatWeekQuotaAndReset(t *testing.T) {
 		t.Fatalf("第 4 次自然周配额应受限, reservation=%v allowed=%v", reservation, allowed)
 	}
 
-	if err := redis_chat.ResetChatWeekQuota(1, 2, now); err != nil {
+	if err := redis_chat.ResetChatWeekQuota(deps, 1, 2, now); err != nil {
 		t.Fatalf("重置自然周配额失败: %v", err)
 	}
 
-	reservation, allowed, err = redis_chat.ReserveChatWeekQuota(1, 2, 3, now)
+	reservation, allowed, err = redis_chat.ReserveChatWeekQuota(deps, 1, 2, 3, now)
 	if err != nil {
 		t.Fatalf("重置后再次预占失败: %v", err)
 	}
@@ -104,9 +112,10 @@ func TestReserveChatWeekQuotaAndReset(t *testing.T) {
 // TestReserveChatWeekQuotaWithStrangerLimit 验证陌生人自然周额度为 1 条。
 func TestReserveChatWeekQuotaWithStrangerLimit(t *testing.T) {
 	_ = testutil.SetupMiniRedis(t)
+	deps := testRedisDeps()
 	now := time.Now().In(time.Local)
 
-	reservation, allowed, err := redis_chat.ReserveChatWeekQuota(1, 2, 1, now)
+	reservation, allowed, err := redis_chat.ReserveChatWeekQuota(deps, 1, 2, 1, now)
 	if err != nil {
 		t.Fatalf("陌生人首条自然周配额预占失败: %v", err)
 	}
@@ -114,7 +123,7 @@ func TestReserveChatWeekQuotaWithStrangerLimit(t *testing.T) {
 		t.Fatalf("陌生人首条消息应允许, reservation=%v allowed=%v", reservation, allowed)
 	}
 
-	reservation, allowed, err = redis_chat.ReserveChatWeekQuota(1, 2, 1, now)
+	reservation, allowed, err = redis_chat.ReserveChatWeekQuota(deps, 1, 2, 1, now)
 	if err != nil {
 		t.Fatalf("陌生人第二条自然周配额检测失败: %v", err)
 	}

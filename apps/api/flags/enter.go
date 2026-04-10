@@ -4,8 +4,11 @@ package flags
 import (
 	"flag"
 	"fmt"
+	"myblogx/conf"
 	"os"
 
+	"github.com/elastic/go-elasticsearch/v7"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
@@ -17,6 +20,14 @@ type FlagOptions struct {
 	Type    string
 	Sub     string
 	ES      bool
+}
+
+type Deps struct {
+	RiverConfig conf.River
+	Logger      *logrus.Logger
+	DB          *gorm.DB
+	ESClient    *elasticsearch.Client
+	ESIndex     string
 }
 
 func Parse() *FlagOptions {
@@ -34,23 +45,23 @@ func Parse() *FlagOptions {
 	return Flags
 }
 
-func Run(op *FlagOptions, db *gorm.DB) {
+func Run(op *FlagOptions, deps Deps) {
 	if op.DB {
 		// 执行数据库迁移
-		FlagDB(db)
+		FlagDB(deps.DB, deps.Logger)
 		os.Exit(0)
 	}
 
 	if op.ES {
 		switch op.Sub {
 		case "init":
-			FlagESIndex()
+			FlagESIndex(deps)
 			os.Exit(0)
 		case "ensure":
-			FlagESEnsure()
+			FlagESEnsure(deps)
 			os.Exit(0)
 		case "article-sync":
-			FlagESArticleSync()
+			FlagESArticleSync(deps)
 			os.Exit(0)
 		}
 		fmt.Println("未知子操作类型")
@@ -61,8 +72,8 @@ func Run(op *FlagOptions, db *gorm.DB) {
 	case "run":
 		switch op.Sub {
 		case "init":
-			FlagDB(db)
-			FlagESEnsure()
+			FlagDB(deps.DB, deps.Logger)
+			FlagESEnsure(deps)
 			return
 		default:
 			fmt.Println("未知子操作类型")
@@ -72,7 +83,7 @@ func Run(op *FlagOptions, db *gorm.DB) {
 		u := FlagUser{}
 		switch op.Sub {
 		case "create":
-			u.Create(db)
+			u.Create(deps.DB, deps.Logger)
 			os.Exit(0)
 		default:
 			fmt.Println("未知子操作类型")

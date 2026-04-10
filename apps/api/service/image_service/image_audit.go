@@ -24,7 +24,7 @@ const auditStatusCacheTTL = 24 * time.Hour
 //  2. 映射为系统内部图片状态（正常/审核中/违规）
 //  3. 图片已入库 → 直接更新数据库状态
 //  4. 图片未入库 → 把审核结果暂存Redis，等待图片入库后消费
-func HandleQiniuAuditCallback(body []byte) error {
+func HandleQiniuAuditCallback(deps Deps, body []byte) error {
 	// 解析回调数据，获取文件key和审核建议
 	objectKey, suggestion, err := parseQiniuAuditCallback(body)
 	if err != nil {
@@ -39,7 +39,7 @@ func HandleQiniuAuditCallback(body []byte) error {
 
 	// 根据文件key查询数据库中是否已存在图片记录
 	var image models.ImageModel
-	err = imageDB.Where("object_key = ?", objectKey).Take(&image).Error
+	err = deps.DB.Where("object_key = ?", objectKey).Take(&image).Error
 	switch {
 	case err == nil:
 		// 图片已存在：状态相同则无需更新
@@ -47,13 +47,13 @@ func HandleQiniuAuditCallback(body []byte) error {
 			return nil
 		}
 		// 更新图片审核状态
-		return imageDB.Model(&models.ImageModel{}).
+		return deps.DB.Model(&models.ImageModel{}).
 			Where("id = ?", image.ID).
 			Update("status", status).Error
 
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		// 图片还未入库：将审核状态暂存Redis，等待后续消费
-		return redis_image.StoreAuditStatus(objectKey, status.String(), auditStatusCacheTTL)
+		return redis_image.StoreAuditStatus(deps.RedisDeps(), objectKey, status.String(), auditStatusCacheTTL)
 
 	default:
 		// 数据库查询异常
@@ -64,9 +64,9 @@ func HandleQiniuAuditCallback(body []byte) error {
 // applyPendingAuditStatusIfAny
 // 图片正式入库后，尝试消费Redis中暂存的审核结果
 // 作用：解决“审核回调比图片入库更快”的时序问题
-func applyPendingAuditStatusIfAny(image *models.ImageModel) error {
+func applyPendingAuditStatusIfAny(deps Deps, image *models.ImageModel) error {
 	// 从Redis消费该文件的预存审核状态
-	statusName, err := redis_image.ConsumeAuditStatus(image.ObjectKey)
+	statusName, err := redis_image.ConsumeAuditStatus(deps.RedisDeps(), image.ObjectKey)
 	if err != nil {
 		// 无预存状态 → 正常返回
 		if errors.Is(err, redis.Nil) {
@@ -87,7 +87,7 @@ func applyPendingAuditStatusIfAny(image *models.ImageModel) error {
 	}
 
 	// 执行数据库状态更新
-	if err = imageDB.Model(&models.ImageModel{}).
+	if err = deps.DB.Model(&models.ImageModel{}).
 		Where("id = ?", image.ID).
 		Update("status", status).Error; err != nil {
 		return err

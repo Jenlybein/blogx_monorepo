@@ -10,6 +10,7 @@ import (
 	dbservice "myblogx/service/db_service"
 	"myblogx/service/message_service"
 	"myblogx/service/read_service"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_article"
 	"myblogx/utils/jwts"
 
@@ -18,16 +19,17 @@ import (
 )
 
 func (ArticleApi) ArticleFavoriteSaveView(c *gin.Context) {
+	app := mustApp(c)
 	cr := middleware.GetBindJson[ArticleFavoriteRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
 
 	var article models.ArticleModel
-	if err := mustApp(c).DB.Select("id", "author_id", "title", "abstract", "cover", "status").
+	if err := app.DB.Select("id", "author_id", "title", "abstract", "cover", "status").
 		Take(&article, "id = ? and status = ?", cr.ArticleID, enum.ArticleStatusPublished).Error; err != nil {
 		res.FailWithMsg("查询文章失败", c)
 		return
 	}
-	userMap, err := read_service.LoadUserDisplayMap(mustApp(c).DB, []ctype.ID{claims.UserID, article.AuthorID})
+	userMap, err := read_service.LoadUserDisplayMap(app.DB, []ctype.ID{claims.UserID, article.AuthorID})
 	if err != nil {
 		res.FailWithMsg("查询用户信息失败", c)
 		return
@@ -36,7 +38,7 @@ func (ArticleApi) ArticleFavoriteSaveView(c *gin.Context) {
 	authorUser := userMap[article.AuthorID]
 
 	var isFavorited bool
-	if err := mustApp(c).DB.Transaction(func(tx *gorm.DB) error {
+	if err := app.DB.Transaction(func(tx *gorm.DB) error {
 		favorite, err := getOrCreateFavoriteWithOwner(tx, cr.FavorID, claims.UserID, actionUser)
 		if err != nil {
 			return err
@@ -50,20 +52,20 @@ func (ArticleApi) ArticleFavoriteSaveView(c *gin.Context) {
 	}
 
 	if isFavorited {
-		go message_service.InsertArticleFavorMessage(message_service.ArticleFavorMessage{
+		go message_service.InsertArticleFavorMessage(app.DB, app.Logger, message_service.ArticleFavorMessage{
 			ReceiverID:   article.AuthorID,
 			ActionUserID: claims.UserID,
 			ArticleID:    cr.ArticleID,
 			ArticleTitle: article.Title,
 		})
 
-		if err := redis_article.SetCacheFavorite(cr.ArticleID, 1); err != nil {
-			mustApp(c).Logger.Errorf("文章收藏数据加一失败: 错误=%v", err)
+		if err := redis_article.SetCacheFavorite(redis_service.DepsFromGin(c), cr.ArticleID, 1); err != nil {
+			app.Logger.Errorf("文章收藏数据加一失败: 错误=%v", err)
 		}
 		res.OkWithMsg("收藏成功", c)
 	} else {
-		if err := redis_article.SetCacheFavorite(cr.ArticleID, -1); err != nil {
-			mustApp(c).Logger.Errorf("文章收藏数据减一失败: 错误=%v", err)
+		if err := redis_article.SetCacheFavorite(redis_service.DepsFromGin(c), cr.ArticleID, -1); err != nil {
+			app.Logger.Errorf("文章收藏数据减一失败: 错误=%v", err)
 		}
 		res.OkWithMsg("取消收藏成功", c)
 	}

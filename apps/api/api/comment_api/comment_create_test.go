@@ -5,6 +5,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_article"
 	"myblogx/service/redis_service/redis_comment"
 	"myblogx/test/testutil"
@@ -35,6 +36,10 @@ func readBizCode(t *testing.T, w *httptest.ResponseRecorder) int {
 	t.Helper()
 	body := readBizBody(t, w)
 	return int(body["code"].(float64))
+}
+
+func testRedisDeps() redis_service.Deps {
+	return redis_service.Deps{Client: testutil.Redis(), Logger: testutil.Logger()}
 }
 
 func setupCommentEnv(t *testing.T) *models.UserModel {
@@ -129,11 +134,11 @@ func TestCommentCreateView(t *testing.T) {
 		if first.Status != enum.CommentStatusPublished {
 			t.Fatalf("一级评论状态错误: %d", first.Status)
 		}
-		if redis_article.GetCacheComment(openArticle.ID) != 1 {
-			t.Fatalf("评论缓存计数错误: %d", redis_article.GetCacheComment(openArticle.ID))
+		if redis_article.GetCacheComment(testRedisDeps(), openArticle.ID) != 1 {
+			t.Fatalf("评论缓存计数错误: %d", redis_article.GetCacheComment(testRedisDeps(), openArticle.ID))
 		}
-		if redis_comment.GetCacheReply(first.ID) != 0 {
-			t.Fatalf("一级评论回复缓存初始值应为 0: %d", redis_comment.GetCacheReply(first.ID))
+		if redis_comment.GetCacheReply(testRedisDeps(), first.ID) != 0 {
+			t.Fatalf("一级评论回复缓存初始值应为 0: %d", redis_comment.GetCacheReply(testRedisDeps(), first.ID))
 		}
 	})
 
@@ -163,11 +168,11 @@ func TestCommentCreateView(t *testing.T) {
 		if second.Status != enum.CommentStatusPublished {
 			t.Fatalf("回复评论状态错误: %d", second.Status)
 		}
-		if redis_article.GetCacheComment(openArticle.ID) != 2 {
-			t.Fatalf("评论缓存计数错误: %d", redis_article.GetCacheComment(openArticle.ID))
+		if redis_article.GetCacheComment(testRedisDeps(), openArticle.ID) != 2 {
+			t.Fatalf("评论缓存计数错误: %d", redis_article.GetCacheComment(testRedisDeps(), openArticle.ID))
 		}
-		if redis_comment.GetCacheReply(first.ID) != 1 {
-			t.Fatalf("一级评论 ReplyCount 缓存错误: %d", redis_comment.GetCacheReply(first.ID))
+		if redis_comment.GetCacheReply(testRedisDeps(), first.ID) != 1 {
+			t.Fatalf("一级评论 ReplyCount 缓存错误: %d", redis_comment.GetCacheReply(testRedisDeps(), first.ID))
 		}
 	})
 
@@ -194,8 +199,8 @@ func TestCommentCreateView(t *testing.T) {
 		if reply.RootID != first.ID {
 			t.Fatalf("root_id 应保持一级评论 ID: %+v", reply)
 		}
-		if redis_comment.GetCacheReply(first.ID) != 2 {
-			t.Fatalf("一级评论 ReplyCount 缓存错误: %d", redis_comment.GetCacheReply(first.ID))
+		if redis_comment.GetCacheReply(testRedisDeps(), first.ID) != 2 {
+			t.Fatalf("一级评论 ReplyCount 缓存错误: %d", redis_comment.GetCacheReply(testRedisDeps(), first.ID))
 		}
 	})
 
@@ -220,8 +225,8 @@ func TestCommentCreateView(t *testing.T) {
 			testutil.Config().Site.Comment.SkipExamining = true
 		})
 
-		beforeCommentCount := redis_article.GetCacheComment(openArticle.ID)
-		beforeReplyCount := redis_comment.GetCacheReply(first.ID)
+		beforeCommentCount := redis_article.GetCacheComment(testRedisDeps(), openArticle.ID)
+		beforeReplyCount := redis_comment.GetCacheReply(testRedisDeps(), first.ID)
 
 		c, w := newCommentCtx()
 		c.Set("claims", claims)
@@ -242,10 +247,10 @@ func TestCommentCreateView(t *testing.T) {
 		if last.Status != enum.CommentStatusExamining {
 			t.Fatalf("评论状态应为审核中: %d", last.Status)
 		}
-		if redis_article.GetCacheComment(openArticle.ID) != beforeCommentCount {
+		if redis_article.GetCacheComment(testRedisDeps(), openArticle.ID) != beforeCommentCount {
 			t.Fatalf("审核中评论不应增加文章评论缓存")
 		}
-		if redis_comment.GetCacheReply(first.ID) != beforeReplyCount {
+		if redis_comment.GetCacheReply(testRedisDeps(), first.ID) != beforeReplyCount {
 			t.Fatalf("审核中评论不应增加回复缓存")
 		}
 	})
@@ -254,8 +259,8 @@ func TestCommentCreateView(t *testing.T) {
 		testutil.Config().Site.Comment.SkipExamining = false
 		adminClaims := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Username: user.Username, Role: enum.RoleAdmin}}
 
-		beforeCommentCount := redis_article.GetCacheComment(openArticle.ID)
-		beforeReplyCount := redis_comment.GetCacheReply(first.ID)
+		beforeCommentCount := redis_article.GetCacheComment(testRedisDeps(), openArticle.ID)
+		beforeReplyCount := redis_comment.GetCacheReply(testRedisDeps(), first.ID)
 
 		c, w := newCommentCtx()
 		c.Set("claims", adminClaims)
@@ -276,10 +281,10 @@ func TestCommentCreateView(t *testing.T) {
 		if last.Status != enum.CommentStatusPublished {
 			t.Fatalf("管理员评论应直接发布: %d", last.Status)
 		}
-		if redis_article.GetCacheComment(openArticle.ID) != beforeCommentCount+1 {
+		if redis_article.GetCacheComment(testRedisDeps(), openArticle.ID) != beforeCommentCount+1 {
 			t.Fatalf("管理员评论应增加文章评论缓存")
 		}
-		if redis_comment.GetCacheReply(first.ID) != beforeReplyCount+1 {
+		if redis_comment.GetCacheReply(testRedisDeps(), first.ID) != beforeReplyCount+1 {
 			t.Fatalf("管理员评论应增加回复缓存")
 		}
 	})

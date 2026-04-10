@@ -41,7 +41,7 @@ type baseEvent struct {
 }
 
 // newBaseEvent 构造一条基础日志事件，并补齐 event_id、时间、环境和实例信息。
-func newBaseEvent(logKind, level, message string) baseEvent {
+func newBaseEvent(deps Deps, logKind, level, message string) baseEvent {
 	eventID, err := db_service.NextSnowflakeID()
 	if err != nil {
 		eventID = ctype.ID(time.Now().UnixNano())
@@ -53,19 +53,19 @@ func newBaseEvent(logKind, level, message string) baseEvent {
 		EventID:    uint64(eventID),
 		TS:         time.Now().Format(clickhouseTimeLayout),
 		LogKind:    logKind,
-		Service:    ResolveLogApp(""),
-		Env:        runtimeEnv(),
+		Service:    ResolveLogApp("", deps.LogConfig.App),
+		Env:        runtimeEnv(deps),
 		Host:       host,
-		InstanceID: strconv.Itoa(int(runtimeServerID())),
+		InstanceID: strconv.Itoa(int(runtimeServerID(deps))),
 		Level:      level,
 		Message:    message,
 	}
 }
 
-func runtimeEnv() string {
-	return logSystemSettings.Env
+func runtimeEnv(deps Deps) string {
+	return deps.SystemConfig.Env
 }
 
-func runtimeServerID() uint32 {
-	return logSystemSettings.ServerID
+func runtimeServerID(deps Deps) uint32 {
+	return deps.SystemConfig.ServerID
 }

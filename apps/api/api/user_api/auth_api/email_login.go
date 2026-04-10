@@ -45,7 +45,8 @@ func (AuthApi) EmailLoginView(c *gin.Context) {
 		return
 	}
 
-	accessToken, refreshToken, _, err := user_service.CreateLoginTokens(&user, user_service.BuildSessionMetaFromGin(c))
+	deps := user_service.DepsFromApp(app)
+	accessToken, refreshToken, _, err := user_service.CreateLoginTokens(deps, &user, user_service.BuildSessionMetaFromGin(c))
 	if err != nil {
 		log_service.EmitLoginEventFromGin(c, "login_fail", enum.EmailLoginType, false, user.Username, user.ID, "邮箱登录失败", map[string]any{
 			"username": user.Username,
@@ -54,7 +55,7 @@ func (AuthApi) EmailLoginView(c *gin.Context) {
 		return
 	}
 
-	user_service.SetRefreshTokenCookie(c, refreshToken)
+	user_service.SetRefreshTokenCookie(c, refreshToken, deps)
 	log_service.EmitLoginEventFromGin(c, "login_success", enum.EmailLoginType, true, user.Username, user.ID, "", map[string]any{
 		"username": user.Username,
 	})

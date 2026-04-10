@@ -3,13 +3,17 @@ package river_service
 import (
 	"context"
 	"fmt"
+	"myblogx/conf"
 	"myblogx/service/river_service/rule"
 	"regexp"
 	"strings"
 	"sync"
 
+	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/go-mysql-org/go-mysql/canal"
 	"github.com/pingcap/errors"
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 // ErrRuleNotExist 是规则不存在的错误
@@ -20,6 +24,10 @@ type River struct {
 	canal *canal.Canal // MySQL的canal实例
 
 	rules map[string]*rule.Rule // 规则映射
+	cfg   conf.River
+	log   *logrus.Logger
+	db    *gorm.DB
+	es    *elasticsearch.Client
 
 	ctx    context.Context    // 上下文
 	cancel context.CancelFunc // 取消函数
@@ -32,15 +40,19 @@ type River struct {
 }
 
 // NewRiver 根据配置创建 River 实例
-func NewRiver() (*River, error) {
-	r := new(River)
-
-	r.rules = make(map[string]*rule.Rule)
-	r.syncCh = make(chan interface{}, 4096)
+func NewRiver(config conf.River, logger *logrus.Logger, db *gorm.DB, esClient *elasticsearch.Client) (*River, error) {
+	r := &River{
+		rules:  make(map[string]*rule.Rule),
+		cfg:    config,
+		log:    logger,
+		db:     db,
+		es:     esClient,
+		syncCh: make(chan interface{}, 4096),
+	}
 	r.ctx, r.cancel = context.WithCancel(context.Background())
 
 	var err error
-	if r.master, err = loadMasterInfo(riverConfig.DataDir); err != nil {
+	if r.master, err = loadMasterInfo(r.cfg.DataDir, r.log); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -69,22 +81,22 @@ func (r *River) newCanal() error {
 	cfg := canal.NewDefaultConfig()
 
 	// 配置日志记录器
-	cfg.Logger = logrusToSlogAdapter(riverLogger)
+	cfg.Logger = logrusToSlogAdapter(r.log)
 
 	// 配置mysql连接信息
-	cfg.Addr = riverConfig.Mysql.Addr
-	cfg.User = riverConfig.Mysql.User
-	cfg.Password = riverConfig.Mysql.Password
-	cfg.Charset = riverConfig.Charset
-	cfg.Flavor = riverConfig.Flavor
+	cfg.Addr = r.cfg.Mysql.Addr
+	cfg.User = r.cfg.Mysql.User
+	cfg.Password = r.cfg.Mysql.Password
+	cfg.Charset = r.cfg.Charset
+	cfg.Flavor = r.cfg.Flavor
 
-	cfg.ServerID = riverConfig.ServerID
-	cfg.Dump.ExecutionPath = riverConfig.DumpExec
+	cfg.ServerID = r.cfg.ServerID
+	cfg.Dump.ExecutionPath = r.cfg.DumpExec
 	cfg.Dump.DiscardErr = false
-	cfg.Dump.SkipMasterData = riverConfig.SkipMasterData
+	cfg.Dump.SkipMasterData = r.cfg.SkipMasterData
 
 	// 配置需要同步的数据库表，添加正则表达式 "schema\\.table"
-	for _, s := range riverConfig.Sources {
+	for _, s := range r.cfg.Sources {
 		for _, t := range s.Tables {
 			cfg.IncludeTableRegex = append(cfg.IncludeTableRegex, s.Schema+"\\."+t)
 		}
@@ -156,10 +168,10 @@ func (r *River) updateRule(schema, table string) error {
 // parseSource 解析数据源
 func (r *River) parseSource() (map[string][]string, error) {
 	// 存储通配符表的映射关系，key为 schema.table，value为匹配的表名列表
-	wildTables := make(map[string][]string, len(riverConfig.Sources))
+	wildTables := make(map[string][]string, len(r.cfg.Sources))
 
 	// 解析数据源，获取通配符表的映射关系
-	for _, s := range riverConfig.Sources {
+	for _, s := range r.cfg.Sources {
 		if !isValidTables(s.Tables) {
 			return nil, errors.Errorf("不允许在多个表中使用通配符 *")
 		}
@@ -224,9 +236,9 @@ func (r *River) prepareRule() error {
 	}
 
 	// 如果配置了自定义规则，则应用这些规则
-	if riverConfig.Rules != nil {
+	if r.cfg.Rules != nil {
 		// 遍历所有自定义规则
-		for _, rule := range riverConfig.Rules {
+		for _, rule := range r.cfg.Rules {
 			// 检查规则的数据库名是否为空
 			if len(rule.Schema) == 0 {
 				return errors.Errorf("自定义规则中不允许为空的数据库名")
@@ -284,8 +296,8 @@ func (r *River) prepareRule() error {
 
 		// 检查表是否有主键，没有主键的表会被忽略（因为无法进行有效的同步）
 		if len(rule.TableInfo.PKColumns) == 0 {
-			if riverLogger != nil {
-				riverLogger.Errorf("忽略未配置主键的数据表: %s", rule.TableInfo.Name)
+			if r.log != nil {
+				r.log.Errorf("忽略未配置主键的数据表: %s", rule.TableInfo.Name)
 			}
 		} else {
 			// 只保留有主键的表规则
@@ -310,8 +322,8 @@ func (r *River) Run() error {
 
 	pos := r.master.Position()
 	if err := r.canal.RunFrom(pos); err != nil {
-		if riverLogger != nil {
-			riverLogger.Errorf("启动 Canal 同步失败: %v", err)
+		if r.log != nil {
+			r.log.Errorf("启动 Canal 同步失败: %v", err)
 		}
 		return errors.Trace(err)
 	}
@@ -326,8 +338,8 @@ func (r *River) Ctx() context.Context {
 
 // Close 关闭River
 func (r *River) Close() {
-	if riverLogger != nil {
-		riverLogger.Infof("开始关闭 River 同步服务")
+	if r.log != nil {
+		r.log.Infof("开始关闭 River 同步服务")
 	}
 
 	r.cancel()

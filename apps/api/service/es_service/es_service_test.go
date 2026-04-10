@@ -105,29 +105,30 @@ func TestIndexAndPipelineOps(t *testing.T) {
 		}
 	})
 
-	if err := CreateIndexForce("idx1", `{}`); err != nil {
+	esClient := testutil.ESClient()
+	if err := CreateIndexForce(esClient, "idx1", `{}`); err != nil {
 		t.Fatalf("CreateIndexForce 失败: %v", err)
 	}
-	if exists, err := ExistsIndex("idx1"); err != nil || !exists {
+	if exists, err := ExistsIndex(esClient, "idx1"); err != nil || !exists {
 		t.Fatalf("ExistsIndex 结果异常: exists=%v err=%v", exists, err)
 	}
-	if err := DeleteIndex("idx1"); err != nil {
+	if err := DeleteIndex(esClient, "idx1"); err != nil {
 		t.Fatalf("DeleteIndex 失败: %v", err)
 	}
-	if exists, err := ExistsIndex("idx1"); err != nil || exists {
+	if exists, err := ExistsIndex(esClient, "idx1"); err != nil || exists {
 		t.Fatalf("Delete 后 ExistsIndex 异常: exists=%v err=%v", exists, err)
 	}
 
-	if err := CreatePipelineForce("p1", `{}`); err != nil {
+	if err := CreatePipelineForce(esClient, "p1", `{}`); err != nil {
 		t.Fatalf("CreatePipelineForce 失败: %v", err)
 	}
-	if exists, err := ExistsPipeline("p1"); err != nil || !exists {
+	if exists, err := ExistsPipeline(esClient, "p1"); err != nil || !exists {
 		t.Fatalf("ExistsPipeline 结果异常: exists=%v err=%v", exists, err)
 	}
-	if err := DeletePipeline("p1"); err != nil {
+	if err := DeletePipeline(esClient, "p1"); err != nil {
 		t.Fatalf("DeletePipeline 失败: %v", err)
 	}
-	if exists, err := ExistsPipeline("p1"); err != nil || exists {
+	if exists, err := ExistsPipeline(esClient, "p1"); err != nil || exists {
 		t.Fatalf("Delete 后 ExistsPipeline 异常: exists=%v err=%v", exists, err)
 	}
 }
@@ -169,45 +170,46 @@ func TestDocumentAndBulkOps(t *testing.T) {
 		}
 	})
 
-	if resp := CreateDocument("idx", map[string]any{"title": "x"}); !resp.Success {
+	esClient := testutil.ESClient()
+	if resp := CreateDocument(esClient, "idx", map[string]any{"title": "x"}); !resp.Success {
 		t.Fatalf("CreateDocument 失败: %+v", resp)
 	}
-	if resp := Search[map[string]any]("idx", 1, 10, map[string]any{"match_all": map[string]any{}}); !resp.Success {
+	if resp := Search[map[string]any](esClient, "idx", 1, 10, map[string]any{"match_all": map[string]any{}}); !resp.Success {
 		t.Fatalf("Search 失败: %+v", resp)
 	}
-	if resp := UpdateDocument("idx", "1", map[string]any{"title": "y"}); !resp.Success {
+	if resp := UpdateDocument(esClient, "idx", "1", map[string]any{"title": "y"}); !resp.Success {
 		t.Fatalf("UpdateDocument 失败: %+v", resp)
 	}
-	if resp := DeleteDocument("idx", "1"); !resp.Success {
+	if resp := DeleteDocument(esClient, "idx", "1"); !resp.Success {
 		t.Fatalf("DeleteDocument 失败: %+v", resp)
 	}
-	if resp := Get("idx", "_doc", "1"); !resp.Success {
+	if resp := Get(esClient, "idx", "_doc", "1"); !resp.Success {
 		t.Fatalf("Get 失败: %+v", resp)
 	}
-	if resp := Exists("idx", "_doc", "1"); !resp.Success || resp.Data != true {
+	if resp := Exists(esClient, "idx", "_doc", "1"); !resp.Success || resp.Data != true {
 		t.Fatalf("Exists 结果异常: %+v", resp)
 	}
 
 	items := []*BulkRequest{
 		{Action: ActionIndex, Index: "idx", ID: "1", Data: map[string]interface{}{"k": "v"}},
 	}
-	if resp := Bulk(items); !resp.Success {
+	if resp := Bulk(esClient, items); !resp.Success {
 		t.Fatalf("Bulk 失败: %+v", resp)
 	}
-	if resp := IndexBulk("idx", items); !resp.Success {
+	if resp := IndexBulk(esClient, "idx", items); !resp.Success {
 		t.Fatalf("IndexBulk 失败: %+v", resp)
 	}
-	if resp := IndexTypeBulk("idx", "_doc", items); !resp.Success {
+	if resp := IndexTypeBulk(esClient, "idx", "_doc", items); !resp.Success {
 		t.Fatalf("IndexTypeBulk 失败: %+v", resp)
 	}
 
-	if resp := CreateMapping("idx", "_doc", map[string]interface{}{"title": map[string]any{"type": "text"}}); !resp.Success {
+	if resp := CreateMapping(esClient, "idx", "_doc", map[string]interface{}{"title": map[string]any{"type": "text"}}); !resp.Success {
 		t.Fatalf("CreateMapping 失败: %+v", resp)
 	}
-	if resp := GetMapping("idx", "_doc"); !resp.Success {
+	if resp := GetMapping(esClient, "idx", "_doc"); !resp.Success {
 		t.Fatalf("GetMapping 失败: %+v", resp)
 	}
-	if resp := DeleteIndexWithResponse("idx"); !resp.Success {
+	if resp := DeleteIndexWithResponse(esClient, "idx"); !resp.Success {
 		t.Fatalf("DeleteIndexWithResponse 失败: %+v", resp)
 	}
 }
@@ -276,7 +278,7 @@ func TestUpdateESDocsContent(t *testing.T) {
 		}
 	})
 
-	if err := UpdateESDocsContent([]ctype.ID{article.ID}); err != nil {
+	if err := UpdateESDocsContent(db, testutil.ESClient(), []ctype.ID{article.ID}); err != nil {
 		t.Fatalf("UpdateESDocsContent 失败: %v", err)
 	}
 	if len(bulkDocs) != 1 {
@@ -366,7 +368,7 @@ func TestUpdateESDocsTags(t *testing.T) {
 		}
 	})
 
-	if err := UpdateESDocsTags([]ctype.ID{article.ID}); err != nil {
+	if err := UpdateESDocsTags(db, testutil.ESClient(), []ctype.ID{article.ID}); err != nil {
 		t.Fatalf("UpdateESDocsTags 失败: %v", err)
 	}
 	if len(bulkDocs) != 1 {
@@ -442,7 +444,7 @@ func TestUpdateESDocsTop(t *testing.T) {
 		}
 	})
 
-	if err := UpdateESDocsTop([]ctype.ID{article.ID}); err != nil {
+	if err := UpdateESDocsTop(db, testutil.ESClient(), []ctype.ID{article.ID}); err != nil {
 		t.Fatalf("UpdateESDocsTop 失败: %v", err)
 	}
 	if len(bulkDocs) != 1 {

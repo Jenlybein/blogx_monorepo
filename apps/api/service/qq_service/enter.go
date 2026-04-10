@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"myblogx/conf"
 	"net/http"
 	"net/url"
 )
@@ -45,8 +46,8 @@ type QQUserInfo struct {
 	Avatar   string
 }
 
-func getAccessToken(code string) (atResp QQAccessTokenResp, err error) {
-	qq := qqConfig
+func getAccessToken(config conf.QQ, code string) (atResp QQAccessTokenResp, err error) {
+	qq := config
 
 	baseURL, err := url.Parse("https://graph.qq.com/oauth2.0/token")
 	if err != nil {
@@ -85,8 +86,8 @@ func getAccessToken(code string) (atResp QQAccessTokenResp, err error) {
 	return atResp, nil
 }
 
-func getUserInfo(at QQAccessTokenResp) (userInfoResp QQUserInfoResp, err error) {
-	qq := qqConfig
+func getUserInfo(config conf.QQ, at QQAccessTokenResp) (userInfoResp QQUserInfoResp, err error) {
+	qq := config
 
 	baseURL, err := url.Parse("https://graph.qq.com/oauth2.0/token")
 	if err != nil {
@@ -120,13 +121,13 @@ func getUserInfo(at QQAccessTokenResp) (userInfoResp QQUserInfoResp, err error) 
 	return userInfoResp, nil
 }
 
-func GetUserInfo(code string) (info QQUserInfo, err error) {
-	at, err := getAccessToken(code)
+func GetUserInfo(config conf.QQ, code string) (info QQUserInfo, err error) {
+	at, err := getAccessToken(config, code)
 	if err != nil {
 		return
 	}
 
-	u, err := getUserInfo(at)
+	u, err := getUserInfo(config, at)
 	if err != nil {
 		return
 	}

@@ -9,8 +9,13 @@
     "文章计数和评论计数都通过统一 reader 补偿，外部调用方不需要自己处理 Redis 增量。",
     "评论、关注、收藏关系、聊天会话等高频展示字段已经写入冗余快照；昵称、头像、文章标题、封面、状态变更后会同步刷新。",
     "API 启动层现在会构造 AppContext，并通过 Gin 中间件注入到请求上下文；handler / query service / 鉴权链路从 AppContext 读取 DB、Logger、Config。",
+    "JWT/邮件/QQ 登录能力已改为显式传配置：jwts.GetToken/ParseToken、email_service.Send*、qq_service.GetUserInfo 都不再读取包级配置单例。",
+    "flags 模块已去掉 Configure 单例，统一通过 flags.Run(op, flags.Deps{...}) 显式注入运行依赖。",
+    "river_service 和 image_ref_river_service 已改为构造注入：NewRiver(config, logger, ...)，不再依赖包级 Configure。",
+    "chat_service/message_service/ai_service 的写路径已改为显式传 db/logger，不再依赖 chatDB/messageDB/aiDB 这类包级状态。",
     "router 层不再依赖 api.App 静态单例，而是显式接收 api.New(ctx) 组装出的 API 实例。",
-    "apps/api 内已清理所有 global.* 调用（含测试代码）；新代码禁止回退全局单例。"
+    "image_service 已去掉 Configure，统一走 image_service.DepsFromApp/DepsFromGin 显式注入。",
+    "apps/api 非测试代码中 global.*=0、func Configure(...)=0；新代码禁止回退全局单例。"
   ],
   "dependency_injection_usage": {
     "summary": "依赖注入分三层：启动层组装、路由层传递、handler/service 按需读取。生产与测试都按这套路径执行。",
@@ -20,12 +25,14 @@
       "router.Run(ctx, api.New(ctx)) 会把 AppContext 放入 Gin 中间件，同时把 API 实例显式传给各个 Router。",
       "进入 handler 后，通过 mustApp(c) 或 appctx.MustFromGin(c) 读取 DB、Logger、Config，不再允许访问 global.DB / global.Logger / global.Config。",
       "进入鉴权或 query service 后，依赖由构造函数显式传入，例如 NewQueryService(db) 或 AuthenticatorFromGin(c)。",
-      "测试环境通过 testutil.SetConfig / SetupSQLite / SetupMiniRedis 组装依赖，再通过各模块 Configure(...) 注入。"
+      "测试环境通过 testutil.SetConfig / SetupSQLite / SetupMiniRedis 组装依赖，业务模块优先走显式参数注入。"
     ],
     "recommended_rules": [
       "新增 handler 时，优先使用 mustApp(c).DB / Logger / Config。",
       "新增查询服务时，构造函数必须显式接收 db，不要在 service 内部回退 global.DB。",
+      "新增业务函数时，优先把配置和资源放进函数签名（例如 db/logger/jwt/index），避免新增 Configure 单例。",
       "新增路由时，不要继续从 api.App 取模块，直接使用 router 传入的 app api.Api。",
+      "调用图片上传/回调能力时，统一使用 image_service.DepsFromGin(c) 或 image_service.DepsFromApp(app) 传入依赖。",
       "禁止新增 global.* 回退逻辑；依赖必须由启动层或测试容器显式装配。"
     ],
     "compatibility_note": "appctx.MustFromGin(...) 不再提供 global 兼容兜底。未注入 AppContext 的请求会直接 panic，目的是强制保证依赖边界清晰。"

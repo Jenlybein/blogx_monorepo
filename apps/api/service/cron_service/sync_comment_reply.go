@@ -17,29 +17,29 @@ const (
 	commentReplySyncingKey  = "comment_reply:syncing"
 )
 
-func SyncCommentReply() {
-	runLockedSyncTask("同步评论回复数任务", commentReplySyncLockKey, commentReplySyncLockTTL, func(ctx context.Context) (int, error) {
-		return syncHashCounterMetric(ctx, hashCounterSyncConfig{
+func (s *CronService) SyncCommentReply() {
+	s.runLockedSyncTask("同步评论回复数任务", commentReplySyncLockKey, commentReplySyncLockTTL, func(ctx context.Context) (int, error) {
+		return s.syncHashCounterMetric(ctx, hashCounterSyncConfig{
 			taskName:   "同步评论回复数任务",
 			activeKey:  redis_comment.ReplyCountCacheKey,
 			syncKey:    commentReplySyncingKey,
 			idName:     "comment_id",
-			applyDelta: applyCommentReplyDelta,
+			applyDelta: s.applyCommentReplyDelta,
 		})
 	})
 }
 
-func applyCommentReplyDelta(commentID ctype.ID, delta int) error {
+func (s *CronService) applyCommentReplyDelta(commentID ctype.ID, delta int) error {
 	expr := fmt.Sprintf("CASE WHEN %s + ? < 0 THEN 0 ELSE %s + ? END", "reply_count", "reply_count")
 
-	db := cronDB.Model(&models.CommentModel{}).
+	db := s.db.Model(&models.CommentModel{}).
 		Where("id = ?", commentID).
 		UpdateColumn("reply_count", gorm.Expr(expr, delta, delta))
 	if db.Error != nil {
 		return db.Error
 	}
-	if db.RowsAffected == 0 && cronLogger != nil {
-		cronLogger.Warnf("同步评论回复数任务更新行不存在: 评论ID=%d 增量=%d", commentID, delta)
+	if db.RowsAffected == 0 && s.log != nil {
+		s.log.Warnf("同步评论回复数任务更新行不存在: 评论ID=%d 增量=%d", commentID, delta)
 	}
 	return nil
 }

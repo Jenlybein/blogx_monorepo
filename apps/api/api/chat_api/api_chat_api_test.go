@@ -14,6 +14,7 @@ import (
 	"myblogx/models/enum/chat_msg_enum"
 	"myblogx/models/enum/relationship_enum"
 	"myblogx/service/chat_service"
+	"myblogx/service/redis_service"
 	"myblogx/test/testutil"
 	"myblogx/utils/jwts"
 
@@ -1293,5 +1294,8 @@ func createFollowRelation(t *testing.T, fansUserID, followedUserID ctype.ID) {
 }
 
 func validateChatSendPermission(senderID ctype.ID, receiver *models.UserModel) (*chat_service.ChatSendReservation, error) {
-	return chat_service.CheckAndReserveChatSend(senderID, receiver)
+	return chat_service.CheckAndReserveChatSend(testutil.DB(), redis_service.Deps{
+		Client: testutil.Redis(),
+		Logger: testutil.Logger(),
+	}, senderID, receiver)
 }

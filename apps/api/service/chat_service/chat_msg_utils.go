@@ -7,6 +7,8 @@ import (
 	"myblogx/utils/markdown"
 	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -43,10 +45,12 @@ func validateChatBase(req *ToChatRequest) error {
 
 // marshalChatContent 负责把复杂消息体统一转成 JSON 字符串。
 // 当前模型只有一个 Content 字段，这里是图片/Markdown 的适配层。
-func marshalChatContent(v any) (string, error) {
+func marshalChatContent(logger *logrus.Logger, v any) (string, error) {
 	b, err := json.Marshal(v)
 	if err != nil {
-		chatLogger.Errorf("序列化聊天消息内容失败: %v", err)
+		if logger != nil {
+			logger.Errorf("序列化聊天消息内容失败: %v", err)
+		}
 		return "", err
 	}
 	return string(b), nil

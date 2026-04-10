@@ -49,7 +49,7 @@ func TestInsertCommentAndReplyMessage(t *testing.T) {
 	actionUser := createMessageUser(t, "action_user", "Alice", "/avatar/alice.png")
 	receiver := createMessageUser(t, "receiver_user", "Bob", "/avatar/bob.png")
 
-	message_service.InsertCommentMessage(message_service.ArticleCommentMessage{
+	message_service.InsertCommentMessage(testutil.DB(), testutil.Logger(), message_service.ArticleCommentMessage{
 		CommentID:    11,
 		Content:      "评论内容",
 		ReceiverID:   receiver.ID,
@@ -57,7 +57,7 @@ func TestInsertCommentAndReplyMessage(t *testing.T) {
 		ArticleID:    21,
 		ArticleTitle: "文章 A",
 	})
-	message_service.InsertReplyMessage(message_service.ArticleReplyMessage{
+	message_service.InsertReplyMessage(testutil.DB(), testutil.Logger(), message_service.ArticleReplyMessage{
 		CommentID:    12,
 		Content:      "回复内容",
 		ReceiverID:   receiver.ID,
@@ -127,8 +127,8 @@ func TestInsertDiggAndFavorMessagesDeduplicate(t *testing.T) {
 					ArticleID:    31,
 					ArticleTitle: "被点赞文章",
 				}
-				message_service.InsertArticleDiggMessage(content)
-				message_service.InsertArticleDiggMessage(content)
+				message_service.InsertArticleDiggMessage(testutil.DB(), testutil.Logger(), content)
+				message_service.InsertArticleDiggMessage(testutil.DB(), testutil.Logger(), content)
 			},
 		},
 		{
@@ -146,8 +146,8 @@ func TestInsertDiggAndFavorMessagesDeduplicate(t *testing.T) {
 					ArticleID:    32,
 					ArticleTitle: "评论所属文章",
 				}
-				message_service.InsertCommentDiggMessage(content)
-				message_service.InsertCommentDiggMessage(content)
+				message_service.InsertCommentDiggMessage(testutil.DB(), testutil.Logger(), content)
+				message_service.InsertCommentDiggMessage(testutil.DB(), testutil.Logger(), content)
 			},
 		},
 		{
@@ -161,8 +161,8 @@ func TestInsertDiggAndFavorMessagesDeduplicate(t *testing.T) {
 					ArticleID:    33,
 					ArticleTitle: "被收藏文章",
 				}
-				message_service.InsertArticleFavorMessage(content)
-				message_service.InsertArticleFavorMessage(content)
+				message_service.InsertArticleFavorMessage(testutil.DB(), testutil.Logger(), content)
+				message_service.InsertArticleFavorMessage(testutil.DB(), testutil.Logger(), content)
 			},
 		},
 	}
@@ -212,7 +212,7 @@ func TestInsertCommentMessageWithoutActionUserInfo(t *testing.T) {
 
 	receiver := createMessageUser(t, "receiver_only", "Receiver", "/avatar/receiver.png")
 
-	message_service.InsertCommentMessage(message_service.ArticleCommentMessage{
+	message_service.InsertCommentMessage(testutil.DB(), testutil.Logger(), message_service.ArticleCommentMessage{
 		CommentID:    51,
 		Content:      "缺失用户信息",
 		ReceiverID:   receiver.ID,
@@ -248,7 +248,7 @@ func TestInsertSystemMessage(t *testing.T) {
 		actionUser := createMessageUser(t, "system_action", "SystemAlice", "/avatar/system-alice.png")
 		receiver := createMessageUser(t, "system_receiver", "Receiver", "/avatar/receiver.png")
 
-		message_service.InsertSystemMessage(message_service.SystemMessage{
+		message_service.InsertSystemMessage(testutil.DB(), testutil.Logger(), message_service.SystemMessage{
 			ReceiverID:   receiver.ID,
 			ActionUserID: &actionUser.ID,
 			Content:      "系统通知内容",
@@ -287,7 +287,7 @@ func TestInsertSystemMessage(t *testing.T) {
 
 		receiver := createMessageUser(t, "system_receiver_only", "Receiver", "/avatar/receiver.png")
 
-		message_service.InsertSystemMessage(message_service.SystemMessage{
+		message_service.InsertSystemMessage(testutil.DB(), testutil.Logger(), message_service.SystemMessage{
 			ReceiverID: receiver.ID,
 			Content:    "纯系统消息",
 			LinkTitle:  "查看公告",
@@ -314,7 +314,7 @@ func TestInsertSystemMessage(t *testing.T) {
 	t.Run("缺少具体接收者时不创建消息", func(t *testing.T) {
 		setupMessageServiceEnv(t)
 
-		message_service.InsertSystemMessage(message_service.SystemMessage{
+		message_service.InsertSystemMessage(testutil.DB(), testutil.Logger(), message_service.SystemMessage{
 			ReceiverID: 0,
 			Content:    "无效系统消息",
 		})

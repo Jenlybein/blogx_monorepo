@@ -16,52 +16,55 @@ type BatchCounters struct {
 	DiggMap  map[ctype.ID]int
 }
 
-func SetCacheReply(commentID ctype.ID, increase int) error {
-	return set(ReplyCountCacheKey, commentID, increase)
+func SetCacheReply(deps redis_service.Deps, commentID ctype.ID, increase int) error {
+	return set(deps, ReplyCountCacheKey, commentID, increase)
 }
 
-func GetCacheReply(commentID ctype.ID) int {
-	return get(ReplyCountCacheKey, commentID)
+func GetCacheReply(deps redis_service.Deps, commentID ctype.ID) int {
+	return get(deps, ReplyCountCacheKey, commentID)
 }
 
-func DelCacheReply(commentID ctype.ID) error {
-	return del(ReplyCountCacheKey, commentID)
+func DelCacheReply(deps redis_service.Deps, commentID ctype.ID) error {
+	return del(deps, ReplyCountCacheKey, commentID)
 }
 
-func GetBatchCacheReply(commentIDs []ctype.ID) map[ctype.ID]int {
-	return getBatch(ReplyCountCacheKey, commentIDs)
+func GetBatchCacheReply(deps redis_service.Deps, commentIDs []ctype.ID) map[ctype.ID]int {
+	return getBatch(deps, ReplyCountCacheKey, commentIDs)
 }
 
-func GetAllCacheReply() map[ctype.ID]int {
-	return getAll(ReplyCountCacheKey)
+func GetAllCacheReply(deps redis_service.Deps) map[ctype.ID]int {
+	return getAll(deps, ReplyCountCacheKey)
 }
 
-func ClearAllCacheReply() error {
-	return redis_service.Client().Del(context.Background(), ReplyCountCacheKey).Err()
+func ClearAllCacheReply(deps redis_service.Deps) error {
+	if deps.Client == nil {
+		return nil
+	}
+	return deps.Client.Del(context.Background(), ReplyCountCacheKey).Err()
 }
 
-func SetCacheDigg(commentID ctype.ID, increase int) error {
-	return set(DiggCountCacheKey, commentID, increase)
+func SetCacheDigg(deps redis_service.Deps, commentID ctype.ID, increase int) error {
+	return set(deps, DiggCountCacheKey, commentID, increase)
 }
 
-func GetCacheDigg(commentID ctype.ID) int {
-	return get(DiggCountCacheKey, commentID)
+func GetCacheDigg(deps redis_service.Deps, commentID ctype.ID) int {
+	return get(deps, DiggCountCacheKey, commentID)
 }
 
-func DelCacheDigg(commentID ctype.ID) error {
-	return del(DiggCountCacheKey, commentID)
+func DelCacheDigg(deps redis_service.Deps, commentID ctype.ID) error {
+	return del(deps, DiggCountCacheKey, commentID)
 }
 
-func GetBatchCacheDigg(commentIDs []ctype.ID) map[ctype.ID]int {
-	return getBatch(DiggCountCacheKey, commentIDs)
+func GetBatchCacheDigg(deps redis_service.Deps, commentIDs []ctype.ID) map[ctype.ID]int {
+	return getBatch(deps, DiggCountCacheKey, commentIDs)
 }
 
-func GetBatchCounters(commentIDs []ctype.ID) BatchCounters {
+func GetBatchCounters(deps redis_service.Deps, commentIDs []ctype.ID) BatchCounters {
 	counters := BatchCounters{
 		ReplyMap: make(map[ctype.ID]int),
 		DiggMap:  make(map[ctype.ID]int),
 	}
-	if redis_service.Client() == nil || len(commentIDs) == 0 {
+	if deps.Client == nil || len(commentIDs) == 0 {
 		return counters
 	}
 
@@ -71,7 +74,7 @@ func GetBatchCounters(commentIDs []ctype.ID) BatchCounters {
 	}
 
 	ctx := context.Background()
-	pipe := redis_service.Client().Pipeline()
+	pipe := deps.Client.Pipeline()
 	defer pipe.Close()
 
 	replyCmd := pipe.HMGet(ctx, ReplyCountCacheKey, fields...)
@@ -90,30 +93,42 @@ func GetBatchCounters(commentIDs []ctype.ID) BatchCounters {
 	return counters
 }
 
-func GetAllCacheDigg() map[ctype.ID]int {
-	return getAll(DiggCountCacheKey)
+func GetAllCacheDigg(deps redis_service.Deps) map[ctype.ID]int {
+	return getAll(deps, DiggCountCacheKey)
 }
 
-func ClearAllCacheDigg() error {
-	return redis_service.Client().Del(context.Background(), DiggCountCacheKey).Err()
+func ClearAllCacheDigg(deps redis_service.Deps) error {
+	if deps.Client == nil {
+		return nil
+	}
+	return deps.Client.Del(context.Background(), DiggCountCacheKey).Err()
 }
 
-func set(key string, commentID ctype.ID, increase int) error {
-	return redis_service.Client().HIncrBy(context.Background(), key, commentID.String(), int64(increase)).Err()
+func set(deps redis_service.Deps, key string, commentID ctype.ID, increase int) error {
+	if deps.Client == nil {
+		return nil
+	}
+	return deps.Client.HIncrBy(context.Background(), key, commentID.String(), int64(increase)).Err()
 }
 
-func get(key string, commentID ctype.ID) int {
-	num, _ := redis_service.Client().HGet(context.Background(), key, commentID.String()).Int()
+func get(deps redis_service.Deps, key string, commentID ctype.ID) int {
+	if deps.Client == nil {
+		return 0
+	}
+	num, _ := deps.Client.HGet(context.Background(), key, commentID.String()).Int()
 	return num
 }
 
-func del(key string, commentID ctype.ID) error {
-	return redis_service.Client().HDel(context.Background(), key, commentID.String()).Err()
+func del(deps redis_service.Deps, key string, commentID ctype.ID) error {
+	if deps.Client == nil {
+		return nil
+	}
+	return deps.Client.HDel(context.Background(), key, commentID.String()).Err()
 }
 
-func getBatch(key string, commentIDs []ctype.ID) map[ctype.ID]int {
+func getBatch(deps redis_service.Deps, key string, commentIDs []ctype.ID) map[ctype.ID]int {
 	result := make(map[ctype.ID]int, len(commentIDs))
-	if len(commentIDs) == 0 {
+	if deps.Client == nil || len(commentIDs) == 0 {
 		return result
 	}
 
@@ -122,7 +137,7 @@ func getBatch(key string, commentIDs []ctype.ID) map[ctype.ID]int {
 		fields = append(fields, commentID.String())
 	}
 
-	values, err := redis_service.Client().HMGet(context.Background(), key, fields...).Result()
+	values, err := deps.Client.HMGet(context.Background(), key, fields...).Result()
 	if err != nil {
 		return result
 	}
@@ -130,8 +145,11 @@ func getBatch(key string, commentIDs []ctype.ID) map[ctype.ID]int {
 	return decodeBatchValues(commentIDs, values)
 }
 
-func getAll(key string) map[ctype.ID]int {
-	res, err := redis_service.Client().HGetAll(context.Background(), key).Result()
+func getAll(deps redis_service.Deps, key string) map[ctype.ID]int {
+	if deps.Client == nil {
+		return nil
+	}
+	res, err := deps.Client.HGetAll(context.Background(), key).Result()
 	if err != nil {
 		return nil
 	}

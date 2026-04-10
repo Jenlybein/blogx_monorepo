@@ -40,7 +40,7 @@ func (ProfileApi) UserBaseInfoView(c *gin.Context) {
 
 	viewCountDelta := 0
 	if claims := jwts.GetClaimsByGin(c); claims != nil && claims.UserID != 0 && claims.UserID != user.ID {
-		counted, err := user_service.StatRecordUserHomeView(user.ID, claims.UserID)
+		counted, err := user_service.StatRecordUserHomeView(user_service.DepsFromApp(app), user.ID, claims.UserID)
 		if err != nil {
 			res.FailWithError(err, c)
 			return
@@ -60,7 +60,7 @@ func (ProfileApi) UserBaseInfoView(c *gin.Context) {
 	}
 	relation := int8(0)
 	if claims := jwts.GetClaimsByGin(c); claims != nil {
-		relation = int8(follow_service.CalUserRelationship(claims.UserID, user.ID))
+		relation = int8(follow_service.CalUserRelationship(app.DB, claims.UserID, user.ID))
 	}
 
 	data := UserBaseInfoResponse{

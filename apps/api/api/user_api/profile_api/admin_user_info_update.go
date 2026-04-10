@@ -52,7 +52,7 @@ func (ProfileApi) AdminUserInfoUpdateView(c *gin.Context) {
 	}
 
 	if (cr.Role != nil && *cr.Role != userModel.Role) || (cr.Status != nil && *cr.Status != userModel.Status) {
-		if err = user_service.InvalidateUserAuthState(&userModel); err != nil {
+		if err = user_service.InvalidateUserAuthState(user_service.DepsFromApp(app), &userModel); err != nil {
 			res.FailWithMsg("用户信息更新成功，但会话失效处理失败", c)
 			return
 		}

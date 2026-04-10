@@ -8,6 +8,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/comment_service"
+	"myblogx/service/redis_service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,7 +24,7 @@ type CommentRootListResponse struct {
 
 func (CommentApi) CommentRootListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[CommentRootListRequest](c)
-	queryService := comment_service.NewQueryService(mustApp(c).DB)
+	queryService := comment_service.NewQueryService(mustApp(c).DB, redis_service.DepsFromGin(c))
 
 	var article models.ArticleModel
 	if err := mustApp(c).DB.Select("id").Take(&article, cr.ArticleID).Error; err != nil {

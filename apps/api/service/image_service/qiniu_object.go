@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"myblogx/conf"
 	"net/http"
 	"strings"
 	"sync"
@@ -25,13 +26,13 @@ var (
 	qiniuRuntimeInst *qiniuRuntime
 )
 
-func getQiniuRuntime() *qiniuRuntime {
+func getQiniuRuntime(q conf.QiNiu) *qiniuRuntime {
 	qiniuRuntimeMu.Lock()
 	defer qiniuRuntimeMu.Unlock()
 
-	confKey := fmt.Sprintf("%s|%s", imageQiNiuConfig.AccessKey, imageQiNiuConfig.SecretKey)
+	confKey := fmt.Sprintf("%s|%s", q.AccessKey, q.SecretKey)
 	if qiniuRuntimeInst == nil || qiniuRuntimeKey != confKey {
-		mac := auth.New(imageQiNiuConfig.AccessKey, imageQiNiuConfig.SecretKey)
+		mac := auth.New(q.AccessKey, q.SecretKey)
 		cfg := &storage.Config{UseHTTPS: true}
 		qiniuRuntimeInst = &qiniuRuntime{
 			mac:       mac,
@@ -45,40 +46,40 @@ func getQiniuRuntime() *qiniuRuntime {
 	return qiniuRuntimeInst
 }
 
-func VerifyQiniuCallback(req *http.Request) (bool, error) {
-	return getQiniuRuntime().mac.VerifyCallback(req)
+func VerifyQiniuCallback(deps Deps, req *http.Request) (bool, error) {
+	return getQiniuRuntime(deps.QiNiu).mac.VerifyCallback(req)
 }
 
-func StatObject(bucket, key string) (*storage.FileInfo, error) {
-	info, err := getQiniuRuntime().bucketMgr.Stat(bucket, key)
+func StatObject(deps Deps, bucket, key string) (*storage.FileInfo, error) {
+	info, err := getQiniuRuntime(deps.QiNiu).bucketMgr.Stat(bucket, key)
 	if err != nil {
 		return nil, err
 	}
 	return &info, nil
 }
 
-func DeleteObject(bucket, key string) error {
-	return getQiniuRuntime().bucketMgr.Delete(bucket, key)
+func DeleteObject(deps Deps, bucket, key string) error {
+	return getQiniuRuntime(deps.QiNiu).bucketMgr.Delete(bucket, key)
 }
 
-func ImageInfoObject(bucket, key string) (*ImageInfoResult, error) {
+func ImageInfoObject(deps Deps, bucket, key string) (*ImageInfoResult, error) {
 	_ = bucket
 
-	q := imageQiNiuConfig
+	q := deps.QiNiu
 	if strings.TrimSpace(q.Uri) == "" {
 		return nil, errors.New("七牛下载域名未配置")
 	}
 
 	domain := strings.TrimRight(strings.TrimSpace(q.Uri), "/")
 	deadline := time.Now().Add(3 * time.Minute).Unix()
-	downloadURL := storage.MakePrivateURLv2(getQiniuRuntime().mac, domain, key, deadline)
+	downloadURL := storage.MakePrivateURLv2(getQiniuRuntime(q).mac, domain, key, deadline)
 	if strings.Contains(downloadURL, "?") {
 		downloadURL += "&imageInfo"
 	} else {
 		downloadURL += "?imageInfo"
 	}
 
-	resp, err := getQiniuRuntime().httpClient.Get(downloadURL)
+	resp, err := getQiniuRuntime(q).httpClient.Get(downloadURL)
 	if err != nil {
 		return nil, err
 	}
@@ -98,8 +99,8 @@ func ImageInfoObject(bucket, key string) (*ImageInfoResult, error) {
 	return &result, nil
 }
 
-func ObjectURL(key string) string {
-	domain := strings.TrimRight(strings.TrimSpace(imageQiNiuConfig.Uri), "/")
+func ObjectURL(deps Deps, key string) string {
+	domain := strings.TrimRight(strings.TrimSpace(deps.QiNiu.Uri), "/")
 	if domain == "" {
 		return ""
 	}

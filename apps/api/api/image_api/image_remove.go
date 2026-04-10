@@ -29,7 +29,7 @@ func (ImageApi) ImageRemoveView(c *gin.Context) {
 	}
 
 	for _, item := range list {
-		if err := image_service.DeleteObject(item.Bucket, item.ObjectKey); err != nil {
+		if err := image_service.DeleteObject(image_service.DepsFromApp(app), item.Bucket, item.ObjectKey); err != nil {
 			res.FailWithMsg(fmt.Sprintf("删除七牛对象失败: %v", err), c)
 			return
 		}

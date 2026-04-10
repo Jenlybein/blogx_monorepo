@@ -25,7 +25,7 @@ type articleSyncMetric struct {
 }
 
 // SyncArticle 定时任务入口：把 Redis 增量同步回数据库。
-func SyncArticle() {
+func (s *CronService) SyncArticle() {
 	metrics := []articleSyncMetric{
 		{name: "收藏数", activeKey: string(redis_article.ArticleCacheFavorite), syncKey: "article_favorite:syncing", column: "favor_count"},
 		{name: "点赞数", activeKey: string(redis_article.ArticleCacheDigg), syncKey: "article_digg:syncing", column: "digg_count"},
@@ -33,29 +33,29 @@ func SyncArticle() {
 		{name: "评论数", activeKey: string(redis_article.ArticleCacheComment), syncKey: "article_comment:syncing", column: "comment_count"},
 	}
 
-	runLockedSyncTask("同步文章任务", articleSyncLockKey, articleSyncLockTTL, func(ctx context.Context) (int, error) {
+	s.runLockedSyncTask("同步文章任务", articleSyncLockKey, articleSyncLockTTL, func(ctx context.Context) (int, error) {
 		totalAffected := 0
 		for _, metric := range metrics {
 			metric := metric
-			affected, err := syncHashCounterMetric(ctx, hashCounterSyncConfig{
+			affected, err := s.syncHashCounterMetric(ctx, hashCounterSyncConfig{
 				taskName:   "同步文章任务",
 				metricName: metric.name,
 				activeKey:  metric.activeKey,
 				syncKey:    metric.syncKey,
 				idName:     "article_id",
 				applyDelta: func(articleID ctype.ID, delta int) error {
-					return applyArticleDelta(metric.column, articleID, delta)
+					return s.applyArticleDelta(metric.column, articleID, delta)
 				},
 			})
 			if err != nil {
-				if cronLogger != nil {
-					cronLogger.Errorf("同步文章任务同步%s失败: Redis键=%s 错误=%v", metric.name, metric.activeKey, err)
+				if s.log != nil {
+					s.log.Errorf("同步文章任务同步%s失败: Redis键=%s 错误=%v", metric.name, metric.activeKey, err)
 				}
 				continue
 			}
 			if affected > 0 {
-				if cronLogger != nil {
-					cronLogger.Infof("同步文章任务同步%s成功: Redis键=%s 影响数量=%d", metric.name, metric.activeKey, affected)
+				if s.log != nil {
+					s.log.Infof("同步文章任务同步%s成功: Redis键=%s 影响数量=%d", metric.name, metric.activeKey, affected)
 				}
 			}
 			totalAffected += affected
@@ -65,12 +65,12 @@ func SyncArticle() {
 }
 
 // applyArticleDelta 对单篇文章执行增量更新。
-func applyArticleDelta(column string, articleID ctype.ID, delta int) error {
+func (s *CronService) applyArticleDelta(column string, articleID ctype.ID, delta int) error {
 	// 使用 CASE 防止减到负数（如点赞/收藏取消过多）。
 	expr := fmt.Sprintf("CASE WHEN %s + ? < 0 THEN 0 ELSE %s + ? END", column, column)
 
 	// UpdateColumn 使用数据库表达式原子更新，避免先读后写竞争。
-	db := cronDB.Model(&models.ArticleModel{}).
+	db := s.db.Model(&models.ArticleModel{}).
 		Where("id = ?", articleID).
 		UpdateColumn(column, gorm.Expr(expr, delta, delta))
 
@@ -80,8 +80,8 @@ func applyArticleDelta(column string, articleID ctype.ID, delta int) error {
 	}
 
 	// 如果文章不存在，记录告警但不中断整批任务。
-	if db.RowsAffected == 0 && cronLogger != nil {
-		cronLogger.Warnf("同步文章任务更新行不存在: 文章ID=%d 字段=%s 增量=%d", articleID, column, delta)
+	if db.RowsAffected == 0 && s.log != nil {
+		s.log.Warnf("同步文章任务更新行不存在: 文章ID=%d 字段=%s 增量=%d", articleID, column, delta)
 	}
 	return nil
 }

@@ -4,18 +4,11 @@ import (
 	"fmt"
 	"io"
 	"myblogx/buildinfo"
-	"myblogx/common"
 	"myblogx/conf"
 	blogmodels "myblogx/models"
 	"myblogx/models/ctype"
-	"myblogx/service/ai_service"
 	"myblogx/service/db_service"
-	"myblogx/service/email_service"
-	"myblogx/service/log_service"
-	"myblogx/service/message_service"
-	"myblogx/service/redis_service"
 	"myblogx/service/user_service"
-	"myblogx/utils/ipmeta"
 	"myblogx/utils/jwts"
 	"net/http"
 	"path/filepath"
@@ -77,16 +70,6 @@ func configureModules() {
 	if testConfig == nil || testLogger == nil {
 		return
 	}
-	log_service.Configure(testConfig.Log, testConfig.System, testConfig.ClickHouse, testLogger, nil)
-	email_service.Configure(testConfig.Email)
-	common.Configure(testDB)
-	blogmodels.Configure(testConfig.ES.Index)
-	user_service.Configure(testConfig.Jwt, testConfig.System.Env, testDB, testLogger)
-	message_service.Configure(testDB, testLogger)
-	ai_service.Configure(testDB, testLogger)
-	redis_service.Configure(testRedis, testLogger)
-	jwts.Configure(testConfig.Jwt)
-	ipmeta.Configure(testLogger)
 }
 
 func Config() *conf.Config {
@@ -297,7 +280,7 @@ func IssueAccessToken(t *testing.T, user *blogmodels.UserModel) string {
 		t.Fatalf("创建测试会话失败: %v", err)
 	}
 
-	token, err := jwts.GetToken(jwts.Claims{
+	token, err := jwts.GetToken(testConfig.Jwt, jwts.Claims{
 		UserID:       user.ID,
 		SessionID:    session.ID,
 		TokenVersion: effectiveTokenVersion(user),

@@ -54,7 +54,7 @@ func LogMiddleware(c *gin.Context) {
 	}
 
 	// 获取运行时日志实例并绑定字段
-	entry := log_service.RuntimeEntry(fields)
+	entry := log_service.RuntimeEntry(log_service.DepsFromGin(c), fields)
 	switch {
 	case c.Writer.Status() >= 500:
 		entry.Error("请求执行失败")

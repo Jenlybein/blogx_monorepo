@@ -14,7 +14,11 @@ import (
 
 // StatRecordUserHomeView 记录一次“登录用户访问他人主页”的去重浏览。
 // 返回 counted=true 表示本次访问真正让 ViewCount +1。
-func StatRecordUserHomeView(userID, viewerUserID ctype.ID) (counted bool, err error) {
+func StatRecordUserHomeView(deps Deps, userID, viewerUserID ctype.ID) (counted bool, err error) {
+	if deps.DB == nil {
+		return false, ErrAuthInvalid
+	}
+
 	if userID.IsZero() || viewerUserID.IsZero() || userID == viewerUserID {
 		return false, nil
 	}
@@ -24,9 +28,11 @@ func StatRecordUserHomeView(userID, viewerUserID ctype.ID) (counted bool, err er
 
 	// Redis 先做当天去重挡板；Redis 不可用时降级到数据库唯一索引兜底。
 	reservedByRedis := false
-	marked, markErr := redis_user.TryMarkUserHomeViewed(userID, viewerUserID, now)
+	marked, markErr := redis_user.TryMarkUserHomeViewed(deps.Redis, userID, viewerUserID, now)
 	if markErr != nil {
-		userLogger.Warnf("记录用户主页访问时 Redis 判重失败，降级走数据库兜底: user_id=%d viewer_user_id=%d err=%v", userID, viewerUserID, markErr)
+		if deps.Logger != nil {
+			deps.Logger.Warnf("记录用户主页访问时 Redis 判重失败，降级走数据库兜底: user_id=%d viewer_user_id=%d err=%v", userID, viewerUserID, markErr)
+		}
 	} else {
 		if !marked {
 			return false, nil
@@ -34,7 +40,7 @@ func StatRecordUserHomeView(userID, viewerUserID ctype.ID) (counted bool, err er
 		reservedByRedis = true
 	}
 
-	err = userDB.Transaction(func(tx *gorm.DB) error {
+	err = deps.DB.Transaction(func(tx *gorm.DB) error {
 		row := models.UserViewDailyModel{
 			UserID:       userID,
 			ViewerUserID: viewerUserID,
@@ -65,8 +71,10 @@ func StatRecordUserHomeView(userID, viewerUserID ctype.ID) (counted bool, err er
 		return nil
 	})
 	if err != nil && reservedByRedis {
-		if rollbackErr := redis_user.RollbackUserHomeViewed(userID, viewerUserID, now); rollbackErr != nil {
-			userLogger.Warnf("回滚用户主页访问 Redis 判重失败: user_id=%d viewer_user_id=%d err=%v", userID, viewerUserID, rollbackErr)
+		if rollbackErr := redis_user.RollbackUserHomeViewed(deps.Redis, userID, viewerUserID, now); rollbackErr != nil {
+			if deps.Logger != nil {
+				deps.Logger.Warnf("回滚用户主页访问 Redis 判重失败: user_id=%d viewer_user_id=%d err=%v", userID, viewerUserID, rollbackErr)
+			}
 		}
 	}
 	return counted, err

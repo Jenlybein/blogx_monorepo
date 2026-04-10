@@ -1,8 +1,10 @@
 package service_test
 
 import (
+	"myblogx/appctx"
 	"myblogx/conf"
 	"myblogx/models/enum"
+	"myblogx/service/redis_service"
 	redis_jwt "myblogx/service/redis_service/redis_jwt"
 	"myblogx/test/testutil"
 	"myblogx/utils/jwts"
@@ -42,8 +44,10 @@ func TestTokenBlacklistFlow(t *testing.T) {
 			Issuer: "test",
 		},
 	})
+	jwtConf := testutil.Config().Jwt
+	deps := redis_service.Deps{Client: testutil.Redis(), Logger: testutil.Logger()}
 
-	token, err := jwts.GetToken(jwts.Claims{
+	token, err := jwts.GetToken(jwtConf, jwts.Claims{
 		UserID:   1,
 		Role:     enum.RoleUser,
 		Username: "u1",
@@ -52,8 +56,8 @@ func TestTokenBlacklistFlow(t *testing.T) {
 		t.Fatalf("生成 token 失败: %v", err)
 	}
 
-	redis_jwt.SetTokenBlack(token, redis_jwt.UserBlackType)
-	blackType, ok := redis_jwt.HasTokenBlack(token)
+	redis_jwt.SetTokenBlack(deps, jwtConf, token, redis_jwt.UserBlackType)
+	blackType, ok := redis_jwt.HasTokenBlack(deps, token)
 	if ok {
 		t.Fatalf("黑名单 token 应返回 ok=false: %s", blackType.String())
 	}
@@ -62,7 +66,7 @@ func TestTokenBlacklistFlow(t *testing.T) {
 	}
 
 	// 黑名单不存在时应允许通过
-	blackType, ok = redis_jwt.HasTokenBlack("not-exist-token")
+	blackType, ok = redis_jwt.HasTokenBlack(deps, "not-exist-token")
 	if !ok {
 		t.Fatal("不存在黑名单的 token 应返回 ok=true")
 	}
@@ -80,8 +84,10 @@ func TestHasTokenBlackByGin(t *testing.T) {
 			Issuer: "test",
 		},
 	})
+	jwtConf := testutil.Config().Jwt
+	deps := redis_service.Deps{Client: testutil.Redis(), Logger: testutil.Logger()}
 
-	token, err := jwts.GetToken(jwts.Claims{
+	token, err := jwts.GetToken(jwtConf, jwts.Claims{
 		UserID:   2,
 		Role:     enum.RoleUser,
 		Username: "u2",
@@ -89,7 +95,7 @@ func TestHasTokenBlackByGin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("生成 token 失败: %v", err)
 	}
-	redis_jwt.SetTokenBlack(token, redis_jwt.AdminBlackType)
+	redis_jwt.SetTokenBlack(deps, jwtConf, token, redis_jwt.AdminBlackType)
 
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
@@ -97,6 +103,17 @@ func TestHasTokenBlackByGin(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	c.Request = req
+	appctx.WithGin(c, appctx.New(
+		"test",
+		"config/settings.yaml",
+		testutil.Config(),
+		testutil.Logger(),
+		testutil.DB(),
+		testutil.Redis(),
+		nil,
+		testutil.ESClient(),
+		testutil.ImageCaptchaStore(),
+	))
 
 	if _, ok := redis_jwt.HasTokenBlackByGin(c); ok {
 		t.Fatal("黑名单 token 通过 Header 检查时应返回 ok=false")

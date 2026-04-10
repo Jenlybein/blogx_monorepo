@@ -3,26 +3,27 @@ package image_ref_river_service
 import (
 	"strings"
 
+	"myblogx/conf"
 	"myblogx/models"
 	"myblogx/models/enum/image_ref_enum"
 
 	"gorm.io/gorm"
 )
 
-func RebuildArticleRefs(tx *gorm.DB, article *models.ArticleModel) error {
+func RebuildArticleRefs(tx *gorm.DB, qiNiuConfig conf.QiNiu, article *models.ArticleModel) error {
 	if tx == nil {
-		tx = imageRefDB
+		return gorm.ErrInvalidDB
 	}
-	return replaceOwnerRefs(tx, image_ref_enum.RefTypeArticle, article.ID, parseArticleRefCandidates(article))
+	return replaceOwnerRefs(tx, qiNiuConfig, image_ref_enum.RefTypeArticle, article.ID, parseArticleRefCandidates(article))
 }
 
-func RebuildArticleRefsByRow(snapshot rowSnapshot) error {
+func RebuildArticleRefsByRow(tx *gorm.DB, qiNiuConfig conf.QiNiu, snapshot rowSnapshot) error {
 	articleID, err := snapshot.ID()
 	if err != nil {
 		return err
 	}
 	if snapshot.IsDeleted() {
-		return DeleteOwnerRefs(imageRefDB, image_ref_enum.RefTypeArticle, articleID)
+		return DeleteOwnerRefs(tx, image_ref_enum.RefTypeArticle, articleID)
 	}
 	content, err := snapshot.RequireString("content")
 	if err != nil {
@@ -32,7 +33,7 @@ func RebuildArticleRefsByRow(snapshot rowSnapshot) error {
 	if err != nil {
 		return err
 	}
-	return RebuildArticleRefs(imageRefDB, &models.ArticleModel{
+	return RebuildArticleRefs(tx, qiNiuConfig, &models.ArticleModel{
 		Model:   models.Model{ID: articleID},
 		Content: content,
 		Cover:   cover,

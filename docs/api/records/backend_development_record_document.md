@@ -1845,3 +1845,83 @@ Worker 收到一条消息：
 2. 请求依赖必须从 `AppContext` 获取，不允许隐式兜底。
 3. 测试依赖统一通过 `testutil` 容器装配，不再直接写全局单例。
 
+## 本轮后端修复记录 5（2026-04-10）
+
+### 修复目标
+
+继续从“去全局”推进到“去包级 Configure 单例”，把已经改完的业务链路升级为显式依赖注入，进一步收窄软边界。
+
+### 本轮新增完成
+
+- 配置型模块改造为显式传参：
+  - `utils/jwts` 去掉 `Configure`，改为 `GetToken(jwtConfig, ...)`、`ParseToken(jwtConfig, ...)`。
+  - `service/email_service` 去掉 `Configure`，发送邮件统一显式传 `conf.Email`。
+  - `service/qq_service` 去掉 `Configure`，QQ 登录能力显式传 `conf.QQ`。
+- 启动与命令链路：
+  - `flags` 去掉包级 `Configure`，改为 `flags.Run(op, flags.Deps{...})`。
+  - `models` 去掉 ES 索引 `Configure`，改为 `models.ResolveArticleESIndex(...)`。
+- 后台同步链路：
+  - `river_service` 去掉 `Configure`，改为 `NewRiver(config, logger)`。
+  - `image_ref_river_service` 去掉 `Configure`，改为 `NewRiver(config, qiNiuConfig, logger, db)`。
+- 高频写路径：
+  - `chat_service` 去掉 `Configure/chatDB/chatLogger` 包级依赖，消息写入改为显式传 `db/logger`。
+  - `message_service` 去掉 `Configure/messageDB/messageLogger` 包级依赖，消息写入改为显式传 `db/logger`。
+  - `ai_service` 去掉 `Configure/Ready/DB/Logger` 包级依赖，DB 相关能力改为显式传 `db/logger`。
+- 搜索读取：
+  - `search_service.SearchArticles/SearchArticleList` 显式接收 ES 索引参数，不再依赖模型包级索引状态。
+
+### 本轮验证结果
+
+- 编译校验：`cd apps/api && go test -p 1 ./... -run ^$` 通过。
+- 全局引用校验：`rg -n "\\bglobal\\." apps/api --glob "!**/*_test.go"` 结果为 0。
+- `global` 导入校验：仅架构守卫测试 `test/architecture/no_global_refs_test.go` 保留规则扫描逻辑。
+
+### 现状与剩余
+
+当前 `apps/api` 已完成“global.* 清零 + 大部分核心业务模块显式注入”。
+仍保留包级 `Configure` 的主要是基础设施层模块：
+
+1. `service/es_service`
+2. `service/image_service`
+3. `service/log_service`
+4. `service/redis_service`
+5. `service/cron_service`
+
+下一步建议按“基础设施 DI 化”专项推进，上述 5 个模块逐一改成构造注入/参数注入后，再加架构测试限制新增 `Configure`。
+
+## 本轮后端修复记录 6（2026-04-10）
+
+### 修复目标
+
+把上一轮剩余的基础设施遗留继续收口，达成“`global.*` 清零 + `Configure` 清零 + 全链路显式依赖注入”。
+
+### 本轮新增完成
+
+- Redis 注入全面收口：
+  - `redis_service` 根包统一 `Deps{Client, Logger}`。
+  - `redis_article/redis_comment/redis_tag/redis_email/redis_jwt/redis_user/redis_chat/redis_image/redis_ws_ticket` 调用链已全部改为显式传 `deps`。
+  - API、middleware、service、测试已同步升级。
+- 鉴权与搜索链路同步升级：
+  - `user_service` 鉴权黑名单检查显式注入 Redis 依赖。
+  - `search_service.SearchArticles/SearchArticleList` 统一显式接收 `redisDeps + esClient + index`，调用方全部补齐。
+- 模型层副作用收敛：
+  - `FavoriteModel`、`TagModel` 的 Redis 副作用从 Model Hook 移除，避免模型层隐式依赖运行时容器。
+- `image_service` 基础设施彻底 DI 化（本轮关键）：
+  - 删除 `image_service.Configure(...)`。
+  - 新增 `image_service.Deps`、`DepsFromApp(...)`、`DepsFromGin(...)`。
+  - 上传任务、回调、审核、七牛对象操作全部切为显式 `deps` 入参。
+  - `cmd/server/main.go` 不再调用 `image_service.Configure(...)`。
+
+### 本轮验证
+
+在 `apps/api` 目录执行：
+
+- `go build ./...`：通过
+- `go test -p 1 ./... -run ^$`：通过
+- `rg -n "\\bglobal\\." apps/api --glob "!**/*_test.go"`：0 处
+- `rg -n "\\bfunc Configure\\(" apps/api --glob "!**/*_test.go"`：0 处
+
+### 当前状态
+
+`apps/api` 目前已达到“主代码与测试代码统一显式依赖注入”的终态基线；`global` 包仅保留空壳注释文件，作为禁用提醒，不再承载业务依赖。
+

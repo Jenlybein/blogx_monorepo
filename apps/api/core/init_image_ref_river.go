@@ -11,8 +11,7 @@ func InitImageRefRiver(ctx *appctx.AppContext) {
 		return
 	}
 
-	image_ref_river_service.Configure(ctx.Config.ImageRefRiver, ctx.Config.QiNiu, ctx.Logger, ctx.DB)
-	r, err := image_ref_river_service.NewRiver()
+	r, err := image_ref_river_service.NewRiver(ctx.Config.ImageRefRiver, ctx.Config.QiNiu, ctx.Logger, ctx.DB)
 	if err != nil {
 		ctx.Logger.Fatal(err)
 	}

@@ -3,10 +3,11 @@ package flags
 import (
 	"myblogx/models"
 
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
-func FlagDB(db *gorm.DB) {
+func FlagDB(db *gorm.DB, logger *logrus.Logger) {
 	err := db.AutoMigrate(
 		&models.UserModel{},
 		&models.UserConfModel{},
@@ -37,7 +38,9 @@ func FlagDB(db *gorm.DB) {
 		&models.ChatMsgUserStateModel{},
 	)
 	if err != nil {
-		flagLogger.Error("数据库迁移失败", err)
+		if logger != nil {
+			logger.Error("数据库迁移失败", err)
+		}
 		return
 	}
 	// if db.Migrator().HasTable("image_upload_task_models") {
@@ -45,5 +48,7 @@ func FlagDB(db *gorm.DB) {
 	// 		flagLogger.Errorf("删除旧图片上传任务表失败: %v", err)
 	// 	}
 	// }
-	flagLogger.Info("数据库迁移成功")
+	if logger != nil {
+		logger.Info("数据库迁移成功")
+	}
 }

@@ -19,8 +19,8 @@ type DateCountItem struct {
 }
 
 // SetFlow 写入站点流量
-func SetFlow() {
-	if redis_service.Client() == nil {
+func SetFlow(deps redis_service.Deps) {
+	if deps.Client == nil {
 		return
 	}
 
@@ -28,41 +28,41 @@ func SetFlow() {
 	now := time.Now()
 	today := now.Format("2006-01-02")
 
-	pipe := redis_service.Client().TxPipeline()
+	pipe := deps.Client.TxPipeline()
 	pipe.IncrBy(ctx, siteFlowTotalKey, 1)
 	pipe.HIncrBy(ctx, siteFlowDailyKey, today, 1)
 
 	if _, err := pipe.Exec(ctx); err != nil {
-		if redis_service.Logger() != nil {
-			redis_service.Logger().Errorf("站点流量写入失败: %v", err)
+		if deps.Logger != nil {
+			deps.Logger.Errorf("站点流量写入失败: %v", err)
 		}
 		return
 	}
-	pruneExpiredDailyFlow(now)
+	pruneExpiredDailyFlow(deps, now)
 }
 
 // GetFlow 读取站点流量
-func GetFlow() int {
-	if redis_service.Client() == nil {
+func GetFlow(deps redis_service.Deps) int {
+	if deps.Client == nil {
 		return 0
 	}
-	num, _ := redis_service.Client().Get(context.Background(), siteFlowTotalKey).Int()
+	num, _ := deps.Client.Get(context.Background(), siteFlowTotalKey).Int()
 	return num
 }
 
 // GetRecentFlow 获取最近 days 天的站点流量
-func GetRecentFlow(days int) []DateCountItem {
-	if redis_service.Client() == nil || days <= 0 {
+func GetRecentFlow(deps redis_service.Deps, days int) []DateCountItem {
+	if deps.Client == nil || days <= 0 {
 		return nil
 	}
 
 	now := time.Now()
-	pruneExpiredDailyFlow(now)
+	pruneExpiredDailyFlow(deps, now)
 
-	values, err := redis_service.Client().HGetAll(context.Background(), siteFlowDailyKey).Result()
+	values, err := deps.Client.HGetAll(context.Background(), siteFlowDailyKey).Result()
 	if err != nil {
-		if redis_service.Logger() != nil {
-			redis_service.Logger().Errorf("读取站点流量失败: %v", err)
+		if deps.Logger != nil {
+			deps.Logger.Errorf("读取站点流量失败: %v", err)
 		}
 		return nil
 	}
@@ -81,15 +81,15 @@ func GetRecentFlow(days int) []DateCountItem {
 }
 
 // pruneExpiredDailyFlow 清理过期的站点流量
-func pruneExpiredDailyFlow(now time.Time) {
-	if redis_service.Client() == nil {
+func pruneExpiredDailyFlow(deps redis_service.Deps, now time.Time) {
+	if deps.Client == nil {
 		return
 	}
 
-	keys, err := redis_service.Client().HKeys(context.Background(), siteFlowDailyKey).Result()
+	keys, err := deps.Client.HKeys(context.Background(), siteFlowDailyKey).Result()
 	if err != nil {
-		if redis_service.Logger() != nil {
-			redis_service.Logger().Errorf("读取站点流量日期失败: %v", err)
+		if deps.Logger != nil {
+			deps.Logger.Errorf("读取站点流量日期失败: %v", err)
 		}
 		return
 	}
@@ -103,9 +103,9 @@ func pruneExpiredDailyFlow(now time.Time) {
 	for _, date := range expiredDates {
 		fields = append(fields, date)
 	}
-	if err := redis_service.Client().HDel(context.Background(), siteFlowDailyKey, fields...).Err(); err != nil {
-		if redis_service.Logger() != nil {
-			redis_service.Logger().Errorf("清理过期站点流量失败: %v", err)
+	if err := deps.Client.HDel(context.Background(), siteFlowDailyKey, fields...).Err(); err != nil {
+		if deps.Logger != nil {
+			deps.Logger.Errorf("清理过期站点流量失败: %v", err)
 		}
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"myblogx/models/enum"
 	"myblogx/service/message_service"
 	"myblogx/service/read_service"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_article"
 	"myblogx/service/redis_service/redis_comment"
 	"myblogx/service/site_service"
@@ -103,7 +104,7 @@ func (CommentApi) CommentCreateView(c *gin.Context) {
 		}
 
 		// 给文章创作者发送系统通知
-		go message_service.InsertCommentMessage(message_service.ArticleCommentMessage{
+		go message_service.InsertCommentMessage(db, logger, message_service.ArticleCommentMessage{
 			CommentID:    model.ID,
 			Content:      cr.Content,
 			ReceiverID:   article.AuthorID,
@@ -114,7 +115,7 @@ func (CommentApi) CommentCreateView(c *gin.Context) {
 
 		// 给回复人发送系统通知
 		if rootCommentID != 0 {
-			go message_service.InsertReplyMessage(message_service.ArticleReplyMessage{
+			go message_service.InsertReplyMessage(db, logger, message_service.ArticleReplyMessage{
 				CommentID:    model.ID,
 				Content:      cr.Content,
 				ReceiverID:   replyComment.UserID,
@@ -125,11 +126,11 @@ func (CommentApi) CommentCreateView(c *gin.Context) {
 		}
 
 		// 只有已发布评论才计入前台计数
-		if err := redis_article.SetCacheComment(cr.ArticleID, 1); err != nil {
+		if err := redis_article.SetCacheComment(redis_service.DepsFromGin(c), cr.ArticleID, 1); err != nil {
 			logger.Errorf("写入评论计数缓存失败: 文章ID=%d 错误=%v", cr.ArticleID, err)
 		}
 		if rootCommentID != 0 {
-			if err := redis_comment.SetCacheReply(rootCommentID, 1); err != nil {
+			if err := redis_comment.SetCacheReply(redis_service.DepsFromGin(c), rootCommentID, 1); err != nil {
 				logger.Errorf("写入回复数缓存失败: 根评论ID=%d 错误=%v", rootCommentID, err)
 			}
 		}

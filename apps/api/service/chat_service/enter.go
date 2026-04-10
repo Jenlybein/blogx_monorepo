@@ -1,12 +1,14 @@
 package chat_service
 
 import (
+	"errors"
 	"time"
 
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/chat_msg_enum"
 
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
@@ -23,7 +25,10 @@ type ToChatRequest struct {
 	MsgStatus  chat_msg_enum.MsgStatus
 }
 
-func ToChat(req ToChatRequest) (*models.ChatMsgModel, error) {
+func ToChat(db *gorm.DB, logger *logrus.Logger, req ToChatRequest) (*models.ChatMsgModel, error) {
+	if db == nil {
+		return nil, errors.New("db is required")
+	}
 	// 基础校验
 	if err := validateChatBase(&req); err != nil {
 		return nil, err
@@ -33,7 +38,7 @@ func ToChat(req ToChatRequest) (*models.ChatMsgModel, error) {
 	sessionID := buildSessionID(req.SenderID, req.ReceiverID)
 
 	var msg *models.ChatMsgModel
-	err := chatDB.Transaction(func(tx *gorm.DB) error {
+	err := db.Transaction(func(tx *gorm.DB) error {
 		// 会话查找或创建
 		if err := ensureChatSessions(tx, req, sessionID); err != nil {
 			return err
@@ -51,7 +56,9 @@ func ToChat(req ToChatRequest) (*models.ChatMsgModel, error) {
 		}
 
 		if err := tx.Create(msg).Error; err != nil {
-			chatLogger.Errorf("创建聊天消息失败: %v", err)
+			if logger != nil {
+				logger.Errorf("创建聊天消息失败: %v", err)
+			}
 			return err
 		}
 

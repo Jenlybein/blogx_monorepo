@@ -3,6 +3,8 @@ package redis_jwt
 import (
 	"context"
 	"fmt"
+	"myblogx/appctx"
+	"myblogx/conf"
 	"myblogx/service/redis_service"
 	"myblogx/utils/jwts"
 	"strconv"
@@ -48,18 +50,18 @@ func BlackTypeFromRedisValue(str string) (BlackType, error) {
 }
 
 // SetTokenBlack 将 token 放入 Redis 的黑名单中。
-func SetTokenBlack(token string, blackType BlackType) {
-	if redis_service.Client() == nil {
+func SetTokenBlack(deps redis_service.Deps, jwtConfig conf.Jwt, token string, blackType BlackType) {
+	if deps.Client == nil {
 		return
 	}
 
 	key := fmt.Sprintf("token_blacklist_%s", token)
 
 	// 获取 token 原本的过期时间
-	claims, err := jwts.ParseToken(token)
+	claims, err := jwts.ParseToken(jwtConfig, token)
 	if err != nil || claims == nil {
-		if redis_service.Logger() != nil {
-			redis_service.Logger().Errorf("将令牌放入黑名单时解析失败: 错误=%v", err)
+		if deps.Logger != nil {
+			deps.Logger.Errorf("将令牌放入黑名单时解析失败: 错误=%v", err)
 		}
 		return
 	}
@@ -67,43 +69,48 @@ func SetTokenBlack(token string, blackType BlackType) {
 	// 计算 token 剩余过期时间
 	expire := claims.ExpiresAt - time.Now().Unix()
 	if expire <= 0 {
-		if redis_service.Logger() != nil {
-			redis_service.Logger().Errorf("令牌已过期，无法放入黑名单")
+		if deps.Logger != nil {
+			deps.Logger.Errorf("令牌已过期，无法放入黑名单")
 		}
 		return
 	}
 
-	_, err = redis_service.Client().Set(context.Background(), key, blackType.RedisValue(), time.Duration(expire)*time.Second).Result()
+	_, err = deps.Client.Set(context.Background(), key, blackType.RedisValue(), time.Duration(expire)*time.Second).Result()
 	if err != nil {
-		if redis_service.Logger() != nil {
-			redis_service.Logger().Errorf("将令牌放入黑名单时出错: 错误=%v", err)
+		if deps.Logger != nil {
+			deps.Logger.Errorf("将令牌放入黑名单时出错: 错误=%v", err)
 		}
 		return
 	}
 }
 
+func SetTokenBlackByGin(c *gin.Context, token string, blackType BlackType) {
+	ctx := appctx.MustFromGin(c)
+	SetTokenBlack(redis_service.DepsFromApp(ctx), ctx.Config.Jwt, token, blackType)
+}
+
 // HasTokenBlack 检查 token 是否在 Redis 的黑名单中。
-func HasTokenBlack(token string) (blackType BlackType, ok bool) {
-	if redis_service.Client() == nil {
+func HasTokenBlack(deps redis_service.Deps, token string) (blackType BlackType, ok bool) {
+	if deps.Client == nil {
 		return 0, true
 	}
 
 	key := fmt.Sprintf("token_blacklist_%s", token)
-	has, err := redis_service.Client().Get(context.Background(), key).Result()
+	has, err := deps.Client.Get(context.Background(), key).Result()
 	if err != nil {
 		if err == redis.Nil {
 			return 0, true
 		}
-		if redis_service.Logger() != nil {
-			redis_service.Logger().Errorf("检查令牌是否在黑名单时出错: 错误=%v", err)
+		if deps.Logger != nil {
+			deps.Logger.Errorf("检查令牌是否在黑名单时出错: 错误=%v", err)
 		}
 		return 0, false
 	}
 
 	blackType, err = BlackTypeFromRedisValue(has)
 	if err != nil {
-		if redis_service.Logger() != nil {
-			redis_service.Logger().Errorf("字符串转换为黑名单类型失败: %v", err)
+		if deps.Logger != nil {
+			deps.Logger.Errorf("字符串转换为黑名单类型失败: %v", err)
 		}
 		return 0, false
 	}
@@ -114,5 +121,5 @@ func HasTokenBlack(token string) (blackType BlackType, ok bool) {
 // HasTokenBlackByGin 检查 token 是否在 Redis 的黑名单中。
 func HasTokenBlackByGin(c *gin.Context) (blackType BlackType, ok bool) {
 	token := jwts.GetTokenByGin(c)
-	return HasTokenBlack(token)
+	return HasTokenBlack(redis_service.DepsFromGin(c), token)
 }

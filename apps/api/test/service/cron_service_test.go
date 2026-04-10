@@ -34,7 +34,7 @@ func TestSyncArticleApplyIncrements(t *testing.T) {
 		t.Fatalf("设置 comment 缓存失败: %v", err)
 	}
 
-	cron_service.SyncArticle()
+	cron_service.NewSchedulerRaw(db, testutil.Redis(), testutil.Logger()).SyncArticle()
 
 	var got struct {
 		ViewCount    int
@@ -78,7 +78,7 @@ func TestSyncArticleNotBelowZeroAndLockSkip(t *testing.T) {
 	if err := testutilSetupCounter("article_comment", article.ID, -5); err != nil {
 		t.Fatalf("设置 comment 缓存失败: %v", err)
 	}
-	cron_service.SyncArticle()
+	cron_service.NewSchedulerRaw(db, testutil.Redis(), testutil.Logger()).SyncArticle()
 
 	var got struct {
 		ViewCount    int
@@ -103,7 +103,7 @@ func TestSyncArticleNotBelowZeroAndLockSkip(t *testing.T) {
 	if err := testutilSetKey("cron:sync_article:lock", "manual-lock"); err != nil {
 		t.Fatalf("设置锁失败: %v", err)
 	}
-	cron_service.SyncArticle()
+	cron_service.NewSchedulerRaw(db, testutil.Redis(), testutil.Logger()).SyncArticle()
 
 	if err := db.Model(&models.ArticleModel{}).
 		Select("view_count", "digg_count", "favor_count", "comment_count").

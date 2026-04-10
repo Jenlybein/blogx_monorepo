@@ -1,6 +1,7 @@
 package jwts_test
 
 import (
+	"myblogx/appctx"
 	"myblogx/conf"
 	"myblogx/models/enum"
 	"myblogx/test/testutil"
@@ -21,8 +22,9 @@ func TestJWTGetAndParse(t *testing.T) {
 			Issuer: "blogx",
 		},
 	})
+	jwtConf := testutil.Config().Jwt
 
-	token, err := jwts.GetToken(jwts.Claims{
+	token, err := jwts.GetToken(jwtConf, jwts.Claims{
 		UserID:   100,
 		Role:     enum.RoleAdmin,
 		Username: "root",
@@ -31,7 +33,7 @@ func TestJWTGetAndParse(t *testing.T) {
 		t.Fatalf("GetToken 失败: %v", err)
 	}
 
-	claims, err := jwts.ParseToken(token)
+	claims, err := jwts.ParseToken(jwtConf, token)
 	if err != nil {
 		t.Fatalf("ParseToken 失败: %v", err)
 	}
@@ -49,8 +51,9 @@ func TestParseTokenByGin(t *testing.T) {
 			Issuer: "blogx",
 		},
 	})
+	jwtConf := testutil.Config().Jwt
 
-	token, err := jwts.GetToken(jwts.Claims{
+	token, err := jwts.GetToken(jwtConf, jwts.Claims{
 		UserID:   10,
 		Role:     enum.RoleUser,
 		Username: "u10",
@@ -65,6 +68,17 @@ func TestParseTokenByGin(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	c.Request = req
+	appctx.WithGin(c, appctx.New(
+		"test",
+		"config/settings.yaml",
+		testutil.Config(),
+		testutil.Logger(),
+		testutil.DB(),
+		testutil.Redis(),
+		nil,
+		testutil.ESClient(),
+		testutil.ImageCaptchaStore(),
+	))
 
 	claims, err := jwts.ParseTokenByGin(c)
 	if err != nil {

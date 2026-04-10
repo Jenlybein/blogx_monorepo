@@ -4,6 +4,7 @@ import (
 	"myblogx/common/res"
 	"myblogx/middleware"
 	"myblogx/models/ctype"
+	"myblogx/service/redis_service"
 	"myblogx/service/search_service"
 	"myblogx/service/user_service"
 	"myblogx/utils/jwts"
@@ -23,7 +24,8 @@ func (SearchApi) ArticleSearchView(c *gin.Context) {
 		claims = authResult.Claims
 	}
 
-	result, err := search_service.SearchArticles(cr, claims)
+	app := mustApp(c)
+	result, err := search_service.SearchArticles(cr, claims, app.DB, redis_service.DepsFromGin(c), app.ESClient, app.Config.ES.Index)
 	if err != nil {
 		res.FailWithMsg(err.Error(), c)
 		return

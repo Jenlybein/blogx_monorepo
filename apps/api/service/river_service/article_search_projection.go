@@ -38,7 +38,7 @@ func (r *River) syncArticleDocsByArticleRows(e *canal.RowsEvent) error {
 		if len(articleIDs) == 0 {
 			return nil
 		}
-		return es_service.SyncArticleSearchProjection(es_service.ArticleSearchProjectionEvent{
+		return es_service.SyncArticleSearchProjection(r.db, r.es, es_service.ArticleSearchProjectionEvent{
 			Type: es_service.ArticleSearchProjectionArticleDelete,
 			IDs:  articleIDs,
 		})
@@ -48,7 +48,7 @@ func (r *River) syncArticleDocsByArticleRows(e *canal.RowsEvent) error {
 			return nil
 		}
 		// 新增文章时直接全量 upsert，一次写入完整读模型快照。
-		return es_service.SyncArticleSearchProjection(es_service.ArticleSearchProjectionEvent{
+		return es_service.SyncArticleSearchProjection(r.db, r.es, es_service.ArticleSearchProjectionEvent{
 			Type: es_service.ArticleSearchProjectionArticleUpsert,
 			IDs:  articleIDs,
 		})
@@ -57,7 +57,7 @@ func (r *River) syncArticleDocsByArticleRows(e *canal.RowsEvent) error {
 		if len(deltas) == 0 {
 			return nil
 		}
-		return es_service.UpdateESDocsByArticleDeltas(deltas)
+		return es_service.UpdateESDocsByArticleDeltas(r.db, r.es, deltas)
 	default:
 		return nil
 	}
@@ -68,13 +68,13 @@ func (r *River) syncArticleDocsByUserRows(e *canal.RowsEvent) error {
 	if len(userIDs) == 0 {
 		return nil
 	}
-	if err := es_service.SyncArticleSearchProjection(es_service.ArticleSearchProjectionEvent{
+	if err := es_service.SyncArticleSearchProjection(r.db, r.es, es_service.ArticleSearchProjectionEvent{
 		Type: es_service.ArticleSearchProjectionAuthorSnapshot,
 		IDs:  userIDs,
 	}); err != nil {
 		return err
 	}
-	return es_service.SyncArticleSearchProjection(es_service.ArticleSearchProjectionEvent{
+	return es_service.SyncArticleSearchProjection(r.db, r.es, es_service.ArticleSearchProjectionEvent{
 		Type: es_service.ArticleSearchProjectionTopUserChanged,
 		IDs:  userIDs,
 	})
@@ -85,7 +85,7 @@ func (r *River) syncArticleDocsByCategoryRows(e *canal.RowsEvent) error {
 	if len(categoryIDs) == 0 {
 		return nil
 	}
-	return es_service.SyncArticleSearchProjection(es_service.ArticleSearchProjectionEvent{
+	return es_service.SyncArticleSearchProjection(r.db, r.es, es_service.ArticleSearchProjectionEvent{
 		Type: es_service.ArticleSearchProjectionCategorySnapshot,
 		IDs:  categoryIDs,
 	})
@@ -96,7 +96,7 @@ func (r *River) syncArticleDocsByTagRows(e *canal.RowsEvent) error {
 	if len(tagIDs) == 0 {
 		return nil
 	}
-	return es_service.SyncArticleSearchProjection(es_service.ArticleSearchProjectionEvent{
+	return es_service.SyncArticleSearchProjection(r.db, r.es, es_service.ArticleSearchProjectionEvent{
 		Type: es_service.ArticleSearchProjectionTagSnapshot,
 		IDs:  tagIDs,
 	})
@@ -107,7 +107,7 @@ func (r *River) syncArticleDocsByArticleTagRows(e *canal.RowsEvent) error {
 	if len(articleIDs) == 0 {
 		return nil
 	}
-	return es_service.SyncArticleSearchProjection(es_service.ArticleSearchProjectionEvent{
+	return es_service.SyncArticleSearchProjection(r.db, r.es, es_service.ArticleSearchProjectionEvent{
 		Type: es_service.ArticleSearchProjectionArticleTagsChanged,
 		IDs:  articleIDs,
 	})
@@ -118,7 +118,7 @@ func (r *River) syncArticleDocsByTopRows(e *canal.RowsEvent) error {
 	if len(articleIDs) == 0 {
 		return nil
 	}
-	return es_service.SyncArticleSearchProjection(es_service.ArticleSearchProjectionEvent{
+	return es_service.SyncArticleSearchProjection(r.db, r.es, es_service.ArticleSearchProjectionEvent{
 		Type: es_service.ArticleSearchProjectionArticleTopChanged,
 		IDs:  articleIDs,
 	})

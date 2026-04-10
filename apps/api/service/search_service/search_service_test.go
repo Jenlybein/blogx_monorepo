@@ -5,6 +5,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_article"
 	"myblogx/test/testutil"
 	"myblogx/utils/markdown"
@@ -61,10 +62,10 @@ func TestBuildDefaultArticleSearchQueryOnlyPublished(t *testing.T) {
 }
 
 func TestBuildLikeTagsQueryWithoutUserConf(t *testing.T) {
-	testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{}, &models.TagModel{})
+	db := testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{}, &models.TagModel{})
 
 	query := buildDefaultArticleSearchQuery("")
-	query = buildLikeTagsQuery(query, 0)
+	query = buildLikeTagsQuery(query, 0, db)
 
 	boolQuery, ok := extractSearchBoolQuery(query)
 	if !ok {
@@ -99,7 +100,7 @@ func TestBuildLikeTagsQueryWithLikeTags(t *testing.T) {
 	}
 
 	query := buildDefaultArticleSearchQuery("golang")
-	query = buildLikeTagsQuery(query, user.ID)
+	query = buildLikeTagsQuery(query, user.ID, db)
 
 	boolQuery, ok := extractSearchBoolQuery(query)
 	if !ok {
@@ -433,19 +434,20 @@ func TestBuildArticleSearchExtraBody(t *testing.T) {
 
 func TestExtractArticleSearchResults(t *testing.T) {
 	_ = testutil.SetupMiniRedis(t)
+	redisDeps := redis_service.Deps{Client: testutil.Redis(), Logger: testutil.Logger()}
 	db := testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{}, &models.CategoryModel{}, &models.ArticleModel{})
 	createdAt := time.Date(2026, 3, 16, 10, 0, 0, 0, time.UTC)
 	updatedAt := time.Date(2026, 3, 16, 12, 0, 0, 0, time.UTC)
-	if err := redis_article.SetCacheView(1, 3); err != nil {
+	if err := redis_article.SetCacheView(redisDeps, 1, 3); err != nil {
 		t.Fatalf("设置浏览增量失败: %v", err)
 	}
-	if err := redis_article.SetCacheDigg(1, 2); err != nil {
+	if err := redis_article.SetCacheDigg(redisDeps, 1, 2); err != nil {
 		t.Fatalf("设置点赞增量失败: %v", err)
 	}
-	if err := redis_article.SetCacheFavorite(1, 4); err != nil {
+	if err := redis_article.SetCacheFavorite(redisDeps, 1, 4); err != nil {
 		t.Fatalf("设置收藏增量失败: %v", err)
 	}
-	if err := redis_article.SetCacheComment(1, 5); err != nil {
+	if err := redis_article.SetCacheComment(redisDeps, 1, 5); err != nil {
 		t.Fatalf("设置评论增量失败: %v", err)
 	}
 
@@ -535,7 +537,7 @@ func TestExtractArticleSearchResults(t *testing.T) {
 		},
 	}
 
-	list := extractArticleSearchResults(data)
+	list := extractArticleSearchResults(redisDeps, data)
 	if len(list) != 1 {
 		t.Fatalf("结果数量错误: %d", len(list))
 	}

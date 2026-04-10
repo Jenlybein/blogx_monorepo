@@ -12,8 +12,9 @@ func TestLockArticleSync(t *testing.T) {
 	_ = testutil.SetupMiniRedis(t)
 	ctx := context.Background()
 	key := "lock:article:sync"
+	deps := redis_service.Deps{Client: testutil.Redis(), Logger: testutil.Logger()}
 
-	unlock, err := redis_service.LockArticleSync(ctx, key, 5*time.Second)
+	unlock, err := redis_service.LockArticleSync(deps, ctx, key, 5*time.Second)
 	if err != nil {
 		t.Fatalf("首次加锁失败: %v", err)
 	}
@@ -21,7 +22,7 @@ func TestLockArticleSync(t *testing.T) {
 		t.Fatal("首次加锁应成功并返回解锁函数")
 	}
 
-	unlock2, err := redis_service.LockArticleSync(ctx, key, 5*time.Second)
+	unlock2, err := redis_service.LockArticleSync(deps, ctx, key, 5*time.Second)
 	if err != nil {
 		t.Fatalf("重复加锁不应报错: %v", err)
 	}
@@ -31,7 +32,7 @@ func TestLockArticleSync(t *testing.T) {
 
 	unlock()
 
-	unlock3, err := redis_service.LockArticleSync(ctx, key, 5*time.Second)
+	unlock3, err := redis_service.LockArticleSync(deps, ctx, key, 5*time.Second)
 	if err != nil {
 		t.Fatalf("释放后再次加锁失败: %v", err)
 	}

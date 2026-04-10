@@ -5,6 +5,7 @@ import (
 	"myblogx/common/res"
 	"myblogx/middleware"
 	"myblogx/models"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_article"
 	"myblogx/utils/jwts"
 
@@ -65,7 +66,7 @@ func (f FavoriteApi) FavoriteRemovePatchView(c *gin.Context) {
 	}
 
 	for _, relation := range relationList {
-		if err := redis_article.SetCacheFavorite(relation.ArticleID, -1); err != nil {
+		if err := redis_article.SetCacheFavorite(redis_service.DepsFromGin(c), relation.ArticleID, -1); err != nil {
 			mustApp(c).Logger.Errorf("更新文章收藏缓存失败: 文章ID=%d 错误=%v", relation.ArticleID, err)
 		}
 	}

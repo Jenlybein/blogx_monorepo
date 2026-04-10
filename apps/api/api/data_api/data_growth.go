@@ -5,6 +5,7 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/enum"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_site"
 	"time"
 
@@ -25,7 +26,7 @@ func (DataApi) GrowthDataView(c *gin.Context) {
 	var err error
 	switch cr.Type {
 	case 1:
-		flowList := redis_site.GetRecentFlow(7)
+		flowList := redis_site.GetRecentFlow(redis_service.DepsFromGin(c), 7)
 		resp.DateCountList = make([]DateCountItem, 0, len(flowList))
 		for _, item := range flowList {
 			resp.DateCountList = append(resp.DateCountList, DateCountItem{

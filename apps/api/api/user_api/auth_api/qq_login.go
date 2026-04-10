@@ -8,6 +8,7 @@ import (
 	"myblogx/models/enum"
 	"myblogx/service/log_service"
 	"myblogx/service/qq_service"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_user"
 	"myblogx/service/site_service"
 	"myblogx/service/user_service"
@@ -23,6 +24,7 @@ type QQLoginRequest struct {
 
 func (AuthApi) QQLoginView(c *gin.Context) {
 	app := mustApp(c)
+	redisDeps := redis_service.DepsFromGin(c)
 	if !site_service.GetRuntimeLogin().QQLogin {
 		log_service.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, "", 0, "站点未启用QQ登录", nil)
 		res.FailWithMsg("站点未启用qq登录功能", c)
@@ -31,7 +33,7 @@ func (AuthApi) QQLoginView(c *gin.Context) {
 
 	cr := middleware.GetBindJson[QQLoginRequest](c)
 
-	userInfoResp, err := qq_service.GetUserInfo(cr.Code)
+	userInfoResp, err := qq_service.GetUserInfo(app.Config.QQ, cr.Code)
 	if err != nil {
 		log_service.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, "", 0, err.Error(), nil)
 		res.FailWithError(err, c)
@@ -50,7 +52,7 @@ func (AuthApi) QQLoginView(c *gin.Context) {
 		}
 
 		for range 5 {
-			username, usernameErr := redis_user.NextAutoUsername()
+			username, usernameErr := redis_user.NextAutoUsername(redisDeps)
 			if usernameErr != nil {
 				app.Logger.Errorf("QQ 登录生成用户名失败: %v", usernameErr)
 				log_service.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, userInfoResp.NickName, 0, "qq登录失败", map[string]any{
@@ -125,7 +127,8 @@ func (AuthApi) QQLoginView(c *gin.Context) {
 		return
 	}
 
-	token, refreshToken, _, err := user_service.CreateLoginTokens(&user, user_service.BuildSessionMetaFromGin(c))
+	deps := user_service.DepsFromApp(app)
+	token, refreshToken, _, err := user_service.CreateLoginTokens(deps, &user, user_service.BuildSessionMetaFromGin(c))
 	if err != nil {
 		log_service.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, user.Username, user.ID, "qq登录失败 "+err.Error(), map[string]any{
 			"open_id": userInfoResp.OpenID,
@@ -133,7 +136,7 @@ func (AuthApi) QQLoginView(c *gin.Context) {
 		res.FailWithMsg("qq登录失败 "+err.Error(), c)
 		return
 	}
-	user_service.SetRefreshTokenCookie(c, refreshToken)
+	user_service.SetRefreshTokenCookie(c, refreshToken, deps)
 	log_service.EmitLoginEventFromGin(c, "login_success", enum.QQLoginType, true, user.Username, user.ID, "", map[string]any{
 		"open_id": userInfoResp.OpenID,
 	})

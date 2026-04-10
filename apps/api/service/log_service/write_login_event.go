@@ -5,9 +5,9 @@ import (
 )
 
 // EmitLoginEvent 写入一条登录事件日志，并根据成功状态推导默认级别与消息。
-func EmitLoginEvent(input LoginEventInput) {
+func EmitLoginEvent(deps Deps, input LoginEventInput) {
 	// 自动补齐基础字段
-	base := newBaseEvent("login_event", loginLevel(input.Success), loginMessage(input))
+	base := newBaseEvent(deps, "login_event", loginLevel(input.Success), loginMessage(input))
 	base.UserID = uint64(input.UserID)
 	base.IP = input.IP
 	base.RequestID = input.RequestID
@@ -28,9 +28,9 @@ func EmitLoginEvent(input LoginEventInput) {
 		UA:        input.UA,
 	}
 
-	if err := loginEventSink().write(event); err != nil {
-		if logLogger != nil {
-			logLogger.Errorf("写入登录事件日志失败: %v", err)
+	if err := loginEventSink().write(deps, event); err != nil {
+		if deps.Logger != nil {
+			deps.Logger.Errorf("写入登录事件日志失败: %v", err)
 		}
 	}
 }

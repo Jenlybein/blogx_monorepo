@@ -10,6 +10,7 @@ import (
 	"myblogx/models/enum/relationship_enum"
 	"myblogx/service/follow_service"
 	"myblogx/service/read_service"
+	"myblogx/service/redis_service"
 
 	"gorm.io/gorm"
 )
@@ -75,10 +76,10 @@ type QueryService struct {
 	CounterReader read_service.CommentCounterReader
 }
 
-func NewQueryService(db *gorm.DB) *QueryService {
+func NewQueryService(db *gorm.DB, redisDeps redis_service.Deps) *QueryService {
 	return &QueryService{
 		DB:            db,
-		CounterReader: read_service.NewCommentCounterReader(),
+		CounterReader: read_service.NewCommentCounterReader(redisDeps),
 	}
 }
 
@@ -228,7 +229,7 @@ func (s *QueryService) ListManagedComments(query ManageCommentQuery) ([]ManageCo
 	counters := s.CounterReader.Batch(commentIDs)
 	relationMap := make(map[ctype.ID]relationship_enum.Relation)
 	if query.Type == 1 {
-		relationMap = follow_service.CalUserRelationshipBatch(query.ViewerID, userIDs)
+		relationMap = follow_service.CalUserRelationshipBatch(s.DB, query.ViewerID, userIDs)
 	}
 	articleMap, err := read_service.LoadArticleBaseMap(s.DB, articleIDs)
 	if err != nil {
@@ -446,5 +447,5 @@ func (s *QueryService) buildCommentRelationMap(viewerUserID ctype.ID, userIDs []
 	if viewerUserID == 0 {
 		return make(map[ctype.ID]relationship_enum.Relation, len(userIDs))
 	}
-	return follow_service.CalUserRelationshipBatch(viewerUserID, userIDs)
+	return follow_service.CalUserRelationshipBatch(s.DB, viewerUserID, userIDs)
 }

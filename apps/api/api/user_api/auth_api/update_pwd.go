@@ -52,11 +52,12 @@ func (AuthApi) UpdatePwdByEmailView(c *gin.Context) {
 		res.FailWithError(err, c)
 		return
 	}
-	if err := user_service.UpdatePasswordAndRevokeSessions(&user, hashPwd); err != nil {
+	deps := user_service.DepsFromApp(app)
+	if err := user_service.UpdatePasswordAndRevokeSessions(deps, &user, hashPwd); err != nil {
 		res.FailWithError(err, c)
 		return
 	}
-	user_service.ClearRefreshTokenCookie(c)
+	user_service.ClearRefreshTokenCookie(c, deps)
 
 	res.OkWithMsg("密码更新成功", c)
 }

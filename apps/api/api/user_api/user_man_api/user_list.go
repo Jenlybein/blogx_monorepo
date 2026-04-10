@@ -25,7 +25,7 @@ func (a *UserManApi) UserListView(c *gin.Context) {
 	for _, item := range _list {
 		idList = append(idList, item.ID)
 	}
-	latestLoginMap, err := log_service.LoadLatestLoginMap(idList)
+	latestLoginMap, err := log_service.LoadLatestLoginMap(log_service.DepsFromGin(c), idList)
 	if err != nil {
 		app.Logger.Errorf("加载用户最后登录信息失败: %v", err)
 	}

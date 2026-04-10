@@ -72,10 +72,10 @@ func TestCommentManListView(t *testing.T) {
 		}
 	}
 
-	if err := redis_comment.SetCacheReply(minePublished1.ID, 2); err != nil {
+	if err := redis_comment.SetCacheReply(testRedisDeps(), minePublished1.ID, 2); err != nil {
 		t.Fatalf("写入 reply 缓存失败: %v", err)
 	}
-	if err := redis_comment.SetCacheDigg(minePublished1.ID, 3); err != nil {
+	if err := redis_comment.SetCacheDigg(testRedisDeps(), minePublished1.ID, 3); err != nil {
 		t.Fatalf("写入 digg 缓存失败: %v", err)
 	}
 

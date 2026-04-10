@@ -10,19 +10,20 @@ import (
 )
 
 func (AuthApi) RefreshTokenView(c *gin.Context) {
+	deps := user_service.DepsFromGin(c)
 	// 获取旧的刷新令牌
 	refreshToken := user_service.GetRefreshTokenByGin(c)
 
 	// 用旧的刷新令牌换取新的AccessToken和新的刷新令牌
-	accessToken, newRefreshToken, _, _, err := user_service.RefreshTokens(refreshToken, user_service.BuildSessionMetaFromGin(c))
+	accessToken, newRefreshToken, _, _, err := user_service.RefreshTokens(deps, refreshToken, user_service.BuildSessionMetaFromGin(c))
 
 	if err != nil {
 		log_service.EmitLoginEventFromGin(c, "token_refresh", enum.LoginType(0), false, "", 0, err.Error(), nil)
-		user_service.ClearRefreshTokenCookie(c)
+		user_service.ClearRefreshTokenCookie(c, deps)
 		res.FailWithMsg(err.Error(), c)
 		return
 	}
-	user_service.SetRefreshTokenCookie(c, newRefreshToken)
+	user_service.SetRefreshTokenCookie(c, newRefreshToken, deps)
 	log_service.EmitLoginEventFromGin(c, "token_refresh", enum.LoginType(0), true, "", 0, "", nil)
 
 	res.OkWithData(accessToken, c)

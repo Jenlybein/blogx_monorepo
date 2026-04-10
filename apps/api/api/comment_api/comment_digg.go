@@ -7,6 +7,7 @@ import (
 	"myblogx/models/enum"
 	dbservice "myblogx/service/db_service"
 	"myblogx/service/message_service"
+	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_comment"
 	"myblogx/utils/jwts"
 
@@ -42,7 +43,7 @@ func (CommentApi) CommentDiggView(c *gin.Context) {
 			res.FailWithMsg("点赞状态已变化，请刷新后重试", c)
 			return
 		}
-		if err := redis_comment.SetCacheDigg(id.ID, -1); err != nil {
+		if err := redis_comment.SetCacheDigg(redis_service.DepsFromGin(c), id.ID, -1); err != nil {
 			logger.Errorf("回写评论点赞缓存失败: 评论ID=%d 错误=%v", id.ID, err)
 		}
 		res.OkWithMsg("取消点赞成功", c)
@@ -65,10 +66,10 @@ func (CommentApi) CommentDiggView(c *gin.Context) {
 		res.FailWithMsg("请勿重复点赞", c)
 		return
 	}
-	if err := redis_comment.SetCacheDigg(id.ID, 1); err != nil {
+	if err := redis_comment.SetCacheDigg(redis_service.DepsFromGin(c), id.ID, 1); err != nil {
 		logger.Errorf("写入评论点赞缓存失败: 评论ID=%d 错误=%v", id.ID, err)
 	}
-	go message_service.InsertCommentDiggMessage(message_service.CommentDiggMessage{
+	go message_service.InsertCommentDiggMessage(db, logger, message_service.CommentDiggMessage{
 		ReceiverID:   comment.UserID,
 		ActionUserID: claims.UserID,
 		CommentID:    comment.ID,

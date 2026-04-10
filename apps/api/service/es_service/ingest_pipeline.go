@@ -4,18 +4,20 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+
+	"github.com/elastic/go-elasticsearch/v7"
 )
 
 // 创建 pipeline
-func CreatePipeline(pipeline, definition string) error {
+func CreatePipeline(client *elasticsearch.Client, pipeline, definition string) error {
 	// 构建创建 pipeline 的请求体
 	req := bytes.NewBufferString(definition)
 
 	// 调用 ES 的 Create Pipeline API
-	res, err := esClient.Ingest.PutPipeline(
+	res, err := client.Ingest.PutPipeline(
 		pipeline,
 		req,
-		esClient.Ingest.PutPipeline.WithContext(context.Background()),
+		client.Ingest.PutPipeline.WithContext(context.Background()),
 	)
 	if err != nil {
 		return fmt.Errorf("创建 pipeline %s 失败: %v", pipeline, err)
@@ -31,11 +33,11 @@ func CreatePipeline(pipeline, definition string) error {
 }
 
 // 判断 pipeline 是否存在
-func ExistsPipeline(pipeline string) (bool, error) {
+func ExistsPipeline(client *elasticsearch.Client, pipeline string) (bool, error) {
 	// 必须指定 PipelineID 才能查询特定的 pipeline
-	res, err := esClient.Ingest.GetPipeline(
-		esClient.Ingest.GetPipeline.WithPipelineID(pipeline), // 关键点：指定 ID
-		esClient.Ingest.GetPipeline.WithContext(context.Background()),
+	res, err := client.Ingest.GetPipeline(
+		client.Ingest.GetPipeline.WithPipelineID(pipeline), // 关键点：指定 ID
+		client.Ingest.GetPipeline.WithContext(context.Background()),
 	)
 
 	if err != nil {
@@ -58,10 +60,10 @@ func ExistsPipeline(pipeline string) (bool, error) {
 }
 
 // 删除 pipeline
-func DeletePipeline(pipeline string) error {
-	res, err := esClient.Ingest.DeletePipeline(
+func DeletePipeline(client *elasticsearch.Client, pipeline string) error {
+	res, err := client.Ingest.DeletePipeline(
 		pipeline,
-		esClient.Ingest.DeletePipeline.WithContext(context.Background()),
+		client.Ingest.DeletePipeline.WithContext(context.Background()),
 	)
 	if err != nil {
 		return fmt.Errorf("删除 pipeline %s 失败: %v", pipeline, err)
@@ -76,25 +78,25 @@ func DeletePipeline(pipeline string) error {
 }
 
 // 强制创建 pipeline
-func CreatePipelineForce(pipeline, definition string) error {
-	if exists, err := ExistsPipeline(pipeline); err != nil {
+func CreatePipelineForce(client *elasticsearch.Client, pipeline, definition string) error {
+	if exists, err := ExistsPipeline(client, pipeline); err != nil {
 		return err
 	} else if exists {
-		if err := DeletePipeline(pipeline); err != nil {
+		if err := DeletePipeline(client, pipeline); err != nil {
 			return err
 		}
 	}
-	return CreatePipeline(pipeline, definition)
+	return CreatePipeline(client, pipeline, definition)
 }
 
 // EnsurePipeline 确保流水线存在；已存在时不做破坏性操作。
-func EnsurePipeline(pipeline, definition string) error {
-	exists, err := ExistsPipeline(pipeline)
+func EnsurePipeline(client *elasticsearch.Client, pipeline, definition string) error {
+	exists, err := ExistsPipeline(client, pipeline)
 	if err != nil {
 		return err
 	}
 	if exists {
 		return nil
 	}
-	return CreatePipeline(pipeline, definition)
+	return CreatePipeline(client, pipeline, definition)
 }

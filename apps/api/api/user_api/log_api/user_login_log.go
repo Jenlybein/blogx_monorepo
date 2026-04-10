@@ -41,7 +41,7 @@ func (LogApi) UserLoginLogList(c *gin.Context) {
 
 	eventName := "login_success"
 	success := true
-	list, count, err := log_service.ListLoginEvents(log_service.LoginEventQuery{
+	list, count, err := log_service.ListLoginEvents(log_service.DepsFromGin(c), log_service.LoginEventQuery{
 		PageInfo: common.PageInfo{
 			Limit: cr.Limit,
 			Page:  cr.Page,

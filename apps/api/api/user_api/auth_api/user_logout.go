@@ -13,7 +13,8 @@ import (
 
 func (AuthApi) UserLogoutView(c *gin.Context) {
 	claims := jwts.MustGetClaimsByGin(c)
-	if err := user_service.RevokeSessionByID(claims.UserID, claims.SessionID); err != nil {
+	deps := user_service.DepsFromGin(c)
+	if err := user_service.RevokeSessionByID(deps, claims.UserID, claims.SessionID); err != nil {
 		log_service.EmitLoginEventFromGin(c, "logout", enum.LoginType(0), false, claims.Username, claims.UserID, err.Error(), nil)
 		res.FailWithError(err, c)
 		return
@@ -21,9 +22,9 @@ func (AuthApi) UserLogoutView(c *gin.Context) {
 
 	token := jwts.GetTokenByGin(c)
 	if token != "" {
-		redis_jwt.SetTokenBlack(token, redis_jwt.UserBlackType)
+		redis_jwt.SetTokenBlackByGin(c, token, redis_jwt.UserBlackType)
 	}
-	user_service.ClearRefreshTokenCookie(c)
+	user_service.ClearRefreshTokenCookie(c, deps)
 	log_service.EmitLoginEventFromGin(c, "logout", enum.LoginType(0), true, claims.Username, claims.UserID, "", nil)
 
 	res.OkWithMsg("退出登录成功", c)
@@ -31,7 +32,8 @@ func (AuthApi) UserLogoutView(c *gin.Context) {
 
 func (AuthApi) UserLogoutAllView(c *gin.Context) {
 	claims := jwts.MustGetClaimsByGin(c)
-	if err := user_service.RevokeAllUserSessions(claims.UserID); err != nil {
+	deps := user_service.DepsFromGin(c)
+	if err := user_service.RevokeAllUserSessions(deps, claims.UserID); err != nil {
 		log_service.EmitLoginEventFromGin(c, "logout_all", enum.LoginType(0), false, claims.Username, claims.UserID, err.Error(), nil)
 		res.FailWithError(err, c)
 		return
@@ -39,9 +41,9 @@ func (AuthApi) UserLogoutAllView(c *gin.Context) {
 
 	token := jwts.GetTokenByGin(c)
 	if token != "" {
-		redis_jwt.SetTokenBlack(token, redis_jwt.UserBlackType)
+		redis_jwt.SetTokenBlackByGin(c, token, redis_jwt.UserBlackType)
 	}
-	user_service.ClearRefreshTokenCookie(c)
+	user_service.ClearRefreshTokenCookie(c, deps)
 	log_service.EmitLoginEventFromGin(c, "logout_all", enum.LoginType(0), true, claims.Username, claims.UserID, "", nil)
 
 	res.OkWithMsg("已退出全部设备", c)

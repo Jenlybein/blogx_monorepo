@@ -23,7 +23,7 @@ func TestSyncTagApplyIncrements(t *testing.T) {
 		t.Fatalf("设置标签缓存失败: %v", err)
 	}
 
-	cron_service.SyncTag()
+	cron_service.NewSchedulerRaw(db, testutil.Redis(), testutil.Logger()).SyncTag()
 
 	var got struct {
 		ArticleCount int
@@ -51,7 +51,7 @@ func TestSyncTagNotBelowZeroAndLockSkip(t *testing.T) {
 	if err := setupTagCounter(tag.ID, -5); err != nil {
 		t.Fatalf("设置标签缓存失败: %v", err)
 	}
-	cron_service.SyncTag()
+	cron_service.NewSchedulerRaw(db, testutil.Redis(), testutil.Logger()).SyncTag()
 
 	var got struct {
 		ArticleCount int
@@ -72,7 +72,7 @@ func TestSyncTagNotBelowZeroAndLockSkip(t *testing.T) {
 	if err := testutil.Redis().Set(context.Background(), "cron:sync_tag:lock", "manual-lock", 0).Err(); err != nil {
 		t.Fatalf("设置锁失败: %v", err)
 	}
-	cron_service.SyncTag()
+	cron_service.NewSchedulerRaw(db, testutil.Redis(), testutil.Logger()).SyncTag()
 
 	if err := db.Model(&models.TagModel{}).
 		Select("article_count").

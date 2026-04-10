@@ -4,21 +4,23 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/relationship_enum"
+
+	"gorm.io/gorm"
 )
 
 // CalUserRelationship 计算用户关系
-func CalUserRelationship(A, B ctype.ID) relationship_enum.Relation {
+func CalUserRelationship(db *gorm.DB, A, B ctype.ID) relationship_enum.Relation {
 	if A == 0 || B == 0 {
 		return relationship_enum.RelationStranger
 	}
 
-	return CalUserRelationshipBatch(A, []ctype.ID{B})[B]
+	return CalUserRelationshipBatch(db, A, []ctype.ID{B})[B]
 }
 
 // 批量计算用户关系
-func CalUserRelationshipBatch(user ctype.ID, userList []ctype.ID) map[ctype.ID]relationship_enum.Relation {
+func CalUserRelationshipBatch(db *gorm.DB, user ctype.ID, userList []ctype.ID) map[ctype.ID]relationship_enum.Relation {
 	relationMap := make(map[ctype.ID]relationship_enum.Relation, len(userList))
-	if len(userList) == 0 {
+	if db == nil || len(userList) == 0 {
 		return relationMap
 	}
 
@@ -27,7 +29,7 @@ func CalUserRelationshipBatch(user ctype.ID, userList []ctype.ID) map[ctype.ID]r
 	}
 
 	var rows []models.UserFollowModel
-	if err := followDB.
+	if err := db.
 		Where("(followed_user_id = ? AND fans_user_id IN ?) OR (followed_user_id IN ? AND fans_user_id = ?)",
 			user, userList, userList, user).
 		Find(&rows).Error; err != nil {

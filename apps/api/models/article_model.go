@@ -42,7 +42,7 @@ func (ArticleModel) Mapping() string {
 }
 
 func (ArticleModel) Index() string {
-	return articleESIndex
+	return DefaultArticleESIndex
 }
 
 //go:embed es_settings/article_pipeline.json

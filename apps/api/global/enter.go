@@ -1,33 +1,8 @@
-// 全局变量定义
-
 package global
 
-import (
-	"database/sql"
-	"myblogx/conf"
-	"myblogx/service/kafka_service"
-
-	"github.com/elastic/go-elasticsearch/v7"
-	"github.com/go-redis/redis/v8"
-	"github.com/mojocn/base64Captcha"
-	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
-)
-
-const Version = "1.0.0"
-
-type FlagRecord struct {
-	File string
-}
-
-var (
-	Flags             *FlagRecord
-	Config            *conf.Config
-	Logger            *logrus.Logger
-	DB                *gorm.DB
-	ClickHouse        *sql.DB
-	Redis             *redis.Client
-	KafkaMysqlClient  *kafka_service.KafkaMysqlClient
-	ESClient          *elasticsearch.Client
-	ImageCaptchaStore = base64Captcha.DefaultMemStore
-)
+// Package global 已废弃。
+//
+// 历史上这里承载过 DB/Redis/Config/Logger/ES 等全局单例，
+// 现在已迁移到显式依赖注入（AppContext + 构造器参数）链路。
+//
+// 该包仅保留空壳用于兼容旧路径，禁止再新增任何运行时业务依赖。

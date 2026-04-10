@@ -7,6 +7,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/favorite_service"
+	"myblogx/service/redis_service"
 	"myblogx/service/user_service"
 	"myblogx/utils/jwts"
 
@@ -34,7 +35,7 @@ func (FavoriteApi) FavoriteArticlesView(c *gin.Context) {
 		return
 	}
 
-	queryService := favorite_service.NewQueryService(mustApp(c).DB)
+	queryService := favorite_service.NewQueryService(mustApp(c).DB, redis_service.DepsFromGin(c))
 	list, count, err := queryService.ListFavoriteArticles(favorite_service.FavoriteArticlesQuery{
 		PageInfo:   cr.PageInfo,
 		FavoriteID: favoriteModel.ID,

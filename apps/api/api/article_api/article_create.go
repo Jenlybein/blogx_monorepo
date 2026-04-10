@@ -6,6 +6,7 @@ import (
 	"myblogx/middleware"
 	"myblogx/models/enum"
 	"myblogx/service/log_service"
+	"myblogx/service/redis_service"
 	"myblogx/service/site_service"
 	"myblogx/utils/jwts"
 	"strconv"
@@ -34,7 +35,7 @@ func (ArticleApi) ArticleCreateView(c *gin.Context) {
 		return
 	}
 
-	applyTagArticleCountDelta(buildTagArticleCountDelta(nil, tagIDs))
+	applyTagArticleCountDelta(redis_service.DepsFromGin(c), buildTagArticleCountDelta(nil, tagIDs))
 
 	res.OkWithMsg("创建文章成功", c)
 

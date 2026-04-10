@@ -7,6 +7,8 @@ import (
 	"myblogx/models"
 	"myblogx/service/ai_service"
 	"strings"
+
+	"gorm.io/gorm"
 )
 
 var articleSearchPrompt = `
@@ -41,19 +43,16 @@ var articleSearchPrompt = `
 标签候选：%s
 `
 
-func RewriteArticleSearch(content string) (*ArticleSearchRewrite, error) {
+func RewriteArticleSearch(db *gorm.DB, content string) (*ArticleSearchRewrite, error) {
 	if strings.TrimSpace(content) == "" {
 		return nil, errors.New("搜索内容不能为空")
 	}
-	if !ai_service.Ready() {
-		return nil, errors.New("系统配置未初始化")
-	}
-	if ai_service.DB() == nil {
+	if db == nil {
 		return nil, errors.New("数据库未初始化")
 	}
 
 	var tagList []string
-	if err := ai_service.DB().Model(&models.TagModel{}).
+	if err := db.Model(&models.TagModel{}).
 		Where("is_enabled = ?", true).
 		Order("sort desc, id asc").
 		Pluck("title", &tagList).Error; err != nil {

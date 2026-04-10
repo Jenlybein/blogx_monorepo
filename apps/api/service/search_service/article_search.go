@@ -9,26 +9,30 @@ import (
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/service/es_service"
+	"myblogx/service/redis_service"
 	"myblogx/utils/jwts"
+
+	"github.com/elastic/go-elasticsearch/v7"
+	"gorm.io/gorm"
 )
 
-func SearchArticles(cr ArticleSearchRequest, claims *jwts.MyClaims) (ArticleSearchResponse, error) {
+func SearchArticles(cr ArticleSearchRequest, claims *jwts.MyClaims, db *gorm.DB, redisDeps redis_service.Deps, esClient *elasticsearch.Client, index string) (ArticleSearchResponse, error) {
 	normalized, err := normalizeArticleSearchRequest(cr, claims)
 	if err != nil {
 		return ArticleSearchResponse{}, err
 	}
 
-	query, err := buildArticleSearchDSL(normalized, claims)
+	query, err := buildArticleSearchDSL(normalized, claims, db)
 	if err != nil {
 		return ArticleSearchResponse{}, err
 	}
 
 	extraBody := buildArticleSearchExtraBodyBySort(normalized.Sort, normalized.Key)
-	return executeArticleSearch(normalized, query, extraBody)
+	return executeArticleSearch(redisDeps, esClient, normalized, query, extraBody, models.ResolveArticleESIndex(index))
 }
 
-func SearchArticleList(cr ArticleSearchRequest, claims *jwts.MyClaims) ([]SearchListResponse, error) {
-	result, err := SearchArticles(cr, claims)
+func SearchArticleList(cr ArticleSearchRequest, claims *jwts.MyClaims, db *gorm.DB, redisDeps redis_service.Deps, esClient *elasticsearch.Client, index string) ([]SearchListResponse, error) {
+	result, err := SearchArticles(cr, claims, db, redisDeps, esClient, index)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +100,7 @@ func normalizeArticleSearchRequest(cr ArticleSearchRequest, claims *jwts.MyClaim
 	return cr, nil
 }
 
-func buildArticleSearchDSL(cr ArticleSearchRequest, claims *jwts.MyClaims) (map[string]any, error) {
+func buildArticleSearchDSL(cr ArticleSearchRequest, claims *jwts.MyClaims, db *gorm.DB) (map[string]any, error) {
 	query := buildDefaultArticleSearchQuery(cr.Key)
 
 	switch cr.Type {
@@ -105,7 +109,7 @@ func buildArticleSearchDSL(cr ArticleSearchRequest, claims *jwts.MyClaims) (map[
 	case 2:
 		query = buildPublishedStatusQuery(query, cr.Status)
 		if claims != nil {
-			query = buildLikeTagsQuery(query, claims.UserID)
+			query = buildLikeTagsQuery(query, claims.UserID, db)
 		}
 	case 3:
 		query = buildPublishedStatusQuery(query, cr.Status)
@@ -164,7 +168,7 @@ func buildPublishedStatusQuery(query map[string]any, status enum.ArticleStatus) 
 	return query
 }
 
-func executeArticleSearch(cr ArticleSearchRequest, query map[string]any, extraBody map[string]any) (ArticleSearchResponse, error) {
+func executeArticleSearch(redisDeps redis_service.Deps, esClient *elasticsearch.Client, cr ArticleSearchRequest, query map[string]any, extraBody map[string]any, index string) (ArticleSearchResponse, error) {
 	page := cr.NormalizePage()
 	limit := cr.GetLimit()
 
@@ -182,7 +186,7 @@ func executeArticleSearch(cr ArticleSearchRequest, query map[string]any, extraBo
 		searchBody["size"] = limit + 1
 	}
 
-	resp := es_service.SearchBody(models.ArticleModel{}.Index(), searchBody)
+	resp := es_service.SearchBody(esClient, index, searchBody)
 	if !resp.Success {
 		return ArticleSearchResponse{}, errors.New(resp.Msg)
 	}
@@ -192,7 +196,7 @@ func executeArticleSearch(cr ArticleSearchRequest, query map[string]any, extraBo
 		return ArticleSearchResponse{}, errors.New("搜索结果格式错误")
 	}
 
-	list := extractArticleSearchResults(data)
+	list := extractArticleSearchResults(redisDeps, data)
 	pagination := SearchPagination{
 		Mode:    cr.PageMode,
 		Page:    page,
