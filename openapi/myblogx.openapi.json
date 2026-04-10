@@ -1923,6 +1923,131 @@
       }
     },
     "/api/articles": {
+      "get": {
+        "summary": "文章列表",
+        "deprecated": false,
+        "description": "获取文章列表。可结合 type、status、user_id、分页与排序参数筛选结果。",
+        "tags": [
+          "文章管理/文章"
+        ],
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "description": "类型筛选参数，具体取值请结合该接口业务含义使用。",
+            "required": false,
+            "example": "1",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "description": "目标用户 ID，用于筛选或指定用户。",
+            "required": false,
+            "example": "1",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "状态筛选参数，具体取值请结合该接口业务含义使用。",
+            "required": false,
+            "example": "3",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "分页页码，从 1 开始。",
+            "required": false,
+            "example": "1",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "每页返回条数。",
+            "required": false,
+            "example": "3",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "排序方式参数，具体格式按接口实现约定。",
+            "required": false,
+            "example": "viesc",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": true,
+            "example": "Bearer {{bearerToken}}",
+            "schema": {
+              "type": "string",
+              "default": "Bearer {{bearerToken}}"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiMessageResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "list": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/ArticleListItem"
+                              }
+                            },
+                            "count": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "list",
+                            "count"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      },
       "post": {
         "summary": "发布文章",
         "deprecated": false,
@@ -2658,7 +2783,9 @@
                                 "type": "string"
                               },
                               "deleted_at": {
-                                "type": "null"
+                                "type": "string",
+                                "nullable": true,
+                                "format": "date-time"
                               },
                               "title": {
                                 "type": "string"
@@ -3145,7 +3272,9 @@
                                 "type": "string"
                               },
                               "deleted_at": {
-                                "type": "null"
+                                "type": "string",
+                                "nullable": true,
+                                "format": "date-time"
                               },
                               "title": {
                                 "type": "string"
@@ -3354,7 +3483,9 @@
                                 "type": "string"
                               },
                               "deleted_at": {
-                                "type": "null"
+                                "type": "string",
+                                "nullable": true,
+                                "format": "date-time"
                               },
                               "title": {
                                 "type": "string"
@@ -3993,13 +4124,13 @@
                 "schema": {
                   "allOf": [
                     {
-                      "": "#/components/schemas/ApiMessageResponse"
+                      "$ref": "#/components/schemas/ApiMessageResponse"
                     },
                     {
                       "type": "object",
                       "properties": {
                         "data": {
-                          "": "#/components/schemas/EmptyObject"
+                          "$ref": "#/components/schemas/EmptyObject"
                         }
                       },
                       "required": [
@@ -5620,7 +5751,13 @@
             "example": "1",
             "schema": {
               "type": "integer",
-              "enum": [1, 2, 3, 4, 5],
+              "enum": [
+                1,
+                2,
+                3,
+                4,
+                5
+              ],
               "default": 1
             }
           },
@@ -5664,7 +5801,10 @@
             "example": "has_more",
             "schema": {
               "type": "string",
-              "enum": ["has_more", "count"]
+              "enum": [
+                "has_more",
+                "count"
+              ]
             }
           },
           {
@@ -5675,7 +5815,14 @@
             "example": "1",
             "schema": {
               "type": "integer",
-              "enum": [1, 2, 3, 4, 5, 6],
+              "enum": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+              ],
               "default": 1
             }
           },
@@ -5744,65 +5891,143 @@
                     "data": {
                       "type": "object",
                       "properties": {
+                        "count": {
+                          "type": "integer"
+                        },
                         "list": {
                           "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
-                              "id": {"type": "string"},
-                              "created_at": {"type": "string", "format": "date-time"},
-                              "updated_at": {"type": "string", "format": "date-time"},
-                              "title": {"type": "string"},
-                              "abstract": {"type": "string"},
-                              "cover": {"type": "string"},
-                              "view_count": {"type": "integer"},
-                              "digg_count": {"type": "integer"},
-                              "comment_count": {"type": "integer"},
-                              "favor_count": {"type": "integer"},
-                              "comments_toggle": {"type": "boolean"},
-                              "status": {"type": "integer"},
+                              "id": {
+                                "type": "string"
+                              },
+                              "created_at": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "updated_at": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "deleted_at": {
+                                "type": "string",
+                                "nullable": true,
+                                "format": "date-time"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "abstract": {
+                                "type": "string"
+                              },
+                              "content": {
+                                "type": "string"
+                              },
+                              "html_content": {
+                                "type": "string"
+                              },
+                              "category_id": {
+                                "type": "integer",
+                                "nullable": true
+                              },
+                              "cover": {
+                                "type": "string"
+                              },
+                              "author_id": {
+                                "type": "integer"
+                              },
+                              "view_count": {
+                                "type": "integer"
+                              },
+                              "digg_count": {
+                                "type": "integer"
+                              },
+                              "comment_count": {
+                                "type": "integer"
+                              },
+                              "favor_count": {
+                                "type": "integer"
+                              },
+                              "comments_toggle": {
+                                "type": "boolean"
+                              },
+                              "status": {
+                                "type": "integer"
+                              },
                               "tags": {
                                 "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
-                                    "id": {"type": "string"},
-                                    "title": {"type": "string"}
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
                                   },
-                                  "required": ["id", "title"]
+                                  "required": [
+                                    "id",
+                                    "title"
+                                  ]
                                 }
                               },
                               "category": {
                                 "type": "object",
                                 "properties": {
-                                  "id": {"type": "string"},
-                                  "title": {"type": "string"}
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
                                 }
                               },
                               "author": {
                                 "type": "object",
                                 "properties": {
-                                  "id": {"type": "string"},
-                                  "nickname": {"type": "string"},
-                                  "avatar": {"type": "string"}
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "nickname": {
+                                    "type": "string"
+                                  },
+                                  "avatar": {
+                                    "type": "string"
+                                  }
                                 },
-                                "required": ["id", "nickname", "avatar"]
+                                "required": [
+                                  "id",
+                                  "nickname",
+                                  "avatar"
+                                ]
                               },
                               "top": {
                                 "type": "object",
                                 "properties": {
-                                  "user": {"type": "boolean"},
-                                  "admin": {"type": "boolean"}
+                                  "user": {
+                                    "type": "boolean"
+                                  },
+                                  "admin": {
+                                    "type": "boolean"
+                                  }
                                 }
                               },
                               "highlight": {
                                 "type": "object",
                                 "properties": {
-                                  "title": {"type": "string"},
-                                  "abstract": {"type": "string"}
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "abstract": {
+                                    "type": "string"
+                                  }
                                 }
                               },
-                              "score": {"type": "number"}
+                              "score": {
+                                "type": "number"
+                              }
                             },
                             "required": [
                               "id",
@@ -5827,13 +6052,26 @@
                           "properties": {
                             "mode": {
                               "type": "string",
-                              "enum": ["has_more", "count"]
+                              "enum": [
+                                "has_more",
+                                "count"
+                              ]
                             },
-                            "page": {"type": "integer"},
-                            "limit": {"type": "integer"},
-                            "has_more": {"type": "boolean"},
-                            "total": {"type": "integer"},
-                            "total_pages": {"type": "integer"}
+                            "page": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "has_more": {
+                              "type": "boolean"
+                            },
+                            "total": {
+                              "type": "integer"
+                            },
+                            "total_pages": {
+                              "type": "integer"
+                            }
                           },
                           "required": [
                             "mode",
@@ -9444,6 +9682,10 @@
             },
             "description": "字段 `list` 的数组数据。"
           },
+          "count": {
+            "type": "integer",
+            "description": "字段 `count` 的业务含义请结合该接口上下文使用。"
+          },
           "has_more": {
             "type": "boolean",
             "description": "是否还有下一页数据。前台评论列表不返回精确总数。"
@@ -9539,6 +9781,10 @@
               "$ref": "#/components/schemas/CommentReplyItem"
             },
             "description": "字段 `list` 的数组数据。"
+          },
+          "count": {
+            "type": "integer",
+            "description": "字段 `count` 的业务含义请结合该接口上下文使用。"
           },
           "has_more": {
             "type": "boolean",
@@ -10419,7 +10665,7 @@
               }
             ],
             "description": "字段 `category` 的业务含义请结合该接口上下文使用。",
-            "type": "null"
+            "nullable": true
           },
           "tags": {
             "type": "array",

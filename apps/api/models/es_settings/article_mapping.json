@@ -5,7 +5,7 @@
   "mappings": {
     "properties": {
       "id": {
-        "type": "integer"
+        "type": "long"
       },
       "created_at": {
         "type": "date",
@@ -58,12 +58,12 @@
         }
       },
       "category_id": {
-        "type": "integer"
+        "type": "long"
       },
       "category": {
         "properties": {
           "id": {
-            "type": "integer"
+            "type": "long"
           },
           "title": {
             "type": "keyword"
@@ -74,12 +74,12 @@
         "type": "keyword"
       },
       "author_id": {
-        "type": "integer"
+        "type": "long"
       },
       "author": {
         "properties": {
           "id": {
-            "type": "integer"
+            "type": "long"
           },
           "nickname": {
             "type": "keyword"
@@ -104,7 +104,7 @@
       "tags": {
         "properties": {
           "id": {
-            "type": "integer"
+            "type": "long"
           },
           "title": {
             "type": "keyword"

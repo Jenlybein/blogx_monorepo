@@ -12,12 +12,14 @@ import (
 func CreatePipeline(client *elasticsearch.Client, pipeline, definition string) error {
 	// 构建创建 pipeline 的请求体
 	req := bytes.NewBufferString(definition)
+	ctx, cancel := context.WithTimeout(context.Background(), esRequestTimeout)
+	defer cancel()
 
 	// 调用 ES 的 Create Pipeline API
 	res, err := client.Ingest.PutPipeline(
 		pipeline,
 		req,
-		client.Ingest.PutPipeline.WithContext(context.Background()),
+		client.Ingest.PutPipeline.WithContext(ctx),
 	)
 	if err != nil {
 		return fmt.Errorf("创建 pipeline %s 失败: %v", pipeline, err)
@@ -34,10 +36,13 @@ func CreatePipeline(client *elasticsearch.Client, pipeline, definition string) e
 
 // 判断 pipeline 是否存在
 func ExistsPipeline(client *elasticsearch.Client, pipeline string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), esRequestTimeout)
+	defer cancel()
+
 	// 必须指定 PipelineID 才能查询特定的 pipeline
 	res, err := client.Ingest.GetPipeline(
 		client.Ingest.GetPipeline.WithPipelineID(pipeline), // 关键点：指定 ID
-		client.Ingest.GetPipeline.WithContext(context.Background()),
+		client.Ingest.GetPipeline.WithContext(ctx),
 	)
 
 	if err != nil {
@@ -61,9 +66,12 @@ func ExistsPipeline(client *elasticsearch.Client, pipeline string) (bool, error)
 
 // 删除 pipeline
 func DeletePipeline(client *elasticsearch.Client, pipeline string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), esRequestTimeout)
+	defer cancel()
+
 	res, err := client.Ingest.DeletePipeline(
 		pipeline,
-		client.Ingest.DeletePipeline.WithContext(context.Background()),
+		client.Ingest.DeletePipeline.WithContext(ctx),
 	)
 	if err != nil {
 		return fmt.Errorf("删除 pipeline %s 失败: %v", pipeline, err)

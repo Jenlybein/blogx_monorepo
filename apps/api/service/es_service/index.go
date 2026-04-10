@@ -4,20 +4,25 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/elastic/go-elasticsearch/v7"
 )
+
+const esRequestTimeout = 15 * time.Second
 
 // 创建索引
 func CreateIndex(client *elasticsearch.Client, index, mapping string) error {
 	// 构建创建索引的请求体
 	req := bytes.NewBufferString(mapping)
+	ctx, cancel := context.WithTimeout(context.Background(), esRequestTimeout)
+	defer cancel()
 
 	// 调用ES的Create Index API
 	res, err := client.Indices.Create(
 		index,
 		client.Indices.Create.WithBody(req),
-		client.Indices.Create.WithContext(context.Background()),
+		client.Indices.Create.WithContext(ctx),
 	)
 	if err != nil {
 		return fmt.Errorf("创建索引 %s 失败: %v", index, err)
@@ -34,9 +39,12 @@ func CreateIndex(client *elasticsearch.Client, index, mapping string) error {
 
 // 判断索引是否存在
 func ExistsIndex(client *elasticsearch.Client, index string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), esRequestTimeout)
+	defer cancel()
+
 	res, err := client.Indices.Exists(
 		[]string{index},
-		client.Indices.Exists.WithContext(context.Background()),
+		client.Indices.Exists.WithContext(ctx),
 	)
 	if err != nil {
 		return false, fmt.Errorf("检查索引 %s 是否存在失败: %v", index, err)
@@ -55,9 +63,12 @@ func ExistsIndex(client *elasticsearch.Client, index string) (bool, error) {
 
 // 删除索引
 func DeleteIndex(client *elasticsearch.Client, index string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), esRequestTimeout)
+	defer cancel()
+
 	res, err := client.Indices.Delete(
 		[]string{index},
-		client.Indices.Delete.WithContext(context.Background()),
+		client.Indices.Delete.WithContext(ctx),
 	)
 	if err != nil {
 		return fmt.Errorf("删除索引 %s 失败: %v", index, err)

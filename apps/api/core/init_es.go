@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"time"
 
 	"myblogx/conf"
 
@@ -35,7 +36,8 @@ func EsConnect(esConf *conf.ES, logger *logrus.Logger) *elasticsearch.Client {
 	}
 
 	// 验证连接（修正上下文传参方式）
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	resp, err := es.Info(es.Info.WithContext(ctx))
 	if err != nil {
 		if logger != nil {

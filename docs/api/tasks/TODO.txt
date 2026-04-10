@@ -277,3 +277,7 @@ ai_scoring_prompt.go：统一放 prompt 模板。
 
 
 [P2] 聊天 WebSocket 入口还是一个过大的“超级处理器”，而且同源校验是全放开的。CheckOrigin 现在直接 return true，chat_ws.go (line 32)。ChatWsView 同时负责鉴权回退、票据消费、连接生命周期、收件人校验、限流占位、消息落库、在线路由和错误回写，chat_ws.go (line 63)。这会让聊天功能一旦继续长大，测试、扩展 ack/retry、引入审核/风控都会越来越难。
+
+
+项目的原子性问题需要解决，redis先存，mysql后事务存，然后再回来确定redis是否真的成功存。
+

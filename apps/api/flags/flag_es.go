@@ -14,55 +14,42 @@ import (
 func FlagESIndex(deps Deps) {
 	article := models.ArticleModel{}
 	index := models.ResolveArticleESIndex(deps.ESIndex)
-
-	fmt.Println("请输入索引设置: ")
-	fmt.Println("1. 初始化文章索引设置")
-	fmt.Println("2. 删除文章索引设置")
-
-	var indexChoice int
-	fmt.Scanln(&indexChoice)
-
-	switch indexChoice {
-	case 1:
-		if err := es_service.CreateIndexForce(deps.ESClient, index, article.Mapping()); err != nil {
-			logESError(deps.Logger, "初始化索引失败: %v", err)
-			return
-		}
-		logESInfo(deps.Logger, "索引 %s 初始化成功", index)
-	case 2:
-		if err := es_service.DeleteIndex(deps.ESClient, index); err != nil {
-			logESError(deps.Logger, "删除索引失败: %v", err)
-			return
-		}
-		logESInfo(deps.Logger, "索引 %s 删除成功", index)
-	default:
-		fmt.Println("无效的选择，不执行任何操作")
-	}
-
 	pipelineName := article.PipelineName()
-	fmt.Println("请输入流水线设置: ")
-	fmt.Println("1. 初始化文章流水线设置")
-	fmt.Println("2. 删除文章流水线设置")
 
-	var pipelineChoice int
-	fmt.Scanln(&pipelineChoice)
-
-	switch pipelineChoice {
-	case 1:
-		if err := es_service.CreatePipelineForce(deps.ESClient, pipelineName, article.Pipeline()); err != nil {
-			logESError(deps.Logger, "初始化流水线失败: %v", err)
-			return
-		}
-		logESInfo(deps.Logger, "流水线 %s 初始化成功", pipelineName)
-	case 2:
-		if err := es_service.DeletePipeline(deps.ESClient, pipelineName); err != nil {
-			logESError(deps.Logger, "删除流水线失败: %v", err)
-			return
-		}
-		logESInfo(deps.Logger, "流水线 %s 删除成功", pipelineName)
-	default:
-		fmt.Println("无效的选择，不执行任何操作")
+	fmt.Printf("正在初始化索引: %s\n", index)
+	if err := es_service.CreateIndexForce(deps.ESClient, index, article.Mapping()); err != nil {
+		logESError(deps.Logger, "初始化索引失败: %v", err)
+		return
 	}
+	logESInfo(deps.Logger, "索引 %s 初始化成功", index)
+
+	fmt.Printf("正在初始化流水线: %s\n", pipelineName)
+	if err := es_service.CreatePipelineForce(deps.ESClient, pipelineName, article.Pipeline()); err != nil {
+		logESError(deps.Logger, "初始化流水线失败: %v", err)
+		return
+	}
+	logESInfo(deps.Logger, "流水线 %s 初始化成功", pipelineName)
+}
+
+// FlagESDelete 非交互地删除 ES 索引和流水线。
+func FlagESDelete(deps Deps) {
+	article := models.ArticleModel{}
+	index := models.ResolveArticleESIndex(deps.ESIndex)
+	pipelineName := article.PipelineName()
+
+	fmt.Printf("正在删除索引: %s\n", index)
+	if err := es_service.DeleteIndex(deps.ESClient, index); err != nil {
+		logESError(deps.Logger, "删除索引失败: %v", err)
+		return
+	}
+	logESInfo(deps.Logger, "索引 %s 删除成功", index)
+
+	fmt.Printf("正在删除流水线: %s\n", pipelineName)
+	if err := es_service.DeletePipeline(deps.ESClient, pipelineName); err != nil {
+		logESError(deps.Logger, "删除流水线失败: %v", err)
+		return
+	}
+	logESInfo(deps.Logger, "流水线 %s 删除成功", pipelineName)
 }
 
 // FlagESEnsure 非交互地确保 ES 索引和流水线存在。

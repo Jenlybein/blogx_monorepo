@@ -20,6 +20,17 @@ type articleESTop struct {
 	AuthorTop bool
 }
 
+func toESID(id ctype.ID) uint64 {
+	return uint64(id)
+}
+
+func toESNullableID(id *ctype.ID) any {
+	if id == nil {
+		return nil
+	}
+	return uint64(*id)
+}
+
 // ArticleSearchProjectionEventType 定义文章搜索读模型的变更类型。
 type ArticleSearchProjectionEventType string
 
@@ -145,10 +156,9 @@ func UpdateESDocsByArticleDeltas(db *gorm.DB, client *elasticsearch.Client, delt
 				}
 			case "category_id":
 				if categoryID, ok := scanNullableIDValue(raw); ok {
-					var categoryIDValue any
+					categoryIDValue := toESNullableID(categoryID)
 					var categoryTitle string
 					if categoryID != nil {
-						categoryIDValue = *categoryID
 						categoryTitle = categoryTitleMap[*categoryID]
 					}
 					data["category_id"] = categoryIDValue
@@ -164,9 +174,9 @@ func UpdateESDocsByArticleDeltas(db *gorm.DB, client *elasticsearch.Client, delt
 			case "author_id":
 				if authorID, ok := scanIDValue(raw); ok {
 					author := authorMap[authorID]
-					data["author_id"] = authorID
+					data["author_id"] = toESID(authorID)
 					data["author"] = map[string]any{
-						"id":       authorID,
+						"id":       toESID(authorID),
 						"nickname": author.Nickname,
 						"avatar":   author.Avatar,
 					}
@@ -232,16 +242,16 @@ func BuildArticleESDocument(article models.ArticleModel, adminTop, authorTop boo
 	}
 
 	return map[string]any{
-		"id":            article.ID,
+		"id":            toESID(article.ID),
 		"created_at":    article.CreatedAt,
 		"updated_at":    article.UpdatedAt,
 		"title":         article.Title,
 		"abstract":      article.Abstract,
 		"content_parts": markdown.MdToContentParts(article.Content),
 		"content_head":  markdown.ExtractText(markdown.MdToTextParagraph(article.Content), 150),
-		"category_id":   article.CategoryID,
+		"category_id":   toESNullableID(article.CategoryID),
 		"category": map[string]any{
-			"id": article.CategoryID,
+			"id": toESNullableID(article.CategoryID),
 			"title": func() string {
 				if article.CategoryModel == nil {
 					return ""
@@ -250,9 +260,9 @@ func BuildArticleESDocument(article models.ArticleModel, adminTop, authorTop boo
 			}(),
 		},
 		"cover":     article.Cover,
-		"author_id": article.AuthorID,
+		"author_id": toESID(article.AuthorID),
 		"author": map[string]any{
-			"id": article.AuthorID,
+			"id": toESID(article.AuthorID),
 			"nickname": func() string {
 				if article.UserModel.ID == 0 {
 					return ""
@@ -513,10 +523,9 @@ func SyncESDocsByCategoryIDs(db *gorm.DB, client *elasticsearch.Client, category
 
 	reqs := make([]*BulkRequest, 0, len(rows))
 	for _, row := range rows {
-		var categoryIDValue any
+		categoryIDValue := toESNullableID(row.CategoryID)
 		var categoryTitle string
 		if row.CategoryID != nil {
-			categoryIDValue = *row.CategoryID
 			categoryTitle = categoryTitleMap[*row.CategoryID]
 		}
 		reqs = append(reqs, &BulkRequest{
@@ -575,9 +584,9 @@ func SyncESDocsByAuthorIDs(db *gorm.DB, client *elasticsearch.Client, userIDs []
 			Action: ActionUpdate,
 			ID:     strconv.FormatUint(uint64(row.ID), 10),
 			Data: map[string]any{
-				"author_id": row.AuthorID,
+				"author_id": toESID(row.AuthorID),
 				"author": map[string]any{
-					"id":       row.AuthorID,
+					"id":       toESID(row.AuthorID),
 					"nickname": author.Nickname,
 					"avatar":   author.Avatar,
 				},
@@ -636,12 +645,70 @@ func applyArticlePartialBulkUpdate(client *elasticsearch.Client, reqs []*BulkReq
 	if !resp.Success {
 		return fmt.Errorf("%s: %s", errPrefix, resp.Msg)
 	}
-	if data, ok := resp.Data.(map[string]any); ok {
-		if hasErrors, ok := data["errors"].(bool); ok && hasErrors {
-			return fmt.Errorf("%s: bulk errors", errPrefix)
-		}
+	if summary := extractBulkErrorSummary(resp.Data, 3); summary != "" {
+		return fmt.Errorf("%s: %s", errPrefix, summary)
 	}
 	return nil
+}
+
+func extractBulkErrorSummary(data any, maxItems int) string {
+	root, ok := data.(map[string]any)
+	if !ok {
+		return ""
+	}
+	hasErrors, ok := root["errors"].(bool)
+	if !ok || !hasErrors {
+		return ""
+	}
+
+	items, ok := root["items"].([]any)
+	if !ok || len(items) == 0 {
+		return "bulk errors"
+	}
+
+	summaries := make([]string, 0, maxItems)
+	for _, item := range items {
+		itemMap, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		for action, rawResult := range itemMap {
+			result, ok := rawResult.(map[string]any)
+			if !ok {
+				continue
+			}
+			status, _ := result["status"].(float64)
+			if status >= 200 && status < 300 {
+				continue
+			}
+
+			docID, _ := result["_id"].(string)
+			reason := "unknown"
+			if errObj, ok := result["error"].(map[string]any); ok {
+				errType, _ := errObj["type"].(string)
+				errReason, _ := errObj["reason"].(string)
+				reason = strings.TrimSpace(strings.Join([]string{errType, errReason}, ": "))
+				if reason == ":" || reason == "" {
+					reason = "unknown"
+				}
+				if causedBy, ok := errObj["caused_by"].(map[string]any); ok {
+					if cbReason, ok := causedBy["reason"].(string); ok && cbReason != "" {
+						reason += " (caused_by: " + cbReason + ")"
+					}
+				}
+			}
+
+			summaries = append(summaries, fmt.Sprintf("%s id=%s status=%d reason=%s", action, docID, int(status), reason))
+			if len(summaries) >= maxItems {
+				return "bulk errors: " + strings.Join(summaries, " | ")
+			}
+		}
+	}
+
+	if len(summaries) == 0 {
+		return "bulk errors"
+	}
+	return "bulk errors: " + strings.Join(summaries, " | ")
 }
 
 func normalizeArticleModelDeltas(deltas []ArticleModelDelta) []ArticleModelDelta {

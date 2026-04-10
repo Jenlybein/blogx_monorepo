@@ -57,6 +57,9 @@ func Run(op *FlagOptions, deps Deps) {
 		case "init":
 			FlagESIndex(deps)
 			os.Exit(0)
+		case "delete":
+			FlagESDelete(deps)
+			os.Exit(0)
 		case "ensure":
 			FlagESEnsure(deps)
 			os.Exit(0)

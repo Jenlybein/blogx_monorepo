@@ -25,7 +25,9 @@ type ArticleSearchRequest struct {
 	Type          int8               `form:"type"`
 	Sort          int8               `form:"sort"`
 	PageMode      PageMode           `form:"page_mode"`
-	TagIDs        []ctype.ID         `form:"tag_ids"`
+	// tag_ids 统一由 handler 做兼容解析（支持 tag_ids=1,2 与 tag_ids=1&tag_ids=2）
+	// 避免 query binder 在遇到 "1,2" 时按单个 ID 解析导致失败。
+	TagIDs        []ctype.ID         `form:"-"`
 	CategoryID    ctype.ID           `form:"category_id"`
 	AuthorID      ctype.ID           `form:"author_id"`
 	Status        enum.ArticleStatus `form:"status"`
