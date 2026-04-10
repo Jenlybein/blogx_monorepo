@@ -6,7 +6,6 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
-	"myblogx/service/es_service"
 	"myblogx/service/log_service"
 	"myblogx/service/read_service"
 	"myblogx/service/user_service"
@@ -45,11 +44,6 @@ func (ProfileApi) AdminUserInfoUpdateView(c *gin.Context) {
 	if err = app.DB.Model(&userModel).Updates(userMap).Error; err != nil {
 		res.FailWithMsg("用户信息更新失败", c)
 		return
-	}
-	if cr.Nickname != nil || cr.Avatar != nil {
-		if err = es_service.SyncESDocsByAuthorIDs([]ctype.ID{cr.UserID}); err != nil {
-			app.Logger.Errorf("同步用户文章 ES 文档失败: 用户ID=%d 错误=%v", cr.UserID, err)
-		}
 	}
 	if cr.Nickname != nil || cr.Avatar != nil || cr.Abstract != nil {
 		if err = read_service.SyncUserDisplaySnapshots(app.DB, cr.UserID); err != nil {

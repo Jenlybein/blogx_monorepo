@@ -6,7 +6,6 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
-	"myblogx/service/es_service"
 	"myblogx/service/log_service"
 	"myblogx/service/read_service"
 	"myblogx/utils/jwts"
@@ -38,13 +37,6 @@ func (ArticleApi) ArticleUpdateView(c *gin.Context) {
 
 	if result.TagChanged {
 		applyTagArticleCountDelta(buildTagArticleCountDelta(result.OldTagIDs, result.NewTagIDs))
-		if err := es_service.UpdateESDocsTags([]ctype.ID{article.ID}); err != nil {
-			mustApp(c).Logger.Errorf("更新文章标签后刷新 ES 标签失败: 文章ID=%d 错误=%v", article.ID, err)
-		}
-	} else if result.ContentSet {
-		if err := es_service.UpdateESDocsContent([]ctype.ID{article.ID}); err != nil {
-			mustApp(c).Logger.Errorf("更新文章正文后刷新 ES 文档失败: 文章ID=%d 错误=%v", article.ID, err)
-		}
 	}
 	if err := read_service.SyncArticleFavorSnapshots(mustApp(c).DB, []ctype.ID{article.ID}); err != nil {
 		mustApp(c).Logger.Errorf("同步文章收藏快照失败: 文章ID=%d 错误=%v", article.ID, err)

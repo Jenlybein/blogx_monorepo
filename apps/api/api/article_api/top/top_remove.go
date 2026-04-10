@@ -4,8 +4,6 @@ import (
 	"myblogx/common/res"
 	"myblogx/middleware"
 	"myblogx/models"
-	"myblogx/models/ctype"
-	"myblogx/service/es_service"
 	"myblogx/utils/jwts"
 
 	"github.com/gin-gonic/gin"
@@ -48,10 +46,6 @@ func (TopApi) ArticleTopRemoveView(c *gin.Context) {
 	if result.RowsAffected == 0 {
 		res.FailWithMsg("文章未置顶", c)
 		return
-	}
-
-	if err := es_service.UpdateESDocsTop([]ctype.ID{article.ID}); err != nil {
-		logger.Errorf("取消文章置顶后刷新 ES 失败: 文章ID=%d 错误=%v", article.ID, err)
 	}
 
 	res.OkWithMsg("取消置顶成功", c)

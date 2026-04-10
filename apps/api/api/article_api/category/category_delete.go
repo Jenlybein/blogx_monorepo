@@ -5,8 +5,6 @@ import (
 	"myblogx/common/res"
 	"myblogx/middleware"
 	"myblogx/models"
-	"myblogx/models/ctype"
-	"myblogx/service/es_service"
 	"myblogx/service/log_service"
 	"myblogx/utils/jwts"
 
@@ -41,13 +39,6 @@ func (CategoryApi) CategoryDeleteView(c *gin.Context) {
 			mustApp(c).Logger.Errorf("删除对应分类失败: 错误=%v", err)
 			res.FailWithMsg("删除分类失败", c)
 			return
-		}
-		categoryIDs := make([]ctype.ID, 0, len(list))
-		for _, item := range list {
-			categoryIDs = append(categoryIDs, item.ID)
-		}
-		if err := es_service.SyncESDocsByCategoryIDs(categoryIDs); err != nil {
-			mustApp(c).Logger.Errorf("删除分类后同步相关文章 ES 文档失败: 分类ID列表=%v 错误=%v", categoryIDs, err)
 		}
 	} else {
 		res.FailWithMsg("未找到需删除的分类", c)

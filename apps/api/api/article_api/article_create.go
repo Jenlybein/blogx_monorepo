@@ -4,9 +4,7 @@ import (
 	"errors"
 	"myblogx/common/res"
 	"myblogx/middleware"
-	"myblogx/models/ctype"
 	"myblogx/models/enum"
-	"myblogx/service/es_service"
 	"myblogx/service/log_service"
 	"myblogx/service/site_service"
 	"myblogx/utils/jwts"
@@ -37,11 +35,6 @@ func (ArticleApi) ArticleCreateView(c *gin.Context) {
 	}
 
 	applyTagArticleCountDelta(buildTagArticleCountDelta(nil, tagIDs))
-	if len(tagIDs) > 0 {
-		if err := es_service.UpdateESDocsTags([]ctype.ID{article.ID}); err != nil {
-			mustApp(c).Logger.Errorf("创建文章后刷新 ES 标签失败: 文章ID=%d 错误=%v", article.ID, err)
-		}
-	}
 
 	res.OkWithMsg("创建文章成功", c)
 

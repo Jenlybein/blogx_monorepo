@@ -182,6 +182,11 @@ river:
       tables:
         # 表名列表
         - article_models
+        - user_models
+        - category_models
+        - tag_models
+        - article_tag_models
+        - user_top_article_models
   rule:
     # 库表到 ES 索引的映射规则
     -
@@ -304,4 +309,3 @@ qiniu:
   # 七牛上传成功后的服务端回调地址；通常形如 https://你的域名/api/images/qiniu/callback
   # 留空表示不启用回调
   callback_url: "${BLOGX_QINIU_CALLBACK_URL}"
-

@@ -111,6 +111,16 @@
           }
         }
       },
+      "top": {
+        "properties": {
+          "user": {
+            "type": "boolean"
+          },
+          "admin": {
+            "type": "boolean"
+          }
+        }
+      },
       "status": {
         "type": "integer"
       },

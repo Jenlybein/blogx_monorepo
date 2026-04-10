@@ -72,6 +72,14 @@ func (h *eventHandler) OnXID(header *replication.EventHeader, nextPos mysql.Posi
 
 // OnRow 处理行事件
 func (h *eventHandler) OnRow(e *canal.RowsEvent) error {
+	if handled, err := h.r.handleArticleSearchProjectionEvent(e); handled {
+		if err != nil {
+			h.r.cancel()
+			return errors.Errorf("处理文章搜索读模型事件失败: 表=%s 动作=%s 错误=%v", e.Table.Name, e.Action, err)
+		}
+		return h.r.ctx.Err()
+	}
+
 	rule, ok := h.r.rules[ruleKey(e.Table.Schema, e.Table.Name)]
 	if !ok {
 		return nil

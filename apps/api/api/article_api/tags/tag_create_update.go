@@ -7,7 +7,6 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
-	"myblogx/service/es_service"
 	"myblogx/service/log_service"
 	"myblogx/utils/jwts"
 	"strconv"
@@ -65,7 +64,6 @@ func (TagsApi) TagCreateUpdateView(c *gin.Context) {
 		res.FailWithMsg("标签不存在", c)
 		return
 	}
-	oldTitle := tag.Title
 	if cr.IsEnabled != nil {
 		isEnabled = *cr.IsEnabled
 	} else {
@@ -77,7 +75,6 @@ func (TagsApi) TagCreateUpdateView(c *gin.Context) {
 		return
 	}
 
-	var affectedArticleIDs []ctype.ID
 	if err := mustApp(c).DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&tag).Updates(map[string]any{
 			"title":       title,
@@ -90,20 +87,10 @@ func (TagsApi) TagCreateUpdateView(c *gin.Context) {
 			}
 			return err
 		}
-		if oldTitle != title {
-			var err error
-			affectedArticleIDs, err = loadArticleIDsByTagID(tx, tag.ID)
-			return err
-		}
 		return nil
 	}); err != nil {
 		res.FailWithMsg(fmt.Sprintf("更新标签失败: %v", err), c)
 		return
-	}
-	if len(affectedArticleIDs) > 0 {
-		if err := es_service.UpdateESDocsTags(affectedArticleIDs); err != nil {
-			mustApp(c).Logger.Errorf("标签改名后刷新 ES 标签失败: 标签ID=%d 错误=%v", tag.ID, err)
-		}
 	}
 	res.OkWithMsg("更新标签成功", c)
 	log_service.EmitActionAuditFromGin(c, log_service.GinAuditInput{
@@ -128,25 +115,4 @@ func ensureTagUnique(db *gorm.DB, currentID ctype.ID, title string) error {
 		return fmt.Errorf("标签名称重复")
 	}
 	return nil
-}
-
-func loadArticleIDsByTagID(tx *gorm.DB, tagID ctype.ID) ([]ctype.ID, error) {
-	var relationList []models.ArticleTagModel
-	if err := tx.Select("article_id").Where("tag_id = ?", tagID).Find(&relationList).Error; err != nil {
-		return nil, err
-	}
-	if len(relationList) == 0 {
-		return nil, nil
-	}
-
-	articleIDs := make([]ctype.ID, 0, len(relationList))
-	seen := make(map[ctype.ID]struct{}, len(relationList))
-	for _, relation := range relationList {
-		if _, ok := seen[relation.ArticleID]; ok {
-			continue
-		}
-		seen[relation.ArticleID] = struct{}{}
-		articleIDs = append(articleIDs, relation.ArticleID)
-	}
-	return articleIDs, nil
 }

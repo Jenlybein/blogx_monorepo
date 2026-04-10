@@ -8,6 +8,8 @@ import (
 	"myblogx/utils/markdown"
 	"slices"
 	"strconv"
+	"strings"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -15,6 +17,207 @@ import (
 type articleESTop struct {
 	AdminTop  bool
 	AuthorTop bool
+}
+
+// ArticleSearchProjectionEventType 定义文章搜索读模型的变更类型。
+type ArticleSearchProjectionEventType string
+
+const (
+	ArticleSearchProjectionArticleUpsert      ArticleSearchProjectionEventType = "article_upsert"
+	ArticleSearchProjectionArticleDelete      ArticleSearchProjectionEventType = "article_delete"
+	ArticleSearchProjectionAuthorSnapshot     ArticleSearchProjectionEventType = "author_snapshot"
+	ArticleSearchProjectionCategorySnapshot   ArticleSearchProjectionEventType = "category_snapshot"
+	ArticleSearchProjectionTagSnapshot        ArticleSearchProjectionEventType = "tag_snapshot"
+	ArticleSearchProjectionArticleTagsChanged ArticleSearchProjectionEventType = "article_tags_changed"
+	ArticleSearchProjectionArticleTopChanged  ArticleSearchProjectionEventType = "article_top_changed"
+	ArticleSearchProjectionTopUserChanged     ArticleSearchProjectionEventType = "top_user_changed"
+)
+
+// ArticleSearchProjectionEvent 描述一次 ES 读模型同步事件。
+type ArticleSearchProjectionEvent struct {
+	Type ArticleSearchProjectionEventType
+	IDs  []ctype.ID
+}
+
+// ArticleModelDelta 描述 article_models 单行 update 的“变更列快照”。
+// Changed 的 key 使用数据库字段名（snake_case），value 为变更后的值。
+type ArticleModelDelta struct {
+	ArticleID ctype.ID
+	Changed   map[string]any
+}
+
+// SyncArticleSearchProjection 是文章搜索读模型的统一更新入口。
+// River 在监听到相关表变更后，统一通过该入口路由到“单字段或小范围字段”更新逻辑。
+func SyncArticleSearchProjection(event ArticleSearchProjectionEvent) error {
+	switch event.Type {
+	case ArticleSearchProjectionArticleUpsert:
+		return SyncESDocs(event.IDs)
+	case ArticleSearchProjectionArticleDelete:
+		return DeleteESDocs(event.IDs)
+	case ArticleSearchProjectionAuthorSnapshot:
+		return SyncESDocsByAuthorIDs(event.IDs)
+	case ArticleSearchProjectionCategorySnapshot:
+		return SyncESDocsByCategoryIDs(event.IDs)
+	case ArticleSearchProjectionTagSnapshot:
+		return UpdateESDocsTagsByTagIDs(event.IDs)
+	case ArticleSearchProjectionArticleTagsChanged:
+		return UpdateESDocsTags(event.IDs)
+	case ArticleSearchProjectionArticleTopChanged:
+		return UpdateESDocsTop(event.IDs)
+	case ArticleSearchProjectionTopUserChanged:
+		return UpdateESDocsTopByTopUserIDs(event.IDs)
+	default:
+		return nil
+	}
+}
+
+// UpdateESDocsByArticleDeltas 按 article_models 的“变更列”做局部更新。
+// 说明：
+// 1. 仅更新真正变更的展示字段，避免每次 update 都整篇重建 ES 文档。
+// 2. 对 category/author 这类快照字段，会批量查询必要信息后再补齐。
+// 3. 当 author_id 变更时，会同步重算 top 字段，确保 author_top 语义正确。
+func UpdateESDocsByArticleDeltas(deltas []ArticleModelDelta) error {
+	if esDB == nil || esClient == nil {
+		return nil
+	}
+
+	deltas = normalizeArticleModelDeltas(deltas)
+	if len(deltas) == 0 {
+		return nil
+	}
+
+	categoryIDs := make([]ctype.ID, 0, len(deltas))
+	authorIDs := make([]ctype.ID, 0, len(deltas))
+	topRecalcArticleIDs := make([]ctype.ID, 0, len(deltas))
+	for _, delta := range deltas {
+		if rawCategoryID, ok := delta.Changed["category_id"]; ok {
+			if categoryID, ok := scanNullableIDValue(rawCategoryID); ok && categoryID != nil {
+				categoryIDs = append(categoryIDs, *categoryID)
+			}
+		}
+		if rawAuthorID, ok := delta.Changed["author_id"]; ok {
+			if authorID, ok := scanIDValue(rawAuthorID); ok && authorID != 0 {
+				authorIDs = append(authorIDs, authorID)
+				topRecalcArticleIDs = append(topRecalcArticleIDs, delta.ArticleID)
+			}
+		}
+	}
+
+	categoryTitleMap, err := loadCategoryTitleMap(esDB, categoryIDs)
+	if err != nil {
+		return err
+	}
+	authorMap, err := loadAuthorSnapshotMap(esDB, authorIDs)
+	if err != nil {
+		return err
+	}
+	topMap, err := loadArticleESTopMap(esDB, topRecalcArticleIDs)
+	if err != nil {
+		return err
+	}
+
+	reqs := make([]*BulkRequest, 0, len(deltas))
+	for _, delta := range deltas {
+		data := make(map[string]any)
+		for field, raw := range delta.Changed {
+			switch field {
+			case "created_at":
+				if value, ok := scanTimeValue(raw); ok {
+					data["created_at"] = value
+				}
+			case "updated_at":
+				if value, ok := scanTimeValue(raw); ok {
+					data["updated_at"] = value
+				}
+			case "title":
+				if value, ok := scanStringValue(raw); ok {
+					data["title"] = value
+				}
+			case "abstract":
+				if value, ok := scanStringValue(raw); ok {
+					data["abstract"] = value
+				}
+			case "content":
+				if content, ok := scanStringValue(raw); ok {
+					data["content_parts"] = markdown.MdToContentParts(content)
+					data["content_head"] = markdown.ExtractText(markdown.MdToTextParagraph(content), 150)
+				}
+			case "category_id":
+				if categoryID, ok := scanNullableIDValue(raw); ok {
+					var categoryIDValue any
+					var categoryTitle string
+					if categoryID != nil {
+						categoryIDValue = *categoryID
+						categoryTitle = categoryTitleMap[*categoryID]
+					}
+					data["category_id"] = categoryIDValue
+					data["category"] = map[string]any{
+						"id":    categoryIDValue,
+						"title": categoryTitle,
+					}
+				}
+			case "cover":
+				if value, ok := scanStringValue(raw); ok {
+					data["cover"] = value
+				}
+			case "author_id":
+				if authorID, ok := scanIDValue(raw); ok {
+					author := authorMap[authorID]
+					data["author_id"] = authorID
+					data["author"] = map[string]any{
+						"id":       authorID,
+						"nickname": author.Nickname,
+						"avatar":   author.Avatar,
+					}
+				}
+			case "view_count":
+				if value, ok := scanIntValue(raw); ok {
+					data["view_count"] = value
+				}
+			case "digg_count":
+				if value, ok := scanIntValue(raw); ok {
+					data["digg_count"] = value
+				}
+			case "comment_count":
+				if value, ok := scanIntValue(raw); ok {
+					data["comment_count"] = value
+				}
+			case "favor_count":
+				if value, ok := scanIntValue(raw); ok {
+					data["favor_count"] = value
+				}
+			case "comments_toggle":
+				if value, ok := scanBoolValue(raw); ok {
+					data["comments_toggle"] = value
+				}
+			case "status":
+				if value, ok := scanIntValue(raw); ok {
+					data["status"] = enum.ArticleStatus(value)
+				}
+			}
+		}
+
+		if _, authorChanged := delta.Changed["author_id"]; authorChanged {
+			top := topMap[delta.ArticleID]
+			data["top"] = map[string]any{
+				"user":  top.AuthorTop,
+				"admin": top.AdminTop,
+			}
+			data["admin_top"] = top.AdminTop
+			data["author_top"] = top.AuthorTop
+		}
+
+		if len(data) == 0 {
+			continue
+		}
+		reqs = append(reqs, &BulkRequest{
+			Action: ActionUpdate,
+			ID:     strconv.FormatUint(uint64(delta.ArticleID), 10),
+			Data:   data,
+		})
+	}
+
+	return applyArticlePartialBulkUpdate(reqs, "按 article_models 差异更新 ES 文档失败")
 }
 
 // BuildArticleESDocument 将文章及其聚合字段转换为 ES 文档。
@@ -69,8 +272,12 @@ func BuildArticleESDocument(article models.ArticleModel, adminTop, authorTop boo
 		"status":          article.Status,
 		"comments_toggle": article.CommentsToggle,
 		"tags":            tags,
-		"admin_top":       adminTop,
-		"author_top":      authorTop,
+		"top": map[string]any{
+			"user":  authorTop,
+			"admin": adminTop,
+		},
+		"admin_top":  adminTop,
+		"author_top": authorTop,
 	}
 }
 
@@ -237,6 +444,10 @@ func UpdateESDocsTop(articleIDs []ctype.ID) error {
 			Action: ActionUpdate,
 			ID:     strconv.FormatUint(uint64(articleID), 10),
 			Data: map[string]any{
+				"top": map[string]any{
+					"user":  top.AuthorTop,
+					"admin": top.AdminTop,
+				},
 				"admin_top":  top.AdminTop,
 				"author_top": top.AuthorTop,
 			},
@@ -244,6 +455,23 @@ func UpdateESDocsTop(articleIDs []ctype.ID) error {
 	}
 
 	return applyArticlePartialBulkUpdate(reqs, "更新文章 ES 置顶字段失败")
+}
+
+// DeleteESDocs 按文章 ID 删除 ES 文档。
+func DeleteESDocs(articleIDs []ctype.ID) error {
+	articleIDs = normalizeArticleIDs(articleIDs)
+	if len(articleIDs) == 0 || esClient == nil {
+		return nil
+	}
+
+	reqs := make([]*BulkRequest, 0, len(articleIDs))
+	for _, articleID := range articleIDs {
+		reqs = append(reqs, &BulkRequest{
+			Action: ActionDelete,
+			ID:     strconv.FormatUint(uint64(articleID), 10),
+		})
+	}
+	return applyArticlePartialBulkUpdate(reqs, "删除文章 ES 文档失败")
 }
 
 func SyncESDocsByCategoryIDs(categoryIDs []ctype.ID) error {
@@ -255,14 +483,54 @@ func SyncESDocsByCategoryIDs(categoryIDs []ctype.ID) error {
 		return nil
 	}
 
-	var articleIDs []ctype.ID
+	type articleCategoryRow struct {
+		ID         ctype.ID
+		CategoryID *ctype.ID
+	}
+	var rows []articleCategoryRow
 	if err := esDB.Model(&models.ArticleModel{}).
+		Select("id", "category_id").
 		Where("category_id IN ?", categoryIDs).
 		Order("id asc").
-		Pluck("id", &articleIDs).Error; err != nil {
+		Find(&rows).Error; err != nil {
 		return err
 	}
-	return SyncESDocs(articleIDs)
+	if len(rows) == 0 {
+		return nil
+	}
+
+	affectedCategoryIDs := make([]ctype.ID, 0, len(rows))
+	for _, row := range rows {
+		if row.CategoryID != nil {
+			affectedCategoryIDs = append(affectedCategoryIDs, *row.CategoryID)
+		}
+	}
+	categoryTitleMap, err := loadCategoryTitleMap(esDB, affectedCategoryIDs)
+	if err != nil {
+		return err
+	}
+
+	reqs := make([]*BulkRequest, 0, len(rows))
+	for _, row := range rows {
+		var categoryIDValue any
+		var categoryTitle string
+		if row.CategoryID != nil {
+			categoryIDValue = *row.CategoryID
+			categoryTitle = categoryTitleMap[*row.CategoryID]
+		}
+		reqs = append(reqs, &BulkRequest{
+			Action: ActionUpdate,
+			ID:     strconv.FormatUint(uint64(row.ID), 10),
+			Data: map[string]any{
+				"category_id": categoryIDValue,
+				"category": map[string]any{
+					"id":    categoryIDValue,
+					"title": categoryTitle,
+				},
+			},
+		})
+	}
+	return applyArticlePartialBulkUpdate(reqs, "按分类同步文章 ES 分类快照失败")
 }
 
 func SyncESDocsByAuthorIDs(userIDs []ctype.ID) error {
@@ -274,14 +542,88 @@ func SyncESDocsByAuthorIDs(userIDs []ctype.ID) error {
 		return nil
 	}
 
-	var articleIDs []ctype.ID
+	type articleAuthorRow struct {
+		ID       ctype.ID
+		AuthorID ctype.ID
+	}
+	var rows []articleAuthorRow
 	if err := esDB.Model(&models.ArticleModel{}).
+		Select("id", "author_id").
 		Where("author_id IN ?", userIDs).
 		Order("id asc").
-		Pluck("id", &articleIDs).Error; err != nil {
+		Find(&rows).Error; err != nil {
 		return err
 	}
-	return SyncESDocs(articleIDs)
+	if len(rows) == 0 {
+		return nil
+	}
+
+	authorIDs := make([]ctype.ID, 0, len(rows))
+	for _, row := range rows {
+		authorIDs = append(authorIDs, row.AuthorID)
+	}
+	authorMap, err := loadAuthorSnapshotMap(esDB, authorIDs)
+	if err != nil {
+		return err
+	}
+
+	reqs := make([]*BulkRequest, 0, len(rows))
+	for _, row := range rows {
+		author := authorMap[row.AuthorID]
+		reqs = append(reqs, &BulkRequest{
+			Action: ActionUpdate,
+			ID:     strconv.FormatUint(uint64(row.ID), 10),
+			Data: map[string]any{
+				"author_id": row.AuthorID,
+				"author": map[string]any{
+					"id":       row.AuthorID,
+					"nickname": author.Nickname,
+					"avatar":   author.Avatar,
+				},
+			},
+		})
+	}
+	return applyArticlePartialBulkUpdate(reqs, "按作者同步文章 ES 作者快照失败")
+}
+
+// UpdateESDocsTagsByTagIDs 在标签信息变化后按 tag_id 批量刷新相关文章的 tags 字段。
+func UpdateESDocsTagsByTagIDs(tagIDs []ctype.ID) error {
+	if esDB == nil || esClient == nil {
+		return nil
+	}
+	tagIDs = normalizeArticleIDs(tagIDs)
+	if len(tagIDs) == 0 {
+		return nil
+	}
+
+	var articleIDs []ctype.ID
+	if err := esDB.Model(&models.ArticleTagModel{}).
+		Select("article_id").
+		Where("tag_id IN ?", tagIDs).
+		Pluck("article_id", &articleIDs).Error; err != nil {
+		return err
+	}
+	return UpdateESDocsTags(articleIDs)
+}
+
+// UpdateESDocsTopByTopUserIDs 在置顶用户信息变化后按 user_id 批量刷新相关文章 top 字段。
+func UpdateESDocsTopByTopUserIDs(userIDs []ctype.ID) error {
+	if esDB == nil || esClient == nil {
+		return nil
+	}
+	userIDs = normalizeArticleIDs(userIDs)
+	if len(userIDs) == 0 {
+		return nil
+	}
+
+	var articleIDs []ctype.ID
+	if err := esDB.Model(&models.UserTopArticleModel{}).
+		Select("article_id").
+		Where("user_id IN ?", userIDs).
+		Pluck("article_id", &articleIDs).Error; err != nil {
+		return err
+	}
+	return UpdateESDocsTop(articleIDs)
 }
 
 func applyArticlePartialBulkUpdate(reqs []*BulkRequest, errPrefix string) error {
@@ -299,6 +641,48 @@ func applyArticlePartialBulkUpdate(reqs []*BulkRequest, errPrefix string) error 
 		}
 	}
 	return nil
+}
+
+func normalizeArticleModelDeltas(deltas []ArticleModelDelta) []ArticleModelDelta {
+	if len(deltas) == 0 {
+		return nil
+	}
+
+	mergedChangedMap := make(map[ctype.ID]map[string]any, len(deltas))
+	for _, delta := range deltas {
+		if delta.ArticleID == 0 || len(delta.Changed) == 0 {
+			continue
+		}
+		if _, ok := mergedChangedMap[delta.ArticleID]; !ok {
+			mergedChangedMap[delta.ArticleID] = make(map[string]any, len(delta.Changed))
+		}
+		for field, value := range delta.Changed {
+			field = strings.ToLower(strings.TrimSpace(field))
+			if field == "" || field == "id" {
+				continue
+			}
+			mergedChangedMap[delta.ArticleID][field] = value
+		}
+	}
+
+	articleIDs := make([]ctype.ID, 0, len(mergedChangedMap))
+	for articleID := range mergedChangedMap {
+		articleIDs = append(articleIDs, articleID)
+	}
+	slices.Sort(articleIDs)
+
+	result := make([]ArticleModelDelta, 0, len(articleIDs))
+	for _, articleID := range articleIDs {
+		changed := mergedChangedMap[articleID]
+		if len(changed) == 0 {
+			continue
+		}
+		result = append(result, ArticleModelDelta{
+			ArticleID: articleID,
+			Changed:   changed,
+		})
+	}
+	return result
 }
 
 func normalizeArticleIDs(articleIDs []ctype.ID) []ctype.ID {
@@ -320,6 +704,158 @@ func normalizeArticleIDs(articleIDs []ctype.ID) []ctype.ID {
 	}
 	slices.Sort(result)
 	return result
+}
+
+func scanStringValue(raw any) (string, bool) {
+	switch value := raw.(type) {
+	case string:
+		return value, true
+	case []byte:
+		return string(value), true
+	default:
+		return "", false
+	}
+}
+
+func scanIDValue(raw any) (ctype.ID, bool) {
+	var id ctype.ID
+	if err := id.Scan(raw); err != nil || id == 0 {
+		return 0, false
+	}
+	return id, true
+}
+
+func scanNullableIDValue(raw any) (*ctype.ID, bool) {
+	if raw == nil {
+		return nil, true
+	}
+	id, ok := scanIDValue(raw)
+	if !ok {
+		return nil, false
+	}
+	return &id, true
+}
+
+func scanIntValue(raw any) (int, bool) {
+	switch value := raw.(type) {
+	case int:
+		return value, true
+	case int8:
+		return int(value), true
+	case int16:
+		return int(value), true
+	case int32:
+		return int(value), true
+	case int64:
+		return int(value), true
+	case uint:
+		return int(value), true
+	case uint8:
+		return int(value), true
+	case uint16:
+		return int(value), true
+	case uint32:
+		return int(value), true
+	case uint64:
+		return int(value), true
+	case float32:
+		return int(value), true
+	case float64:
+		return int(value), true
+	case []byte:
+		number, err := strconv.Atoi(string(value))
+		if err != nil {
+			return 0, false
+		}
+		return number, true
+	case string:
+		number, err := strconv.Atoi(value)
+		if err != nil {
+			return 0, false
+		}
+		return number, true
+	default:
+		return 0, false
+	}
+}
+
+func scanBoolValue(raw any) (bool, bool) {
+	switch value := raw.(type) {
+	case bool:
+		return value, true
+	case int:
+		return value != 0, true
+	case int8:
+		return value != 0, true
+	case int16:
+		return value != 0, true
+	case int32:
+		return value != 0, true
+	case int64:
+		return value != 0, true
+	case uint:
+		return value != 0, true
+	case uint8:
+		return value != 0, true
+	case uint16:
+		return value != 0, true
+	case uint32:
+		return value != 0, true
+	case uint64:
+		return value != 0, true
+	case []byte:
+		text := strings.TrimSpace(strings.ToLower(string(value)))
+		return parseBoolText(text)
+	case string:
+		text := strings.TrimSpace(strings.ToLower(value))
+		return parseBoolText(text)
+	default:
+		return false, false
+	}
+}
+
+func parseBoolText(value string) (bool, bool) {
+	switch value {
+	case "1", "true", "t", "yes", "y", "on":
+		return true, true
+	case "0", "false", "f", "no", "n", "off", "":
+		return false, true
+	default:
+		return false, false
+	}
+}
+
+func scanTimeValue(raw any) (time.Time, bool) {
+	switch value := raw.(type) {
+	case time.Time:
+		return value, true
+	case []byte:
+		return parseTimeText(string(value))
+	case string:
+		return parseTimeText(value)
+	default:
+		return time.Time{}, false
+	}
+}
+
+func parseTimeText(raw string) (time.Time, bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}, false
+	}
+	layouts := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05.999999",
+		"2006-01-02 15:04:05",
+		"2006-01-02",
+	}
+	for _, layout := range layouts {
+		if value, err := time.ParseInLocation(layout, raw, time.Local); err == nil {
+			return value, true
+		}
+	}
+	return time.Time{}, false
 }
 
 func loadArticlesForES(db *gorm.DB, articleIDs []ctype.ID) ([]models.ArticleModel, error) {
@@ -384,14 +920,90 @@ func loadArticlesForESContentUpdate(db *gorm.DB, articleIDs []ctype.ID) ([]model
 
 func loadArticlesForESTags(db *gorm.DB, articleIDs []ctype.ID) ([]models.ArticleModel, error) {
 	var articleList []models.ArticleModel
-	err := db.Select("id", "updated_at").
+	if err := db.Select("id", "updated_at").
 		Where("id IN ?", articleIDs).
-		Preload("Tags", func(db *gorm.DB) *gorm.DB {
-			return db.Select("tag_models.id", "tag_models.title").Order("sort desc, id asc")
-		}).
 		Order("id asc").
-		Find(&articleList).Error
-	return articleList, err
+		Find(&articleList).Error; err != nil {
+		return nil, err
+	}
+	if len(articleList) == 0 {
+		return articleList, nil
+	}
+
+	type relationRow struct {
+		ArticleID ctype.ID
+		TagID     ctype.ID
+	}
+	var relationList []relationRow
+	if err := db.Model(&models.ArticleTagModel{}).
+		Select("article_id", "tag_id").
+		Where("article_id IN ?", articleIDs).
+		Order("article_id asc").
+		Find(&relationList).Error; err != nil {
+		return nil, err
+	}
+	if len(relationList) == 0 {
+		return articleList, nil
+	}
+
+	tagIDs := make([]ctype.ID, 0, len(relationList))
+	for _, relation := range relationList {
+		tagIDs = append(tagIDs, relation.TagID)
+	}
+	tagIDs = normalizeArticleIDs(tagIDs)
+
+	var tagList []models.TagModel
+	if err := db.Model(&models.TagModel{}).
+		Select("id", "title", "sort").
+		Where("id IN ?", tagIDs).
+		Order("sort desc, id asc").
+		Find(&tagList).Error; err != nil {
+		return nil, err
+	}
+	tagMap := make(map[ctype.ID]models.TagModel, len(tagList))
+	for _, tag := range tagList {
+		tagMap[tag.ID] = tag
+	}
+
+	articleMap := make(map[ctype.ID]*models.ArticleModel, len(articleList))
+	for index := range articleList {
+		articleList[index].Tags = []models.TagModel{}
+		articleMap[articleList[index].ID] = &articleList[index]
+	}
+	for _, relation := range relationList {
+		article, ok := articleMap[relation.ArticleID]
+		if !ok {
+			continue
+		}
+		tag, ok := tagMap[relation.TagID]
+		if !ok {
+			continue
+		}
+		article.Tags = append(article.Tags, models.TagModel{
+			Model: models.Model{ID: tag.ID},
+			Title: tag.Title,
+			Sort:  tag.Sort,
+		})
+	}
+	for index := range articleList {
+		slices.SortFunc(articleList[index].Tags, func(a, b models.TagModel) int {
+			if a.Sort != b.Sort {
+				if a.Sort > b.Sort {
+					return -1
+				}
+				return 1
+			}
+			if a.ID < b.ID {
+				return -1
+			}
+			if a.ID > b.ID {
+				return 1
+			}
+			return 0
+		})
+	}
+
+	return articleList, nil
 }
 
 func loadArticleESTopMap(db *gorm.DB, articleIDs []ctype.ID) (map[ctype.ID]articleESTop, error) {
@@ -403,30 +1015,120 @@ func loadArticleESTopMap(db *gorm.DB, articleIDs []ctype.ID) (map[ctype.ID]artic
 	type topRow struct {
 		ArticleID ctype.ID
 		TopUserID ctype.ID
-		AuthorID  ctype.ID
-		Role      enum.RoleType
 	}
 
-	var rows []topRow
+	var topRows []topRow
 	err := db.Model(&models.UserTopArticleModel{}).
-		Select("user_top_article_models.article_id, user_top_article_models.user_id AS top_user_id, article_models.author_id, user_models.role").
-		Joins("JOIN article_models ON article_models.id = user_top_article_models.article_id").
-		Joins("JOIN user_models ON user_models.id = user_top_article_models.user_id").
+		Select("article_id", "user_id AS top_user_id").
 		Where("user_top_article_models.article_id IN ?", articleIDs).
-		Find(&rows).Error
+		Find(&topRows).Error
 	if err != nil {
 		return topMap, err
 	}
+	if len(topRows) == 0 {
+		return topMap, nil
+	}
 
-	for _, row := range rows {
+	type articleAuthorRow struct {
+		ID       ctype.ID
+		AuthorID ctype.ID
+	}
+	var articleRows []articleAuthorRow
+	if err := db.Model(&models.ArticleModel{}).
+		Select("id", "author_id").
+		Where("id IN ?", articleIDs).
+		Find(&articleRows).Error; err != nil {
+		return topMap, err
+	}
+	articleAuthorMap := make(map[ctype.ID]ctype.ID, len(articleRows))
+	for _, row := range articleRows {
+		articleAuthorMap[row.ID] = row.AuthorID
+	}
+
+	topUserIDs := make([]ctype.ID, 0, len(topRows))
+	for _, row := range topRows {
+		topUserIDs = append(topUserIDs, row.TopUserID)
+	}
+	topUserIDs = normalizeArticleIDs(topUserIDs)
+
+	type userRoleRow struct {
+		ID   ctype.ID
+		Role enum.RoleType
+	}
+	var userRows []userRoleRow
+	if err := db.Model(&models.UserModel{}).
+		Select("id", "role").
+		Where("id IN ?", topUserIDs).
+		Find(&userRows).Error; err != nil {
+		return topMap, err
+	}
+	roleMap := make(map[ctype.ID]enum.RoleType, len(userRows))
+	for _, row := range userRows {
+		roleMap[row.ID] = row.Role
+	}
+
+	for _, row := range topRows {
 		state := topMap[row.ArticleID]
-		if row.Role == enum.RoleAdmin {
+		if roleMap[row.TopUserID] == enum.RoleAdmin {
 			state.AdminTop = true
 		}
-		if row.TopUserID == row.AuthorID {
+		if row.TopUserID == articleAuthorMap[row.ArticleID] {
 			state.AuthorTop = true
 		}
 		topMap[row.ArticleID] = state
 	}
 	return topMap, nil
+}
+
+func loadCategoryTitleMap(db *gorm.DB, categoryIDs []ctype.ID) (map[ctype.ID]string, error) {
+	result := make(map[ctype.ID]string)
+	categoryIDs = normalizeArticleIDs(categoryIDs)
+	if len(categoryIDs) == 0 {
+		return result, nil
+	}
+
+	var rows []models.CategoryModel
+	if err := db.Model(&models.CategoryModel{}).
+		Select("id", "title").
+		Where("id IN ?", categoryIDs).
+		Find(&rows).Error; err != nil {
+		return result, err
+	}
+	for _, row := range rows {
+		result[row.ID] = row.Title
+	}
+	return result, nil
+}
+
+type authorSnapshot struct {
+	Nickname string
+	Avatar   string
+}
+
+func loadAuthorSnapshotMap(db *gorm.DB, authorIDs []ctype.ID) (map[ctype.ID]authorSnapshot, error) {
+	result := make(map[ctype.ID]authorSnapshot)
+	authorIDs = normalizeArticleIDs(authorIDs)
+	if len(authorIDs) == 0 {
+		return result, nil
+	}
+
+	type authorRow struct {
+		ID       ctype.ID
+		Nickname string
+		Avatar   string
+	}
+	var rows []authorRow
+	if err := db.Model(&models.UserModel{}).
+		Select("id", "nickname", "avatar").
+		Where("id IN ?", authorIDs).
+		Find(&rows).Error; err != nil {
+		return result, err
+	}
+	for _, row := range rows {
+		result[row.ID] = authorSnapshot{
+			Nickname: row.Nickname,
+			Avatar:   row.Avatar,
+		}
+	}
+	return result, nil
 }

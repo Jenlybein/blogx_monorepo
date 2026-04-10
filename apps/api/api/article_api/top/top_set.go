@@ -5,10 +5,8 @@ import (
 	"myblogx/common/res"
 	"myblogx/middleware"
 	"myblogx/models"
-	"myblogx/models/ctype"
 	"myblogx/models/enum"
 	dbservice "myblogx/service/db_service"
-	"myblogx/service/es_service"
 	"myblogx/utils/jwts"
 
 	"github.com/gin-gonic/gin"
@@ -91,10 +89,6 @@ func (TopApi) ArticleTopSetView(c *gin.Context) {
 		logger.Errorf("文章置顶失败: 文章ID=%d 用户ID=%d 类型=%d 错误=%v", article.ID, claims.UserID, cr.Type, err)
 		res.FailWithError(err, c)
 		return
-	}
-
-	if err := es_service.UpdateESDocsTop([]ctype.ID{article.ID}); err != nil {
-		logger.Errorf("更新文章置顶后刷新 ES 失败: 文章ID=%d 错误=%v", article.ID, err)
 	}
 
 	res.OkWithMsg("文章置顶成功", c)
