@@ -18,6 +18,7 @@ var (
 	errArticleUserNotFound     = errors.New("用户不存在")
 	errArticleNotFound         = errors.New("文章不存在")
 	errArticleCategoryNotFound = errors.New("分类不存在")
+	errArticleTagInvalid       = errors.New("标签不存在或已停用")
 )
 
 type articleWriteService struct {

@@ -22,7 +22,7 @@ func (h ArticleApi) ArticleUpdateView(c *gin.Context) {
 	article, result, err := writer.UpdateArticle(id.ID, claims, cr)
 	if err != nil {
 		switch {
-		case errors.Is(err, errArticleUserNotFound), errors.Is(err, errArticleNotFound), errors.Is(err, errArticleCategoryNotFound):
+		case errors.Is(err, errArticleUserNotFound), errors.Is(err, errArticleNotFound), errors.Is(err, errArticleCategoryNotFound), errors.Is(err, errArticleTagInvalid):
 			res.FailWithMsg(err.Error(), c)
 		default:
 			res.FailWithMsg("更新文章失败", c)

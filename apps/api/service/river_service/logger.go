@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"myblogx/utils/logsafe"
 	"runtime"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -67,6 +68,12 @@ func (h *simpleLogrusHandler) Handle(ctx context.Context, r slog.Record) error {
 		}
 	}
 
+	// 将高频同步进度日志降级到 debug，默认不打印，避免刷屏。
+	if r.Level == slog.LevelInfo && shouldDowngradeRiverInfo(r.Message) {
+		entry.Debug(message)
+		return nil
+	}
+
 	// 映射日志级别并记录
 	switch r.Level {
 	case slog.LevelDebug:
@@ -87,3 +94,25 @@ func (h *simpleLogrusHandler) Handle(ctx context.Context, r slog.Record) error {
 func (h *simpleLogrusHandler) WithAttrs([]slog.Attr) slog.Handler       { return h }
 func (h *simpleLogrusHandler) WithGroup(string) slog.Handler            { return h }
 func (h *simpleLogrusHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func shouldDowngradeRiverInfo(msg string) bool {
+	m := strings.ToLower(msg)
+	noisyMarkers := []string{
+		"create binlogsyncer",
+		"skip master data, get current binlog position",
+		"try dump mysql and parse",
+		"exec mysqldump with",
+		"dump mysql and parse ok",
+		"begin to sync binlog from position",
+		"connected to server",
+		"start sync binlog at binlog file",
+		"rotate to next binlog",
+		"received fake rotate event",
+	}
+	for _, marker := range noisyMarkers {
+		if strings.Contains(m, marker) {
+			return true
+		}
+	}
+	return false
+}

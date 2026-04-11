@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"myblogx/utils/logsafe"
 	"runtime"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -50,6 +51,11 @@ func (h *simpleLogrusHandler) Handle(_ context.Context, r slog.Record) error {
 		}
 	}
 
+	if r.Level == slog.LevelInfo && shouldDowngradeImageRefRiverInfo(r.Message) {
+		entry.Debug(message)
+		return nil
+	}
+
 	switch r.Level {
 	case slog.LevelDebug:
 		entry.Debug(message)
@@ -68,3 +74,25 @@ func (h *simpleLogrusHandler) Handle(_ context.Context, r slog.Record) error {
 func (h *simpleLogrusHandler) WithAttrs([]slog.Attr) slog.Handler       { return h }
 func (h *simpleLogrusHandler) WithGroup(string) slog.Handler            { return h }
 func (h *simpleLogrusHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func shouldDowngradeImageRefRiverInfo(msg string) bool {
+	m := strings.ToLower(msg)
+	noisyMarkers := []string{
+		"create binlogsyncer",
+		"skip master data, get current binlog position",
+		"try dump mysql and parse",
+		"exec mysqldump with",
+		"dump mysql and parse ok",
+		"begin to sync binlog from position",
+		"connected to server",
+		"start sync binlog at binlog file",
+		"rotate to next binlog",
+		"received fake rotate event",
+	}
+	for _, marker := range noisyMarkers {
+		if strings.Contains(m, marker) {
+			return true
+		}
+	}
+	return false
+}

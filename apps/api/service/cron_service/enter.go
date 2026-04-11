@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"myblogx/conf"
 	"myblogx/models/ctype"
 	"myblogx/service/redis_service"
 
@@ -15,9 +16,10 @@ import (
 )
 
 type CronService struct {
-	db    *gorm.DB
-	redis *redis.Client
-	log   *logrus.Logger
+	db        *gorm.DB
+	redis     *redis.Client
+	log       *logrus.Logger
+	logConfig conf.Logrus
 }
 
 var (
@@ -42,12 +44,16 @@ type hashCounterSyncConfig struct {
 	applyDelta func(id ctype.ID, delta int) error
 }
 
-func NewSchedulerRaw(db *gorm.DB, redisClient *redis.Client, logger *logrus.Logger) *CronService {
-	return &CronService{
+func NewSchedulerRaw(db *gorm.DB, redisClient *redis.Client, logger *logrus.Logger, logCfg ...conf.Logrus) *CronService {
+	s := &CronService{
 		db:    db,
 		redis: redisClient,
 		log:   logger,
 	}
+	if len(logCfg) > 0 {
+		s.logConfig = logCfg[0]
+	}
+	return s
 }
 
 func (s *CronService) syncCounters() {
@@ -182,6 +188,8 @@ func (s *CronService) Start() {
 			s.log.Errorf("添加同步任务失败: %v", err)
 		}
 	}
+
+	s.registerLogCleanupJob(scheduler)
 
 	if s.log != nil {
 		s.log.Infof("成功启动定时任务")

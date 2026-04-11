@@ -45,6 +45,14 @@ log:
   query_default_limit: ${BLOGX_LOG_QUERY_DEFAULT_LIMIT}
   # 后台日志查询接口允许的最大分页条数
   query_max_limit: ${BLOGX_LOG_QUERY_MAX_LIMIT}
+  # 本地日志文件清理策略
+  cleanup:
+    # 是否启用按天清理过期日志目录
+    enabled: ${BLOGX_LOG_CLEANUP_ENABLED:-true}
+    # 保留天数（包含当天）；例如 7 表示保留最近 7 天
+    retention_days: ${BLOGX_LOG_RETENTION_DAYS:-7}
+    # 每日执行时间，格式 HH:MM:SS（24 小时制）
+    run_at: "${BLOGX_LOG_CLEANUP_RUN_AT:-03:30:00}"
   # 错误日志扩展配置
   error:
     # 总开关：false 时任何级别都不记录 error.stack

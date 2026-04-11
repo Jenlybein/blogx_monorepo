@@ -29,7 +29,7 @@ func (h ArticleApi) ArticleCreateView(c *gin.Context) {
 	article, tagIDs, err := writer.CreateArticle(claims, cr)
 	if err != nil {
 		switch {
-		case errors.Is(err, errArticleUserNotFound), errors.Is(err, errArticleCategoryNotFound):
+		case errors.Is(err, errArticleUserNotFound), errors.Is(err, errArticleCategoryNotFound), errors.Is(err, errArticleTagInvalid):
 			res.FailWithMsg(err.Error(), c)
 		default:
 			res.FailWithMsg("创建文章失败", c)

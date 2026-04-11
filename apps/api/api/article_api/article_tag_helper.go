@@ -1,7 +1,6 @@
 package article_api
 
 import (
-	"errors"
 	"time"
 
 	"myblogx/models"
@@ -34,7 +33,7 @@ func loadEnabledTagsByIDs(db *gorm.DB, tagIDs []ctype.ID) ([]models.TagModel, er
 	}
 
 	if len(tagList) != len(uniqueIDs) {
-		return nil, errors.New("标签不存在或已停用")
+		return nil, errArticleTagInvalid
 	}
 	return tagList, nil
 }

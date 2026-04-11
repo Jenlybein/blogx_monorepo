@@ -29,6 +29,16 @@ func normalizeConfig(cfg *conf.Config) {
 		cfg.Log.Trace.GatewayHeaderPriority = "traceparent>x-request-id"
 	}
 
+	if cfg.Log.Cleanup == (conf.LogCleanup{}) {
+		cfg.Log.Cleanup.Enabled = true
+	}
+	if cfg.Log.Cleanup.RetentionDays <= 0 {
+		cfg.Log.Cleanup.RetentionDays = 7
+	}
+	if cfg.Log.Cleanup.RunAt == "" {
+		cfg.Log.Cleanup.RunAt = "03:30:00"
+	}
+
 	if cfg.River.Retry.MaxAttempts <= 0 {
 		cfg.River.Retry.MaxAttempts = 2
 	}

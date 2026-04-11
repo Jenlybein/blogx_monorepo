@@ -94,7 +94,7 @@ func TestFlagUserCreateInvalidRoleAndExistsUser(t *testing.T) {
 	t.Run("非法角色直接返回", func(t *testing.T) {
 		withStdin(t, "0\n", func() {
 			u := FlagUser{}
-			u.Create(db, nil)
+			u.Create(db, nil, UserCreateOptions{})
 		})
 		var cnt int64
 		_ = db.Model(&models.UserModel{}).Count(&cnt).Error
@@ -114,7 +114,7 @@ func TestFlagUserCreateInvalidRoleAndExistsUser(t *testing.T) {
 
 		withStdin(t, "1\nexists_u\n", func() {
 			u := FlagUser{}
-			u.Create(db, nil)
+			u.Create(db, nil, UserCreateOptions{})
 		})
 
 		var cnt int64
@@ -123,6 +123,36 @@ func TestFlagUserCreateInvalidRoleAndExistsUser(t *testing.T) {
 			t.Fatalf("已存在用户分支不应重复创建, cnt=%d", cnt)
 		}
 	})
+}
+
+func TestFlagUserCreateNonInteractive(t *testing.T) {
+	db := testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{})
+	u := FlagUser{}
+
+	u.Create(db, nil, UserCreateOptions{
+		Role:     "admin",
+		Username: "cli_admin",
+		Password: "123456",
+		Nickname: "CLI管理员",
+		Email:    "cli_admin@example.com",
+	})
+
+	var created models.UserModel
+	if err := db.Take(&created, "username = ?", "cli_admin").Error; err != nil {
+		t.Fatalf("非交互创建用户失败: %v", err)
+	}
+	if created.Role != enum.RoleAdmin {
+		t.Fatalf("角色不正确: got=%v want=%v", created.Role, enum.RoleAdmin)
+	}
+	if created.Nickname != "CLI管理员" {
+		t.Fatalf("昵称不正确: got=%q", created.Nickname)
+	}
+	if created.Email == nil || *created.Email != "cli_admin@example.com" {
+		t.Fatalf("邮箱不正确: got=%v", created.Email)
+	}
+	if created.Password == "" || created.Password == "123456" {
+		t.Fatalf("密码应加密存储, got=%q", created.Password)
+	}
 }
 
 func setupMockESClient(t *testing.T, handler http.HandlerFunc) {

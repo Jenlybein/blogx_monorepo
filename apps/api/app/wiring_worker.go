@@ -64,7 +64,7 @@ func WireCron(infra *Infra) error {
 		return err
 	}
 
-	cron_service.NewSchedulerRaw(infra.DB, infra.Redis, infra.Logger).Start()
+	cron_service.NewSchedulerRaw(infra.DB, infra.Redis, infra.Logger, infra.Config.Log).Start()
 	return nil
 }
 

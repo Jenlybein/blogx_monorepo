@@ -12,6 +12,7 @@ type Logrus struct {
 	QueryMaxLimit     int            `yaml:"query_max_limit"`     // 后台日志查询最大条数
 	Error             LogErrorConfig `yaml:"error"`
 	Trace             LogTraceConfig `yaml:"trace"`
+	Cleanup           LogCleanup     `yaml:"cleanup"`
 }
 
 type LogErrorConfig struct {
@@ -26,4 +27,10 @@ type LogTraceConfig struct {
 	RequestIDEqualsTraceID bool   `yaml:"request_id_equals_trace_id"`
 	InheritFromGateway     bool   `yaml:"inherit_from_gateway"`
 	GatewayHeaderPriority  string `yaml:"gateway_header_priority"`
+}
+
+type LogCleanup struct {
+	Enabled       bool   `yaml:"enabled"`
+	RetentionDays int    `yaml:"retention_days"`
+	RunAt         string `yaml:"run_at"`
 }
