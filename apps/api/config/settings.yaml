@@ -226,6 +226,9 @@ river:
       index: "${BLOGX_RIVER_INDEX}"
       # ES 文档类型；ES 7+ 中基本固定为 _doc，主要兼容旧写法
       type: _doc
+      field:
+        # MySQL 中可能是 tinyint(1) 的 1/0，写 ES 时显式转为 boolean
+        comments_toggle: ",bool"
       filter:
         # 允许同步到 ES 的字段白名单
         - id

@@ -95,6 +95,35 @@ func TestGetFieldValue(t *testing.T) {
 	}
 }
 
+func TestGetFieldValueBool(t *testing.T) {
+	testutil.InitGlobals()
+	r := &River{}
+
+	numCol := schema.TableColumn{Type: schema.TYPE_NUMBER}
+	if got := r.getFieldValue(&numCol, fieldTypeBool, int64(1)); got != true {
+		t.Fatalf("bool 字段 int64(1) 转换错误: %#v", got)
+	}
+	if got := r.getFieldValue(&numCol, fieldTypeBool, int64(0)); got != false {
+		t.Fatalf("bool 字段 int64(0) 转换错误: %#v", got)
+	}
+
+	strCol := schema.TableColumn{Type: schema.TYPE_STRING}
+	if got := r.getFieldValue(&strCol, fieldTypeBool, "true"); got != true {
+		t.Fatalf("bool 字段 'true' 转换错误: %#v", got)
+	}
+	if got := r.getFieldValue(&strCol, fieldTypeBool, "0"); got != false {
+		t.Fatalf("bool 字段 '0' 转换错误: %#v", got)
+	}
+
+	bitCol := schema.TableColumn{Type: schema.TYPE_BIT}
+	if got := r.getFieldValue(&bitCol, fieldTypeBool, "\x01"); got != true {
+		t.Fatalf("bool 字段 bit=1 转换错误: %#v", got)
+	}
+	if got := r.getFieldValue(&bitCol, fieldTypeBool, "\x00"); got != false {
+		t.Fatalf("bool 字段 bit=0 转换错误: %#v", got)
+	}
+}
+
 func TestRulePrepareLowercase(t *testing.T) {
 	testutil.InitGlobals()
 	rl := &rule.Rule{Schema: "db", Table: "T", Index: "IDX", Type: "TP"}

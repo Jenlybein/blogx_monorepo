@@ -25,6 +25,8 @@ const (
 	// 用于mysql int类型到es日期类型的转换
 	// 设置 [rule.field] created_time = ",date"
 	fieldTypeDate = "date"
+	// 用于将 mysql 的 1/0、true/false 等值写入 ES boolean 字段
+	fieldTypeBool = "bool"
 )
 
 const mysqlDateFormat = "2006-01-02"
@@ -86,6 +88,7 @@ func (h *eventHandler) OnXID(header *replication.EventHeader, nextPos mysql.Posi
 func (h *eventHandler) OnRow(e *canal.RowsEvent) error {
 	if handled, err := h.r.handleArticleSearchProjectionEvent(e); handled {
 		if err != nil {
+			h.r.saveProjectionErrorToDLQ(e, err)
 			h.r.cancel()
 			return errors.Errorf("处理文章搜索读模型事件失败: 表=%s 动作=%s 错误=%v", e.Table.Name, e.Action, err)
 		}
@@ -715,6 +718,63 @@ func buildCDCJobID(stream, schema, table string, pos mysql.Position, rowIndex in
 	return fmt.Sprintf("%s:%s.%s:%s:%d:%d", stream, schema, table, pos.Name, pos.Pos, rowIndex)
 }
 
+func (r *River) saveProjectionErrorToDLQ(e *canal.RowsEvent, err error) {
+	if e == nil || e.Table == nil || err == nil {
+		return
+	}
+
+	pos := mysql.Position{}
+	if r.canal != nil {
+		pos = r.canal.SyncedPosition()
+	}
+	stream := "es_projection"
+	schemaName := e.Table.Schema
+	tableName := e.Table.Name
+	sourceTable := schemaName + "." + tableName
+	cdcJobID := buildCDCJobID(stream, schemaName, tableName, pos, 0)
+
+	payload := map[string]any{
+		"schema":   schemaName,
+		"table":    tableName,
+		"action":   e.Action,
+		"rowCount": len(e.Rows),
+	}
+
+	saveErr := cdc_dead_letter_service.SaveBatch(r.db, []cdc_dead_letter_service.Item{{
+		Stream:      stream,
+		CdcJobID:    cdcJobID,
+		SourceTable: sourceTable,
+		Action:      e.Action,
+		TargetKey:   "",
+		Payload:     payload,
+		RetryCount:  0,
+		Status:      "pending",
+		ErrorCode:   "RIVER_PROJECTION_FAILED",
+		ErrorMsg:    err.Error(),
+	}})
+
+	logInput := log_service.CdcEventInput{
+		Level:        "error",
+		Message:      "projection 同步失败，已转入 DLQ",
+		ErrorCode:    "RIVER_PROJECTION_DLQ",
+		ErrorMessage: err.Error(),
+		ErrorType:    "es_error",
+		CdcJobID:     cdcJobID,
+		Stream:       stream,
+		SourceTable:  sourceTable,
+		Action:       e.Action,
+		RetryCount:   0,
+		Result:       "dlq",
+	}
+	if saveErr != nil {
+		logInput.Message = "projection 同步失败，DLQ 写入失败"
+		logInput.ErrorCode = "RIVER_PROJECTION_DLQ_SAVE_FAILED"
+		logInput.ErrorMessage = saveErr.Error()
+		logInput.Result = "failed"
+	}
+	log_service.EmitCDCEvent(r.logDeps, logInput)
+}
+
 // getFieldValue 获取mysql字段值并将其转换为特定的es值
 func (r *River) getFieldValue(col *schema.TableColumn, fieldType string, value interface{}) interface{} {
 	var fieldValue interface{}
@@ -737,10 +797,56 @@ func (r *River) getFieldValue(col *schema.TableColumn, fieldType string, value i
 				fieldValue = r.makeReqColumnData(col, time.Unix(v.Int(), 0).Format(mysql.TimeFormat))
 			}
 		}
+	case fieldTypeBool:
+		v := r.makeReqColumnData(col, value)
+		if b, ok := toBool(v); ok {
+			fieldValue = b
+		}
 	}
 
 	if fieldValue == nil {
 		fieldValue = r.makeReqColumnData(col, value)
 	}
 	return fieldValue
+}
+
+func toBool(value interface{}) (bool, bool) {
+	switch v := value.(type) {
+	case bool:
+		return v, true
+	case int:
+		return v != 0, true
+	case int8:
+		return v != 0, true
+	case int16:
+		return v != 0, true
+	case int32:
+		return v != 0, true
+	case int64:
+		return v != 0, true
+	case uint:
+		return v != 0, true
+	case uint8:
+		return v != 0, true
+	case uint16:
+		return v != 0, true
+	case uint32:
+		return v != 0, true
+	case uint64:
+		return v != 0, true
+	case float32:
+		return v != 0, true
+	case float64:
+		return v != 0, true
+	case string:
+		switch strings.ToLower(strings.TrimSpace(v)) {
+		case "1", "true", "t", "yes", "y", "on":
+			return true, true
+		case "0", "false", "f", "no", "n", "off", "":
+			return false, true
+		}
+	case []byte:
+		return toBool(string(v))
+	}
+	return false, false
 }
