@@ -300,7 +300,7 @@
 
   blogx_server:
     container_name: blogx-server
-    image: "blogx-server:2"
+    image: "blogx-server:6"
     restart: unless-stopped
     build:
       context: ../../..
