@@ -10,8 +10,8 @@ import (
 	"gorm.io/gorm"
 )
 
-func (AuthApi) BindEmailView(c *gin.Context) {
-	app := mustApp(c)
+func (h AuthApi) BindEmailView(c *gin.Context) {
+	app := h.App
 	email := c.GetString("email")
 	if email == "" {
 		res.FailWithMsg("邮箱验证失败：邮箱不存在", c)

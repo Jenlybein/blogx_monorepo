@@ -7,7 +7,6 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
-	"myblogx/service/log_service"
 	"myblogx/utils/jwts"
 	"strconv"
 	"strings"
@@ -16,7 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func (TagsApi) TagCreateUpdateView(c *gin.Context) {
+func (h TagsApi) TagCreateUpdateView(c *gin.Context) {
 	cr := middleware.GetBindJson[TagRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
 
@@ -33,7 +32,7 @@ func (TagsApi) TagCreateUpdateView(c *gin.Context) {
 
 	if cr.ID == 0 {
 		// 标签创建改为直接创建新记录，不再恢复同名软删数据。
-		if err := mustApp(c).DB.Create(&models.TagModel{
+		if err := h.App.DB.Create(&models.TagModel{
 			Title:       title,
 			Sort:        cr.Sort,
 			Description: cr.Description,
@@ -48,7 +47,7 @@ func (TagsApi) TagCreateUpdateView(c *gin.Context) {
 			return
 		}
 		res.OkWithMsg("创建标签成功", c)
-		log_service.EmitActionAuditFromGin(c, log_service.GinAuditInput{
+		middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{
 			ActionName:        "tag_create",
 			TargetType:        "tag",
 			Success:           true,
@@ -60,7 +59,7 @@ func (TagsApi) TagCreateUpdateView(c *gin.Context) {
 	}
 
 	var tag models.TagModel
-	if err := mustApp(c).DB.Take(&tag, cr.ID).Error; err != nil {
+	if err := h.App.DB.Take(&tag, cr.ID).Error; err != nil {
 		res.FailWithMsg("标签不存在", c)
 		return
 	}
@@ -70,12 +69,12 @@ func (TagsApi) TagCreateUpdateView(c *gin.Context) {
 		isEnabled = tag.IsEnabled
 	}
 
-	if err := ensureTagUnique(mustApp(c).DB, tag.ID, title); err != nil {
+	if err := ensureTagUnique(h.App.DB, tag.ID, title); err != nil {
 		res.FailWithMsg(err.Error(), c)
 		return
 	}
 
-	if err := mustApp(c).DB.Transaction(func(tx *gorm.DB) error {
+	if err := h.App.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&tag).Updates(map[string]any{
 			"title":       title,
 			"sort":        cr.Sort,
@@ -93,7 +92,7 @@ func (TagsApi) TagCreateUpdateView(c *gin.Context) {
 		return
 	}
 	res.OkWithMsg("更新标签成功", c)
-	log_service.EmitActionAuditFromGin(c, log_service.GinAuditInput{
+	middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{
 		ActionName:        "tag_update",
 		TargetType:        "tag",
 		TargetID:          strconv.FormatUint(uint64(tag.ID), 10),

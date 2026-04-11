@@ -22,12 +22,12 @@ type CommentRootListResponse struct {
 	comment_service.RootCommentItem
 }
 
-func (CommentApi) CommentRootListView(c *gin.Context) {
+func (h CommentApi) CommentRootListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[CommentRootListRequest](c)
-	queryService := comment_service.NewQueryService(mustApp(c).DB, redis_service.DepsFromGin(c))
+	queryService := comment_service.NewQueryService(h.App.DB, redis_service.NewDeps(h.App.Redis, h.App.Logger))
 
 	var article models.ArticleModel
-	if err := mustApp(c).DB.Select("id").Take(&article, cr.ArticleID).Error; err != nil {
+	if err := h.App.DB.Select("id").Take(&article, cr.ArticleID).Error; err != nil {
 		res.FailWithMsg("文章不存在", c)
 		return
 	}

@@ -6,12 +6,11 @@ import (
 	"myblogx/api/article_api/tags"
 	"myblogx/api/article_api/top"
 	"myblogx/api/article_api/view_history"
-	"myblogx/appctx"
-
-	"github.com/gin-gonic/gin"
+	"myblogx/apideps"
 )
 
 type ArticleApi struct {
+	App apideps.Deps
 	category.CategoryApi
 	favorite.FavoriteApi
 	top.TopApi
@@ -19,16 +18,13 @@ type ArticleApi struct {
 	tags.TagsApi
 }
 
-func New(ctx *appctx.AppContext) ArticleApi {
+func New(deps apideps.Deps) ArticleApi {
 	return ArticleApi{
-		CategoryApi:    category.New(ctx),
-		FavoriteApi:    favorite.New(ctx),
-		TopApi:         top.New(ctx),
-		ViewHistoryApi: view_history.New(ctx),
-		TagsApi:        tags.New(ctx),
+		App:            deps,
+		CategoryApi:    category.New(deps),
+		FavoriteApi:    favorite.New(deps),
+		TopApi:         top.New(deps),
+		ViewHistoryApi: view_history.New(deps),
+		TagsApi:        tags.New(deps),
 	}
-}
-
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
 }

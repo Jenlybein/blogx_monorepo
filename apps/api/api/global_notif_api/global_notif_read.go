@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func (GlobalNotifApi) GlobalNotifReadView(c *gin.Context) {
+func (h GlobalNotifApi) GlobalNotifReadView(c *gin.Context) {
 	cr := middleware.GetBindJson[models.IDListRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
 
@@ -22,14 +22,14 @@ func (GlobalNotifApi) GlobalNotifReadView(c *gin.Context) {
 		return
 	}
 
-	state, err := LoadUserGlobalNotifState(mustApp(c).DB, claims.UserID, nil)
+	state, err := LoadUserGlobalNotifState(h.App.DB, claims.UserID, nil)
 	if err != nil {
 		res.FailWithMsg("用户不存在", c)
 		return
 	}
 
 	var notifList []models.GlobalNotifModel
-	if err := BuildUserVisibleGlobalNotifListQuery(mustApp(c).DB, state).Where("id IN ?", cr.IDList).Find(&notifList).Error; err != nil {
+	if err := BuildUserVisibleGlobalNotifListQuery(h.App.DB, state).Where("id IN ?", cr.IDList).Find(&notifList).Error; err != nil {
 		res.FailWithError(err, c)
 		return
 	}
@@ -39,7 +39,7 @@ func (GlobalNotifApi) GlobalNotifReadView(c *gin.Context) {
 	}
 
 	var successCount int
-	err = mustApp(c).DB.Transaction(func(tx *gorm.DB) error {
+	err = h.App.DB.Transaction(func(tx *gorm.DB) error {
 		now := time.Now()
 		for _, notif := range notifList {
 			match := map[string]any{

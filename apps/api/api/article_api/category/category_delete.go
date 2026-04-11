@@ -5,14 +5,13 @@ import (
 	"myblogx/common/res"
 	"myblogx/middleware"
 	"myblogx/models"
-	"myblogx/service/log_service"
 	"myblogx/utils/jwts"
 
 	"github.com/gin-gonic/gin"
 )
 
 // 删除分类
-func (CategoryApi) CategoryDeleteView(c *gin.Context) {
+func (h CategoryApi) CategoryDeleteView(c *gin.Context) {
 	cr := middleware.GetBindJson[models.IDListRequest](c)
 
 	if len(cr.IDList) == 0 {
@@ -20,7 +19,7 @@ func (CategoryApi) CategoryDeleteView(c *gin.Context) {
 		return
 	}
 
-	query := mustApp(c).DB.Where("id IN ?", cr.IDList)
+	query := h.App.DB.Where("id IN ?", cr.IDList)
 
 	claim := jwts.GetClaimsByGin(c)
 	if claim.IsAdmin() == false {
@@ -28,15 +27,15 @@ func (CategoryApi) CategoryDeleteView(c *gin.Context) {
 	}
 
 	var list []models.CategoryModel
-	if err := mustApp(c).DB.Where(query).Find(&list).Error; err != nil {
-		mustApp(c).Logger.Errorf("查找对应分类失败: 错误=%v", err)
+	if err := h.App.DB.Where(query).Find(&list).Error; err != nil {
+		h.App.Logger.Errorf("查找对应分类失败: 错误=%v", err)
 		res.FailWithMsg("寻找对应的分类失败", c)
 		return
 	}
 
 	if len(list) > 0 {
-		if err := mustApp(c).DB.Delete(&list).Error; err != nil {
-			mustApp(c).Logger.Errorf("删除对应分类失败: 错误=%v", err)
+		if err := h.App.DB.Delete(&list).Error; err != nil {
+			h.App.Logger.Errorf("删除对应分类失败: 错误=%v", err)
 			res.FailWithMsg("删除分类失败", c)
 			return
 		}
@@ -45,7 +44,7 @@ func (CategoryApi) CategoryDeleteView(c *gin.Context) {
 		return
 	}
 	res.OkWithMsg(fmt.Sprintf("删除分类成功，共删除 %d 条", len(list)), c)
-	log_service.EmitActionAuditFromGin(c, log_service.GinAuditInput{
+	middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{
 		ActionName:  "category_delete",
 		TargetType:  "category",
 		Success:     true,

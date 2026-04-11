@@ -16,8 +16,8 @@ type UpdatePasswordRequest struct {
 	NewPassword string `json:"new_password" binding:"required"`
 }
 
-func (AuthApi) UpdatePwdByEmailView(c *gin.Context) {
-	app := mustApp(c)
+func (h AuthApi) UpdatePwdByEmailView(c *gin.Context) {
+	app := h.App
 	cr := middleware.GetBindJson[UpdatePasswordRequest](c)
 
 	claims := jwts.MustGetClaimsByGin(c)
@@ -52,12 +52,12 @@ func (AuthApi) UpdatePwdByEmailView(c *gin.Context) {
 		res.FailWithError(err, c)
 		return
 	}
-	deps := user_service.DepsFromApp(app)
+	deps := user_service.NewDepsWithRedis(app.JWT, app.System.Env, app.DB, app.Logger, app.Redis)
 	if err := user_service.UpdatePasswordAndRevokeSessions(deps, &user, hashPwd); err != nil {
 		res.FailWithError(err, c)
 		return
 	}
-	user_service.ClearRefreshTokenCookie(c, deps)
+	user_service.ClearRefreshTokenCookie(c.Writer, deps)
 
 	res.OkWithMsg("密码更新成功", c)
 }

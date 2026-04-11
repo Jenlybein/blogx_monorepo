@@ -8,9 +8,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (TagsApi) ArticleTagOptionsView(c *gin.Context) {
+func (h TagsApi) ArticleTagOptionsView(c *gin.Context) {
 	var list []models.OptionsResponse[ctype.ID]
-	if err := mustApp(c).DB.Model(&models.TagModel{}).
+	if err := h.App.DB.Model(&models.TagModel{}).
 		Where("is_enabled = ?", true).
 		Order("sort desc, id asc").
 		Select("id as value", "title as label").

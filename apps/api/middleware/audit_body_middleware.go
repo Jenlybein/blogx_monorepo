@@ -7,6 +7,7 @@ import (
 	"myblogx/service/log_service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 // CaptureLog 在请求进入业务前缓存原始请求信息，并在响应结束后缓存原始响应信息。
@@ -14,7 +15,6 @@ import (
 // 参数：mode - 采集模式（是否采集头/体）
 func CaptureLog(mode log_service.CaptureLogMode) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		app := mustApp(c)
 		// 采集请求头（如果开启）
 		if c.Request != nil && mode.NeedRequestHeader() {
 			log_service.SetRawRequestHeader(c, log_service.PrepareCapturedHeaders(c.Request.Header.Clone()))
@@ -25,7 +25,7 @@ func CaptureLog(mode log_service.CaptureLogMode) gin.HandlerFunc {
 			// 读取原始请求体
 			rawRequestBody, err := io.ReadAll(c.Request.Body)
 			if err != nil {
-				app.Logger.Warnf("采集原始请求体失败: %v", err)
+				logrus.Warnf("采集原始请求体失败: %v", err)
 			} else {
 				// 将请求体存入上下文
 				log_service.SetRawRequestBody(c, log_service.PrepareCapturedBody(rawRequestBody, c.GetHeader("Content-Type")))

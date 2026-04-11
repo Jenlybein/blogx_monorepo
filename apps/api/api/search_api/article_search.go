@@ -4,6 +4,7 @@ import (
 	"myblogx/common/res"
 	"myblogx/middleware"
 	"myblogx/models/ctype"
+	"myblogx/repository/user_repo"
 	"myblogx/service/redis_service"
 	"myblogx/service/search_service"
 	"myblogx/service/user_service"
@@ -13,19 +14,37 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (SearchApi) ArticleSearchView(c *gin.Context) {
+func (h SearchApi) ArticleSearchView(c *gin.Context) {
 	cr := middleware.GetBindQuery[search_service.ArticleSearchRequest](c)
 	if len(cr.TagIDs) == 0 {
 		cr.TagIDs = parseTagIDsFromGin(c)
 	}
 
 	var claims *jwts.MyClaims
-	if authResult := user_service.MustAuthenticateAccessTokenByGin(c); authResult != nil {
-		claims = authResult.Claims
+	token := jwts.GetTokenByGin(c)
+	if token != "" {
+		authenticator := user_service.NewAuthenticator(
+			h.App.DB,
+			h.App.Logger,
+			h.App.JWT,
+			redis_service.Deps{Client: h.App.Redis, Logger: h.App.Logger},
+		)
+		if authResult, err := authenticator.AuthenticateAccessToken(token); err == nil {
+			claims = authResult.Claims
+		}
 	}
 
-	app := mustApp(c)
-	result, err := search_service.SearchArticles(cr, claims, app.DB, redis_service.DepsFromGin(c), app.ESClient, app.Config.ES.Index)
+	app := h.App
+	var likeTagIDs []ctype.ID
+	if claims != nil && cr.NormalizeType() == 2 {
+		if tags, err := user_repo.LoadLikeTagIDs(app.DB, claims.UserID); err == nil {
+			likeTagIDs = tags
+		} else {
+			app.Logger.Warnf("加载用户偏好标签失败，降级为无偏好搜索: user_id=%d err=%v", claims.UserID, err)
+		}
+	}
+
+	result, err := search_service.SearchArticles(cr, claims, likeTagIDs, redis_service.NewDeps(h.App.Redis, h.App.Logger), app.ESClient, app.ES.Index)
 	if err != nil {
 		res.FailWithMsg(err.Error(), c)
 		return

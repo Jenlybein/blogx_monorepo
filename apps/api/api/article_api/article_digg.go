@@ -15,8 +15,8 @@ import (
 	"gorm.io/gorm"
 )
 
-func (ArticleApi) ArticleDiggView(c *gin.Context) {
-	app := mustApp(c)
+func (h ArticleApi) ArticleDiggView(c *gin.Context) {
+	app := h.App
 	id := middleware.GetBindUri[models.IDRequest](c)
 
 	var article models.ArticleModel
@@ -43,7 +43,7 @@ func (ArticleApi) ArticleDiggView(c *gin.Context) {
 			return
 		}
 
-		redis_article.SetCacheDigg(redis_service.DepsFromGin(c), id.ID, -1)
+		redis_article.SetCacheDigg(redis_service.NewDeps(h.App.Redis, h.App.Logger), id.ID, -1)
 		res.OkWithMsg("取消点赞成功", c)
 		return
 	} else if err != gorm.ErrRecordNotFound {
@@ -65,7 +65,7 @@ func (ArticleApi) ArticleDiggView(c *gin.Context) {
 		return
 	}
 
-	redis_article.SetCacheDigg(redis_service.DepsFromGin(c), id.ID, 1)
+	redis_article.SetCacheDigg(redis_service.NewDeps(h.App.Redis, h.App.Logger), id.ID, 1)
 	go message_service.InsertArticleDiggMessage(app.DB, app.Logger, message_service.ArticleDiggMessage{
 		ReceiverID:   article.AuthorID,
 		ActionUserID: claims.UserID,

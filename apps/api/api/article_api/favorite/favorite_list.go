@@ -14,15 +14,26 @@ import (
 )
 
 // 查询收藏夹列表
-func (FavoriteApi) FavoriteListView(c *gin.Context) {
+func (h FavoriteApi) FavoriteListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[FavoriteListRequest](c)
 
 	var claim *jwts.MyClaims
 	var err error
-	if authResult := user_service.MustAuthenticateAccessTokenByGin(c); authResult != nil {
-		claim = authResult.Claims
-	} else {
+	token := jwts.GetTokenByGin(c)
+	if token == "" {
 		err = user_service.ErrAuthRequired
+	} else {
+		authenticator := user_service.NewAuthenticator(
+			h.App.DB,
+			h.App.Logger,
+			h.App.JWT,
+			redis_service.Deps{Client: h.App.Redis, Logger: h.App.Logger},
+		)
+		if authResult, authErr := authenticator.AuthenticateAccessToken(token); authErr == nil {
+			claim = authResult.Claims
+		} else {
+			err = authErr
+		}
 	}
 
 	switch cr.Type {
@@ -39,7 +50,7 @@ func (FavoriteApi) FavoriteListView(c *gin.Context) {
 		}
 		// 查询目标用户隐私设置，判断是否公开收藏夹
 		var userConf models.UserConfModel
-		if err := mustApp(c).DB.Take(&userConf, "user_id = ?", cr.UserID).Error; err != nil {
+		if err := h.App.DB.Take(&userConf, "user_id = ?", cr.UserID).Error; err != nil {
 			res.FailWithMsg("用户不存在", c)
 			return
 		}
@@ -58,7 +69,7 @@ func (FavoriteApi) FavoriteListView(c *gin.Context) {
 	if claim != nil {
 		viewerUserID = claim.UserID
 	}
-	queryService := favorite_service.NewQueryService(mustApp(c).DB, redis_service.DepsFromGin(c))
+	queryService := favorite_service.NewQueryService(h.App.DB, redis_service.NewDeps(h.App.Redis, h.App.Logger))
 	list, count, err := queryService.ListFavorites(favorite_service.FavoriteListQuery{
 		PageInfo:  cr.PageInfo,
 		UserID:    cr.UserID,

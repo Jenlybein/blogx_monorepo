@@ -4,39 +4,39 @@ package router
 
 import (
 	"myblogx/api"
-	"myblogx/appctx"
+	"myblogx/apideps"
 	"myblogx/middleware"
 
 	"github.com/gin-gonic/gin"
 )
 
-func Run(ctx *appctx.AppContext, app api.Api) {
-	gin.SetMode(ctx.Config.System.GinMode)
+func Run(deps apideps.Deps, app api.Api) {
+	gin.SetMode(deps.System.GinMode)
 	r := gin.Default()
-	r.Use(middleware.WithAppContext(ctx))
 	r.Use(middleware.CorsMiddleware())
+	mwRuntime := middleware.NewRuntime(deps)
 
 	r.Static("/uploads", "./uploads")
 
 	nr := r.Group("/api")
-	nr.Use(middleware.LogMiddleware)
+	nr.Use(mwRuntime.LogMiddleware)
 
-	SiteRouter(nr, app)
-	LogRouter(nr, app)
-	ImageRouter(nr, app)
-	BannerRouter(nr, app)
-	CaptchaRouter(nr, app)
-	UserRouter(nr, app)
-	ArticleRouter(nr, app)
-	CommentRouter(nr, app)
-	ChatRouter(nr, app)
-	SitemsgRouter(nr, app)
-	GlobalNotifRouter(nr, app)
-	FollowRouter(nr, app)
-	SearchRouter(nr, app)
-	AIRouter(nr, app)
-	DataRouter(nr, app)
+	SiteRouter(nr, app, mwRuntime)
+	LogRouter(nr, app, mwRuntime)
+	ImageRouter(nr, app, mwRuntime)
+	BannerRouter(nr, app, mwRuntime)
+	CaptchaRouter(nr, app, mwRuntime)
+	UserRouter(nr, app, mwRuntime)
+	ArticleRouter(nr, app, mwRuntime)
+	CommentRouter(nr, app, mwRuntime)
+	ChatRouter(nr, app, mwRuntime)
+	SitemsgRouter(nr, app, mwRuntime)
+	GlobalNotifRouter(nr, app, mwRuntime)
+	FollowRouter(nr, app, mwRuntime)
+	SearchRouter(nr, app, mwRuntime)
+	AIRouter(nr, app, mwRuntime)
+	DataRouter(nr, app, mwRuntime)
 
-	addr := ctx.Config.System.Addr()
+	addr := deps.System.Addr()
 	r.Run(addr)
 }

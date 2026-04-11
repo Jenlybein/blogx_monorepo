@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (TopApi) ArticleTopListView(c *gin.Context) {
+func (h TopApi) ArticleTopListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[ArticleTopListRequest](c)
 
 	if cr.Type == 1 && cr.UserID == 0 {
@@ -17,7 +17,7 @@ func (TopApi) ArticleTopListView(c *gin.Context) {
 		return
 	}
 
-	queryService := top_service.NewQueryService(mustApp(c).DB, redis_service.DepsFromGin(c))
+	queryService := top_service.NewQueryService(h.App.DB, redis_service.NewDeps(h.App.Redis, h.App.Logger))
 	list, err := queryService.ListArticles(cr.Type, cr.UserID)
 	if err != nil {
 		res.FailWithMsg("查询置顶文章失败", c)

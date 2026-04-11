@@ -15,7 +15,7 @@ import (
 )
 
 // 当前登录用户关注其他用户
-func (FollowApi) FollowUserView(c *gin.Context) {
+func (h FollowApi) FollowUserView(c *gin.Context) {
 	cr := middleware.GetBindUri[models.IDRequest](c)
 
 	claims := jwts.GetClaimsByGin(c)
@@ -28,14 +28,14 @@ func (FollowApi) FollowUserView(c *gin.Context) {
 	// TODO：考虑每天关注量上限和取关量上限
 
 	createdOrRestored := false
-	userMap, err := read_service.LoadUserDisplayMap(mustApp(c).DB, []ctype.ID{claims.UserID, cr.ID})
+	userMap, err := read_service.LoadUserDisplayMap(h.App.DB, []ctype.ID{claims.UserID, cr.ID})
 	if err != nil {
 		res.FailWithMsg("查询用户信息失败", c)
 		return
 	}
 	followedUser := userMap[cr.ID]
 	fansUser := userMap[claims.UserID]
-	err = mustApp(c).DB.Transaction(func(tx *gorm.DB) error {
+	err = h.App.DB.Transaction(func(tx *gorm.DB) error {
 		// 尝试寻找是否存在软删的关注记录，没有则尝试进行创建
 		var createErr error
 		createdOrRestored, createErr = db_service.RestoreOrCreateUnique(tx, &models.UserFollowModel{
@@ -83,7 +83,7 @@ func (FollowApi) FollowUserView(c *gin.Context) {
 }
 
 // 当前登录用户取消关注其他用户
-func (FollowApi) UnfollowUserView(c *gin.Context) {
+func (h FollowApi) UnfollowUserView(c *gin.Context) {
 	cr := middleware.GetBindUri[models.IDRequest](c)
 
 	claims := jwts.GetClaimsByGin(c)
@@ -95,7 +95,7 @@ func (FollowApi) UnfollowUserView(c *gin.Context) {
 
 	// 取消关注必须看本次 Delete 是否真正命中了活记录，不能只看删除前查到了什么。
 	unfollowed := false
-	err := mustApp(c).DB.Transaction(func(tx *gorm.DB) error {
+	err := h.App.DB.Transaction(func(tx *gorm.DB) error {
 		// 尝试寻找是否存在软删的关注记录，没有则尝试进行删除
 		deleteResult := tx.Where(map[string]any{
 			"followed_user_id": cr.ID,

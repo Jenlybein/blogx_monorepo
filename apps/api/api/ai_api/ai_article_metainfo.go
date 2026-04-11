@@ -9,13 +9,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (AIApi) AIArticleMetaInfoView(c *gin.Context) {
-	app := mustApp(c)
-	
+func (h AIApi) AIArticleMetaInfoView(c *gin.Context) {
+	app := h.App
+	if app.RuntimeSite == nil {
+		res.FailWithMsg("运行时配置服务未初始化", c)
+		return
+	}
+	aiConf := app.RuntimeSite.GetRuntimeAI()
+
 	cr := middleware.GetBindJson[AIBaseRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
 
-	data, err := ai_metainfo.GenerateArticleMetainfo(app.DB, app.Logger, claims.UserID, cr.Content)
+	data, err := ai_metainfo.GenerateArticleMetainfo(app.DB, app.Logger, aiConf, claims.UserID, cr.Content)
 	if err != nil {
 		res.FailWithMsg(err.Error(), c)
 		return

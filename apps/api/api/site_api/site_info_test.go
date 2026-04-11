@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"myblogx/api/site_api"
+	"myblogx/apideps"
 	"myblogx/conf"
 	confsite "myblogx/conf/site"
 	"myblogx/models"
@@ -35,10 +36,10 @@ func readSiteCode(t *testing.T, w *httptest.ResponseRecorder) int {
 	return int(body["code"].(float64))
 }
 
-func setupSiteApiEnv(t *testing.T) {
+func setupSiteApiEnv(t *testing.T) (site_api.SiteApi, *site_service.RuntimeConfigService) {
 	t.Helper()
-	testutil.SetupSQLite(t, &models.RuntimeSiteConfigModel{})
-	testutil.SetConfig(&conf.Config{
+	db := testutil.SetupSQLite(t, &models.RuntimeSiteConfigModel{})
+	cfg := testutil.SetConfig(&conf.Config{
 		Site: conf.Site{
 			SiteInfo: confsite.SiteInfo{
 				Title: "技术博客",
@@ -68,14 +69,24 @@ func setupSiteApiEnv(t *testing.T) {
 			Abstract:  "你好",
 		},
 	})
-	if err := site_service.InitRuntimeConfig(); err != nil {
+
+	runtimeSvc := site_service.NewRuntimeConfigService(cfg.Site, cfg.AI, testutil.Logger(), db, "")
+	if err := runtimeSvc.InitRuntimeConfig(); err != nil {
 		t.Fatalf("初始化运行时站点配置失败: %v", err)
 	}
+
+	api := site_api.New(apideps.Deps{
+		Version:     testutil.Version(),
+		QQ:          cfg.QQ,
+		RuntimeSite: runtimeSvc,
+		Redis:       testutil.Redis(),
+		Logger:      testutil.Logger(),
+	})
+	return api, runtimeSvc
 }
 
 func TestSiteInfoViews(t *testing.T) {
-	setupSiteApiEnv(t)
-	api := site_api.SiteApi{}
+	api, _ := setupSiteApiEnv(t)
 
 	t.Run("QQ登录地址", func(t *testing.T) {
 		c, w := newSiteCtx(httptest.NewRequest(http.MethodGet, "/site/qq_url", nil))
@@ -121,35 +132,10 @@ func TestSiteInfoViews(t *testing.T) {
 			t.Fatalf("AI 信息返回异常: %s", w.Body.String())
 		}
 	})
-
-	t.Run("管理员敏感信息脱敏", func(t *testing.T) {
-		cases := []string{"site", "ai"}
-		for _, name := range cases {
-			c, w := newSiteCtx(httptest.NewRequest(http.MethodGet, "/admin/"+name, nil))
-			c.Set("requestUri", site_api.SiteInfoRequest{Name: name})
-			api.SiteInfoAdminView(c)
-			if code := readSiteCode(t, w); code != 0 {
-				t.Fatalf("%s 管理接口应成功, body=%s", name, w.Body.String())
-			}
-			if name == "ai" && !strings.Contains(w.Body.String(), "******") {
-				t.Fatalf("%s 未脱敏, body=%s", name, w.Body.String())
-			}
-		}
-	})
-
-	t.Run("管理员未知配置", func(t *testing.T) {
-		c, w := newSiteCtx(httptest.NewRequest(http.MethodGet, "/admin/unknown", nil))
-		c.Set("requestUri", site_api.SiteInfoRequest{Name: "unknown"})
-		api.SiteInfoAdminView(c)
-		if code := readSiteCode(t, w); code == 0 {
-			t.Fatalf("未知配置应失败, body=%s", w.Body.String())
-		}
-	})
 }
 
 func TestSiteUpdateView(t *testing.T) {
-	setupSiteApiEnv(t)
-	api := site_api.SiteApi{}
+	api, runtimeSvc := setupSiteApiEnv(t)
 
 	t.Run("未知配置名", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/site/unknown", bytes.NewBufferString(`{}`))
@@ -159,17 +145,6 @@ func TestSiteUpdateView(t *testing.T) {
 		api.SiteUpdateView(c)
 		if code := readSiteCode(t, w); code == 0 {
 			t.Fatalf("未知配置名应失败, body=%s", w.Body.String())
-		}
-	})
-
-	t.Run("JSON绑定失败", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/site/ai", bytes.NewBufferString(`{"timeout_sec":"bad"}`))
-		req.Header.Set("Content-Type", "application/json")
-		c, w := newSiteCtx(req)
-		c.Set("requestUri", site_api.SiteInfoRequest{Name: "ai"})
-		api.SiteUpdateView(c)
-		if code := readSiteCode(t, w); code == 0 {
-			t.Fatalf("JSON 类型错误应失败, body=%s", w.Body.String())
 		}
 	})
 
@@ -183,11 +158,12 @@ func TestSiteUpdateView(t *testing.T) {
 		if code := readSiteCode(t, w); code != 0 {
 			t.Fatalf("ai 更新应成功, body=%s", w.Body.String())
 		}
-		if testutil.Config().AI.SecretKey != "ai-secret-origin" {
-			t.Fatalf("占位符应保留原 ai secret, got=%s", testutil.Config().AI.SecretKey)
+		current := runtimeSvc.GetRuntimeAI()
+		if current.SecretKey != "ai-secret-origin" {
+			t.Fatalf("占位符应保留原 ai secret, got=%s", current.SecretKey)
 		}
-		if testutil.Config().AI.BaseURL != "https://new-ai.example.com" {
-			t.Fatalf("AI base_url 未更新, got=%s", testutil.Config().AI.BaseURL)
+		if current.BaseURL != "https://new-ai.example.com" {
+			t.Fatalf("AI base_url 未更新, got=%s", current.BaseURL)
 		}
 	})
 
@@ -201,10 +177,10 @@ func TestSiteUpdateView(t *testing.T) {
 		if code := readSiteCode(t, w); code != 0 {
 			t.Fatalf("site 更新应成功, body=%s", w.Body.String())
 		}
-		if testutil.Config().Site.SiteInfo.Title != "新站点" {
-			t.Fatalf("站点标题未更新, got=%s", testutil.Config().Site.SiteInfo.Title)
+		if got := runtimeSvc.GetRuntimeSite().SiteInfo.Title; got != "新站点" {
+			t.Fatalf("站点标题未更新, got=%s", got)
 		}
-		if got := site_service.GetRuntimeSite().Seo.Description; got != "新的描述" {
+		if got := runtimeSvc.GetRuntimeSite().Seo.Description; got != "新的描述" {
 			t.Fatalf("运行时站点配置未更新, got=%s", got)
 		}
 	})

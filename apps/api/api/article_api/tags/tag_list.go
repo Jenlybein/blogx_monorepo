@@ -13,12 +13,12 @@ import (
 	"gorm.io/gorm"
 )
 
-func (TagsApi) TagListView(c *gin.Context) {
+func (h TagsApi) TagListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[TagListRequest](c)
 
 	var query *gorm.DB
 	if cr.IsEnabled != nil {
-		query = mustApp(c).DB.Where("is_enabled = ?", *cr.IsEnabled)
+		query = h.App.DB.Where("is_enabled = ?", *cr.IsEnabled)
 	}
 
 	list, count, err := common.ListQuery(models.TagModel{}, common.Options{
@@ -38,7 +38,7 @@ func (TagsApi) TagListView(c *gin.Context) {
 		tagIDs = append(tagIDs, item.ID)
 	}
 
-	deltaMap := redis_tag.GetBatchCacheArticleCount(redis_service.DepsFromGin(c), tagIDs)
+	deltaMap := redis_tag.GetBatchCacheArticleCount(redis_service.NewDeps(h.App.Redis, h.App.Logger), tagIDs)
 	responseList := make([]TagListResponse, 0, len(list))
 	for _, item := range list {
 		item.ArticleCount += deltaMap[item.ID]

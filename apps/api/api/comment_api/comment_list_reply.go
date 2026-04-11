@@ -23,13 +23,13 @@ type CommentReplyListResponse struct {
 	comment_service.ReplyCommentItem
 }
 
-func (CommentApi) CommentReplyListView(c *gin.Context) {
+func (h CommentApi) CommentReplyListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[CommentReplyListRequest](c)
-	queryService := comment_service.NewQueryService(mustApp(c).DB, redis_service.DepsFromGin(c))
+	queryService := comment_service.NewQueryService(h.App.DB, redis_service.NewDeps(h.App.Redis, h.App.Logger))
 
 	// 查询一级评论
 	var root models.CommentModel
-	if err := mustApp(c).DB.Select("id", "article_id", "reply_id", "root_id", "reply_count").
+	if err := h.App.DB.Select("id", "article_id", "reply_id", "root_id", "reply_count").
 		Take(&root, "id = ? and article_id = ? and status = ?", cr.RootID, cr.ArticleID, enum.CommentStatusPublished).Error; err != nil {
 		res.FailWithMsg("一级评论不存在", c)
 		return

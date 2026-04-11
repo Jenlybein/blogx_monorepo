@@ -2,6 +2,8 @@ package router_test
 
 import (
 	api2 "myblogx/api"
+	"myblogx/apideps"
+	mw "myblogx/middleware"
 	"myblogx/router"
 	"testing"
 
@@ -12,18 +14,19 @@ func TestRegisterAllRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	api := r.Group("/api")
-	app := api2.New(nil)
+	app := api2.New(apideps.Deps{})
+	runtimeMw := mw.Runtime{}
 
-	router.SiteRouter(api, app)
-	router.LogRouter(api, app)
-	router.ImageRouter(api, app)
-	router.BannerRouter(api, app)
-	router.CaptchaRouter(api, app)
-	router.UserRouter(api, app)
-	router.ArticleRouter(api, app)
-	router.SearchRouter(api, app)
-	router.SitemsgRouter(api, app)
-	router.GlobalNotifRouter(api, app)
+	router.SiteRouter(api, app, runtimeMw)
+	router.LogRouter(api, app, runtimeMw)
+	router.ImageRouter(api, app, runtimeMw)
+	router.BannerRouter(api, app, runtimeMw)
+	router.CaptchaRouter(api, app, runtimeMw)
+	router.UserRouter(api, app, runtimeMw)
+	router.ArticleRouter(api, app, runtimeMw)
+	router.SearchRouter(api, app, runtimeMw)
+	router.SitemsgRouter(api, app, runtimeMw)
+	router.GlobalNotifRouter(api, app, runtimeMw)
 
 	routes := r.Routes()
 	if len(routes) == 0 {

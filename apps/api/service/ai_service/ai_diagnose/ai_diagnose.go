@@ -3,19 +3,20 @@ package ai_diagnose
 import (
 	"errors"
 	"fmt"
+	"myblogx/conf"
 	"myblogx/service/ai_service"
 	"strings"
 )
 
 const selectionTooShortMsg = "内容过短，建议选中完整句或完整段落"
 
-func DiagnoseSelectedText(req DiagnoseRequest) (*DiagnoseResponse, error) {
+func DiagnoseSelectedText(aiConf conf.AI, req DiagnoseRequest) (*DiagnoseResponse, error) {
 	normalized, err := normalizeDiagnoseRequest(req)
 	if err != nil {
 		return nil, err
 	}
 
-	reply, err := ai_service.Chat([]ai_service.Message{
+	reply, err := ai_service.Chat(aiConf, []ai_service.Message{
 		{
 			Role:    "system",
 			Content: buildDiagnosePrompt(),

@@ -14,9 +14,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func ArticleRouter(r *gin.RouterGroup, appContainer api.Api) {
+func ArticleRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtime) {
 	group := r.Group("articles")
-	authGroup := group.Group("", mw.AuthMiddleware)
+	authGroup := group.Group("", runtimeMw.AuthMiddleware)
 	adminGroup := authGroup.Group("", mw.AdminMiddleware)
 
 	app := appContainer.ArticleApi

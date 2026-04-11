@@ -12,8 +12,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (a *UserManApi) UserListView(c *gin.Context) {
-	app := mustApp(c)
+func (h *UserManApi) UserListView(c *gin.Context) {
+	app := h.App
 	cr := middleware.GetBindQuery[UserListRequest](c)
 
 	_list, count, _ := common.ListQuery(models.UserModel{}, common.Options{
@@ -25,7 +25,7 @@ func (a *UserManApi) UserListView(c *gin.Context) {
 	for _, item := range _list {
 		idList = append(idList, item.ID)
 	}
-	latestLoginMap, err := log_service.LoadLatestLoginMap(log_service.DepsFromGin(c), idList)
+	latestLoginMap, err := log_service.LoadLatestLoginMap(log_service.NewDeps(h.App.Log, h.App.System, h.App.ClickHouseConfig.Enabled, h.App.Logger, h.App.ClickHouse), idList)
 	if err != nil {
 		app.Logger.Errorf("加载用户最后登录信息失败: %v", err)
 	}

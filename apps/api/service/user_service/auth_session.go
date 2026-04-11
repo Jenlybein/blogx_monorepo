@@ -5,18 +5,14 @@ package user_service
 import (
 	"time"
 
-	"myblogx/appctx"
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 	"myblogx/conf"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_jwt"
 	"myblogx/utils/jwts"
-	"myblogx/utils/requestmeta"
-
-	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 )
 
 // refreshTokenCookieName 刷新令牌在Cookie中的键名
@@ -49,42 +45,6 @@ func NewAuthenticator(db *gorm.DB, logger *logrus.Logger, jwt conf.Jwt, redisDep
 		JWT:    jwt,
 		Redis:  redisDeps,
 	}
-}
-
-func AuthenticatorFromGin(c *gin.Context) *Authenticator {
-	app := appctx.MustFromGin(c)
-	return NewAuthenticator(app.DB, app.Logger, app.Config.Jwt, redis_service.DepsFromApp(app))
-}
-
-// BuildSessionMetaFromGin 从Gin上下文构建会话元数据
-// 用于登录、刷新令牌时记录用户设备、IP信息
-func BuildSessionMetaFromGin(c *gin.Context) SessionMeta {
-	meta := requestmeta.BuildSessionMeta(c)
-	return SessionMeta{
-		IP:   meta.IP,
-		Addr: meta.Addr,
-		UA:   meta.UA,
-	}
-}
-
-// AuthenticateAccessTokenByGin 从Gin上下文提取Token并完成认证
-func AuthenticateAccessTokenByGin(c *gin.Context) (*AuthResult, error) {
-	token := jwts.GetTokenByGin(c)
-	return AuthenticatorFromGin(c).AuthenticateAccessToken(token)
-}
-
-// MustAuthenticateAccessTokenByGin 尝试认证AccessToken
-// 不抛出错误，失败直接返回nil，用于可选鉴权接口
-func MustAuthenticateAccessTokenByGin(c *gin.Context) *AuthResult {
-	token := jwts.GetTokenByGin(c)
-	if token == "" {
-		return nil
-	}
-	result, err := AuthenticatorFromGin(c).AuthenticateAccessToken(token)
-	if err != nil {
-		return nil
-	}
-	return result
 }
 
 func (a *Authenticator) AuthenticateAccessToken(token string) (*AuthResult, error) {

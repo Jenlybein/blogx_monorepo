@@ -1,19 +1,13 @@
 package comment_api
 
 import (
-	"myblogx/appctx"
-
-	"github.com/gin-gonic/gin"
+	"myblogx/apideps"
 )
 
 type CommentApi struct {
+	App apideps.Deps
 }
 
-func New(ctx *appctx.AppContext) CommentApi {
-	_ = ctx
-	return CommentApi{}
-}
-
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) CommentApi {
+	return CommentApi{App: deps}
 }

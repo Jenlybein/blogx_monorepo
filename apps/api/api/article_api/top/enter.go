@@ -1,19 +1,13 @@
 package top
 
 import (
-	"myblogx/appctx"
-
-	"github.com/gin-gonic/gin"
+	"myblogx/apideps"
 )
 
 type TopApi struct {
+	App apideps.Deps
 }
 
-func New(ctx *appctx.AppContext) TopApi {
-	_ = ctx
-	return TopApi{}
-}
-
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) TopApi {
+	return TopApi{App: deps}
 }

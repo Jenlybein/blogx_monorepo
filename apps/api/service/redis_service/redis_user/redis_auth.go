@@ -5,8 +5,8 @@ import (
 	"context"
 	"time"
 
+	siteconf "myblogx/conf/site"
 	"myblogx/service/redis_service"
-	"myblogx/service/site_service"
 )
 
 // CheckLoginAllowed 检查账号和IP是否允许登录
@@ -21,16 +21,15 @@ func CheckLoginAllowed(deps redis_service.Deps, account, ip string) bool {
 }
 
 // RecordLoginFailure 记录登录失败，并在达到阈值时触发锁定
-func RecordLoginFailure(deps redis_service.Deps, account, ip string) {
+func RecordLoginFailure(deps redis_service.Deps, loginConf siteconf.Login, account, ip string) {
 	if deps.Client == nil {
 		return
 	}
 	ctx := context.Background()
-	conf := site_service.GetRuntimeLogin()
-	window := time.Duration(conf.LoginFailWindowMinute) * time.Minute
+	window := time.Duration(loginConf.LoginFailWindowMinute) * time.Minute
 	// 分别记录账号和IP的失败次数
-	recordFailure(deps, ctx, loginFailUserKey(account), loginLockUserKey(account), window, conf.LoginFailUserMax)
-	recordFailure(deps, ctx, loginFailIPKey(ip), loginLockIPKey(ip), window, conf.LoginFailIPMax)
+	recordFailure(deps, ctx, loginFailUserKey(account), loginLockUserKey(account), window, loginConf.LoginFailUserMax)
+	recordFailure(deps, ctx, loginFailIPKey(ip), loginLockIPKey(ip), window, loginConf.LoginFailIPMax)
 }
 
 // ResetLoginFailures 重置账号和IP的登录失败计数与锁定状态
@@ -49,16 +48,15 @@ func ResetLoginFailures(deps redis_service.Deps, account, ip string) {
 }
 
 // AllowEmailSend 检查邮箱发送是否在频率限制范围内
-func AllowEmailSend(deps redis_service.Deps, email, ip string, sendType int8) bool {
+func AllowEmailSend(deps redis_service.Deps, loginConf siteconf.Login, email, ip string, sendType int8) bool {
 	if deps.Client == nil {
 		return true
 	}
 	ctx := context.Background()
-	conf := site_service.GetRuntimeLogin()
-	window := time.Duration(conf.EmailSendWindowSecond) * time.Second
+	window := time.Duration(loginConf.EmailSendWindowSecond) * time.Second
 	// 分别检查邮箱和IP的发送频率
-	okEmail := allowWithinWindow(deps, ctx, emailSendKeyByEmail(email, sendType), window, conf.EmailSendPerEmailMax)
-	okIP := allowWithinWindow(deps, ctx, emailSendKeyByIP(ip, sendType), window, conf.EmailSendPerIPMax)
+	okEmail := allowWithinWindow(deps, ctx, emailSendKeyByEmail(email, sendType), window, loginConf.EmailSendPerEmailMax)
+	okIP := allowWithinWindow(deps, ctx, emailSendKeyByIP(ip, sendType), window, loginConf.EmailSendPerIPMax)
 	// 只有邮箱和IP都未超限才允许发送
 	return okEmail && okIP
 }

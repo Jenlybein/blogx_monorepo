@@ -16,7 +16,7 @@ import (
 )
 
 // ChatSessionListView 返回当前登录用户的会话列表。
-func (a *ChatApi) ChatSessionListView(c *gin.Context) {
+func (h *ChatApi) ChatSessionListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[ChatSessionListRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
 
@@ -34,7 +34,7 @@ func (a *ChatApi) ChatSessionListView(c *gin.Context) {
 		}
 	}
 
-	queryService := chat_service.NewQueryService(mustApp(c).DB)
+	queryService := chat_service.NewQueryService(h.App.DB)
 	list, count, err := queryService.ListSessions(chat_service.SessionListQuery{
 		PageInfo: cr.PageInfo,
 		UserID:   cr.UserID,
@@ -48,7 +48,7 @@ func (a *ChatApi) ChatSessionListView(c *gin.Context) {
 }
 
 // ChatMsgListView 返回当前登录用户在某个会话下的消息列表。
-func (a *ChatApi) ChatMsgListView(c *gin.Context) {
+func (h *ChatApi) ChatMsgListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[ChatMsgListRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
 
@@ -69,7 +69,7 @@ func (a *ChatApi) ChatMsgListView(c *gin.Context) {
 	}
 
 	var session models.ChatSessionModel
-	sessionQuery := mustApp(c).DB.Select("session_id", "clear_before_msg_id")
+	sessionQuery := h.App.DB.Select("session_id", "clear_before_msg_id")
 	if allowUnscoped {
 		sessionQuery = sessionQuery.Unscoped()
 	}
@@ -85,14 +85,14 @@ func (a *ChatApi) ChatMsgListView(c *gin.Context) {
 		PageInfo:     cr.PageInfo,
 		DefaultOrder: "send_time desc",
 		Unscoped:     allowUnscoped,
-		Where:        buildChatMsgVisibleWhere(mustApp(c).DB, cr.UserID, cr.SessionID, session.ClearBeforeMsgID, allowUnscoped),
+		Where:        buildChatMsgVisibleWhere(h.App.DB, cr.UserID, cr.SessionID, session.ClearBeforeMsgID, allowUnscoped),
 	})
 	if err != nil {
 		res.FailWithError(err, c)
 		return
 	}
 
-	stateMap, err := loadChatMsgDeletedAtMap(mustApp(c).DB, cr.UserID, cr.SessionID, allowUnscoped, list)
+	stateMap, err := loadChatMsgDeletedAtMap(h.App.DB, cr.UserID, cr.SessionID, allowUnscoped, list)
 	if err != nil {
 		res.FailWithError(err, c)
 		return

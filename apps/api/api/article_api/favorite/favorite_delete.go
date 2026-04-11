@@ -11,7 +11,7 @@ import (
 )
 
 // 删除收藏夹
-func (FavoriteApi) FavoriteDeleteView(c *gin.Context) {
+func (h FavoriteApi) FavoriteDeleteView(c *gin.Context) {
 	cr := middleware.GetBindJson[models.IDListRequest](c)
 
 	if len(cr.IDList) == 0 {
@@ -19,7 +19,7 @@ func (FavoriteApi) FavoriteDeleteView(c *gin.Context) {
 		return
 	}
 
-	query := mustApp(c).DB.Where("id IN ?", cr.IDList)
+	query := h.App.DB.Where("id IN ?", cr.IDList)
 
 	claim := jwts.GetClaimsByGin(c)
 	if claim.IsAdmin() == false {
@@ -27,15 +27,15 @@ func (FavoriteApi) FavoriteDeleteView(c *gin.Context) {
 	}
 
 	var list []models.FavoriteModel
-	if err := mustApp(c).DB.Where(query).Find(&list).Error; err != nil {
-		mustApp(c).Logger.Errorf("查找对应收藏夹失败: 错误=%v", err)
+	if err := h.App.DB.Where(query).Find(&list).Error; err != nil {
+		h.App.Logger.Errorf("查找对应收藏夹失败: 错误=%v", err)
 		res.FailWithMsg("寻找对应的收藏夹失败", c)
 		return
 	}
 
 	if len(list) > 0 {
-		if err := mustApp(c).DB.Delete(&list).Error; err != nil {
-			mustApp(c).Logger.Errorf("删除对应收藏夹失败: 错误=%v", err)
+		if err := h.App.DB.Delete(&list).Error; err != nil {
+			h.App.Logger.Errorf("删除对应收藏夹失败: 错误=%v", err)
 			res.FailWithMsg("删除收藏夹失败", c)
 			return
 		}

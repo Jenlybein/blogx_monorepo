@@ -12,14 +12,18 @@ import (
 
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
-func (AIApi) AIArticleSearchListView(c *gin.Context) {
-	app := mustApp(c)
+func (h AIApi) AIArticleSearchListView(c *gin.Context) {
+	app := h.App
+	if app.RuntimeSite == nil {
+		res.FailWithMsg("运行时配置服务未初始化", c)
+		return
+	}
+	aiConf := app.RuntimeSite.GetRuntimeAI()
 	cr := middleware.GetBindJson[AIBaseRequest](c)
 
-	rewrite, err := ai_search.RewriteArticleSearch(app.DB, cr.Content)
+	rewrite, err := ai_search.RewriteArticleSearch(app.DB, aiConf, cr.Content)
 	if err != nil {
 		res.FailWithMsg(err.Error(), c)
 		return
@@ -37,7 +41,7 @@ func (AIApi) AIArticleSearchListView(c *gin.Context) {
 		return
 	}
 
-	list, err := searchAIArticleList(rewrite, app.DB, redis_service.DepsFromApp(app), app.ESClient, app.Config.ES.Index)
+	list, err := searchAIArticleList(rewrite, redis_service.NewDeps(app.Redis, app.Logger), app.ESClient, app.ES.Index)
 	if err != nil {
 		res.FailWithMsg(err.Error(), c)
 		return
@@ -46,13 +50,18 @@ func (AIApi) AIArticleSearchListView(c *gin.Context) {
 	res.OkWithData(list, c)
 }
 
-func (AIApi) AIArticleSearchLLMView(c *gin.Context) {
-	app := mustApp(c)
+func (h AIApi) AIArticleSearchLLMView(c *gin.Context) {
+	app := h.App
+	if app.RuntimeSite == nil {
+		res.SSEFail("运行时配置服务未初始化", c)
+		return
+	}
+	aiConf := app.RuntimeSite.GetRuntimeAI()
 	cr := middleware.GetBindJson[AIBaseRequest](c)
 	prepareAISSE(c)
 
 	// 意图识别与搜索重写
-	rewrite, err := ai_search.RewriteArticleSearch(app.DB, cr.Content)
+	rewrite, err := ai_search.RewriteArticleSearch(app.DB, aiConf, cr.Content)
 	if err != nil {
 		res.SSEFail(err.Error(), c)
 		return
@@ -73,13 +82,13 @@ func (AIApi) AIArticleSearchLLMView(c *gin.Context) {
 		return
 	}
 
-	list, err := searchAIArticleList(rewrite, app.DB, redis_service.DepsFromApp(app), app.ESClient, app.Config.ES.Index)
+	list, err := searchAIArticleList(rewrite, redis_service.NewDeps(app.Redis, app.Logger), app.ESClient, app.ES.Index)
 	if err != nil {
 		res.SSEFail(err.Error(), c)
 		return
 	}
 
-	contentChan, errChan, err := ai_search.AnalyzeArticleSearchStream(cr.Content, list)
+	contentChan, errChan, err := ai_search.AnalyzeArticleSearchStream(aiConf, cr.Content, list)
 	if err != nil {
 		res.SSEFail(err.Error(), c)
 		return
@@ -141,7 +150,7 @@ func appendUniqueSearchResults(
 	return list
 }
 
-func searchAIArticleList(rewrite *ai_search.ArticleSearchRewrite, db *gorm.DB, redisDeps redis_service.Deps, esClient *elasticsearch.Client, index string) ([]search_service.SearchListResponse, error) {
+func searchAIArticleList(rewrite *ai_search.ArticleSearchRewrite, redisDeps redis_service.Deps, esClient *elasticsearch.Client, index string) ([]search_service.SearchListResponse, error) {
 	key := buildAIArticleSearchKey(rewrite.Query)
 	if key == "" {
 		return nil, nil
@@ -157,7 +166,7 @@ func searchAIArticleList(rewrite *ai_search.ArticleSearchRewrite, db *gorm.DB, r
 			LegacyTagList: rewrite.TagList,
 			Key:           key,
 			PageInfo:      common.PageInfo{Page: 1, Limit: 10},
-		}, nil, db, redisDeps, esClient, index)
+		}, nil, nil, redisDeps, esClient, index)
 		if err != nil {
 			return nil, err
 		}
@@ -169,7 +178,7 @@ func searchAIArticleList(rewrite *ai_search.ArticleSearchRewrite, db *gorm.DB, r
 		Sort:     rewrite.Sort,
 		Key:      key,
 		PageInfo: common.PageInfo{Page: 1, Limit: 10},
-	}, nil, db, redisDeps, esClient, index)
+	}, nil, nil, redisDeps, esClient, index)
 	if err != nil {
 		return nil, err
 	}

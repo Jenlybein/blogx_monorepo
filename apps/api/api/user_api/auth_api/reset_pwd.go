@@ -14,8 +14,8 @@ type ResetPasswordRequest struct {
 	NewPassword string `json:"new_password" binding:"required"`
 }
 
-func (AuthApi) ResetPwdByEmailView(c *gin.Context) {
-	app := mustApp(c)
+func (h AuthApi) ResetPwdByEmailView(c *gin.Context) {
+	app := h.App
 	cr := middleware.GetBindJson[ResetPasswordRequest](c)
 
 	email := c.GetString("email")
@@ -39,7 +39,7 @@ func (AuthApi) ResetPwdByEmailView(c *gin.Context) {
 		res.FailWithError(err, c)
 		return
 	}
-	if err := user_service.UpdatePasswordAndRevokeSessions(user_service.DepsFromApp(app), &user, hashPwd); err != nil {
+	if err := user_service.UpdatePasswordAndRevokeSessions(user_service.NewDepsWithRedis(app.JWT, app.System.Env, app.DB, app.Logger, app.Redis), &user, hashPwd); err != nil {
 		res.FailWithError(err, c)
 		return
 	}

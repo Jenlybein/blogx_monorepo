@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func (f FavoriteApi) FavoriteRemovePatchView(c *gin.Context) {
+func (h FavoriteApi) FavoriteRemovePatchView(c *gin.Context) {
 	var cr = middleware.GetBindJson[FavoriteRemovePatchModel](c)
 
 	if len(cr.Articles) == 0 {
@@ -24,7 +24,7 @@ func (f FavoriteApi) FavoriteRemovePatchView(c *gin.Context) {
 	claims := jwts.MustGetClaimsByGin(c)
 
 	var favoriteModel models.FavoriteModel
-	if err := mustApp(c).DB.Take(&favoriteModel, "id = ?", cr.FavoriteID).Error; err != nil {
+	if err := h.App.DB.Take(&favoriteModel, "id = ?", cr.FavoriteID).Error; err != nil {
 		res.FailWithMsg("收藏夹不存在", c)
 		return
 	}
@@ -34,7 +34,7 @@ func (f FavoriteApi) FavoriteRemovePatchView(c *gin.Context) {
 	}
 
 	var relationList []models.UserArticleFavorModel
-	if err := mustApp(c).DB.Transaction(func(tx *gorm.DB) error {
+	if err := h.App.DB.Transaction(func(tx *gorm.DB) error {
 		query := tx.Where("favor_id = ? AND article_id IN ?", cr.FavoriteID, cr.Articles)
 		if !claims.IsAdmin() {
 			query = query.Where("user_id = ?", claims.UserID)
@@ -60,14 +60,14 @@ func (f FavoriteApi) FavoriteRemovePatchView(c *gin.Context) {
 			res.FailWithMsg("未找到需要取消收藏的文章", c)
 			return
 		}
-		mustApp(c).Logger.Errorf("批量取消收藏失败: 收藏夹ID=%d 错误=%v", cr.FavoriteID, err)
+		h.App.Logger.Errorf("批量取消收藏失败: 收藏夹ID=%d 错误=%v", cr.FavoriteID, err)
 		res.FailWithMsg("批量取消收藏失败", c)
 		return
 	}
 
 	for _, relation := range relationList {
-		if err := redis_article.SetCacheFavorite(redis_service.DepsFromGin(c), relation.ArticleID, -1); err != nil {
-			mustApp(c).Logger.Errorf("更新文章收藏缓存失败: 文章ID=%d 错误=%v", relation.ArticleID, err)
+		if err := redis_article.SetCacheFavorite(redis_service.NewDeps(h.App.Redis, h.App.Logger), relation.ArticleID, -1); err != nil {
+			h.App.Logger.Errorf("更新文章收藏缓存失败: 文章ID=%d 错误=%v", relation.ArticleID, err)
 		}
 	}
 

@@ -1,16 +1,9 @@
 package captcha_api
 
 import (
-	"myblogx/appctx"
-
-	"github.com/gin-gonic/gin"
+	"myblogx/apideps"
 )
 
-func New(ctx *appctx.AppContext) ImageCaptchaApi {
-	_ = ctx
-	return ImageCaptchaApi{}
-}
-
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) ImageCaptchaApi {
+	return ImageCaptchaApi{App: deps}
 }

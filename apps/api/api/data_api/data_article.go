@@ -8,8 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (DataApi) ArticleYearDataView(c *gin.Context) {
-	app := mustApp(c)
+func (h DataApi) ArticleYearDataView(c *gin.Context) {
+	app := h.App
 	var resp ArticleYearDataResponse
 
 	now := time.Now()

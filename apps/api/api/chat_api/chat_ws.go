@@ -40,8 +40,8 @@ var chatWSUpgrader = websocket.Upgrader{
 }
 
 // ChatWsTicketView 生成聊天票据
-func (ChatApi) ChatWsTicketView(c *gin.Context) {
-	redisDeps := redis_service.DepsFromGin(c)
+func (h ChatApi) ChatWsTicketView(c *gin.Context) {
+	redisDeps := redis_service.NewDeps(h.App.Redis, h.App.Logger)
 	claims := jwts.MustGetClaimsByGin(c)
 	raw := make([]byte, 24)
 	if _, err := rand.Read(raw); err != nil {
@@ -62,12 +62,24 @@ func (ChatApi) ChatWsTicketView(c *gin.Context) {
 }
 
 // ChatWsView 处理聊天 WebSocket 长连接。
-func (ChatApi) ChatWsView(c *gin.Context) {
-	logger := mustApp(c).Logger
-	db := mustApp(c).DB
-	redisDeps := redis_service.DepsFromGin(c)
+func (h ChatApi) ChatWsView(c *gin.Context) {
+	logger := h.App.Logger
+	db := h.App.DB
+	redisDeps := redis_service.NewDeps(h.App.Redis, h.App.Logger)
+	authenticator := user_service.NewAuthenticator(
+		h.App.DB,
+		h.App.Logger,
+		h.App.JWT,
+		redisDeps,
+	)
 	// 尝试从 Header 中的 token 中获取用户
-	authResult := user_service.MustAuthenticateAccessTokenByGin(c)
+	var authResult *user_service.AuthResult
+	token := jwts.GetTokenByGin(c)
+	if token != "" {
+		if result, err := authenticator.AuthenticateAccessToken(token); err == nil {
+			authResult = result
+		}
+	}
 	if authResult == nil {
 		// Header 中未携带 token，尝试从 query 中获取票据，再尝试从 redis 中获取用户数据
 		ticket := c.Query("ticket")
@@ -81,7 +93,7 @@ func (ChatApi) ChatWsView(c *gin.Context) {
 			res.FailWithMsg(user_service.ErrAuthInvalid.Error(), c)
 			return
 		}
-		authResult, err = user_service.AuthenticatorFromGin(c).AuthenticateSession(payload.UserID, payload.SessionID)
+		authResult, err = authenticator.AuthenticateSession(payload.UserID, payload.SessionID)
 		if err != nil {
 			res.FailWithMsg(err.Error(), c)
 			return
@@ -255,7 +267,7 @@ func (ChatApi) ChatWsView(c *gin.Context) {
 func configureChatWSConn(conn *chat_service.ChatConn) {
 	conn.SetReadLimit(chatWSReadLimit)
 	_ = conn.SetReadDeadline(time.Now().Add(chatWSPongWait))
-	conn.SetPongHandler(func(string) error {
+	conn.SetPongHandler(func(h string) error {
 		return conn.SetReadDeadline(time.Now().Add(chatWSPongWait))
 	})
 }

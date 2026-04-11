@@ -8,8 +8,6 @@ import (
 	"myblogx/utils/jwts"
 	"net/http"
 	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
 // CreateLoginTokens 创建登录成功后的双令牌（AccessToken + RefreshToken）同时生成并持久化用户会话到数据库
@@ -119,8 +117,8 @@ func RefreshTokens(deps Deps, refreshToken string, meta SessionMeta) (accessToke
 
 // SetRefreshTokenCookie 将刷新令牌写入HttpOnly Cookie
 // 安全策略：HttpOnly + 生产环境启用Secure + SameSiteLax
-func SetRefreshTokenCookie(c *gin.Context, refreshToken string, deps Deps) {
-	http.SetCookie(c.Writer, &http.Cookie{
+func SetRefreshTokenCookie(w http.ResponseWriter, refreshToken string, deps Deps) {
+	http.SetCookie(w, &http.Cookie{
 		Name:     refreshTokenCookieName,
 		Value:    refreshToken,
 		Path:     "/",
@@ -133,8 +131,8 @@ func SetRefreshTokenCookie(c *gin.Context, refreshToken string, deps Deps) {
 
 // ClearRefreshTokenCookie 清除刷新令牌Cookie
 // 用于退出登录
-func ClearRefreshTokenCookie(c *gin.Context, deps Deps) {
-	http.SetCookie(c.Writer, &http.Cookie{
+func ClearRefreshTokenCookie(w http.ResponseWriter, deps Deps) {
+	http.SetCookie(w, &http.Cookie{
 		Name:     refreshTokenCookieName,
 		Value:    "",
 		Path:     "/",
@@ -147,8 +145,11 @@ func ClearRefreshTokenCookie(c *gin.Context, deps Deps) {
 }
 
 // GetRefreshTokenByGin 从Gin请求中获取refresh_token cookie
-func GetRefreshTokenByGin(c *gin.Context) string {
-	cookie, err := c.Request.Cookie(refreshTokenCookieName)
+func GetRefreshTokenByRequest(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	cookie, err := r.Cookie(refreshTokenCookieName)
 	if err != nil {
 		return ""
 	}

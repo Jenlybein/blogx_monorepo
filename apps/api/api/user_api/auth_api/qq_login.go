@@ -6,11 +6,9 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/enum"
-	"myblogx/service/log_service"
 	"myblogx/service/qq_service"
 	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_user"
-	"myblogx/service/site_service"
 	"myblogx/service/user_service"
 
 	"github.com/gin-gonic/gin"
@@ -22,20 +20,24 @@ type QQLoginRequest struct {
 	Code string `json:"code" binding:"required"`
 }
 
-func (AuthApi) QQLoginView(c *gin.Context) {
-	app := mustApp(c)
-	redisDeps := redis_service.DepsFromGin(c)
-	if !site_service.GetRuntimeLogin().QQLogin {
-		log_service.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, "", 0, "站点未启用QQ登录", nil)
+func (h AuthApi) QQLoginView(c *gin.Context) {
+	app := h.App
+	redisDeps := redis_service.NewDeps(h.App.Redis, h.App.Logger)
+	if app.RuntimeSite == nil {
+		res.FailWithMsg("运行时配置服务未初始化", c)
+		return
+	}
+	if !app.RuntimeSite.GetRuntimeLogin().QQLogin {
+		middleware.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, "", 0, "站点未启用QQ登录", nil)
 		res.FailWithMsg("站点未启用qq登录功能", c)
 		return
 	}
 
 	cr := middleware.GetBindJson[QQLoginRequest](c)
 
-	userInfoResp, err := qq_service.GetUserInfo(app.Config.QQ, cr.Code)
+	userInfoResp, err := qq_service.GetUserInfo(app.QQ, cr.Code)
 	if err != nil {
-		log_service.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, "", 0, err.Error(), nil)
+		middleware.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, "", 0, err.Error(), nil)
 		res.FailWithError(err, c)
 		return
 	}
@@ -44,7 +46,7 @@ func (AuthApi) QQLoginView(c *gin.Context) {
 	err = app.DB.Take(&user, "open_id = ?", userInfoResp.OpenID).Error
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			log_service.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, userInfoResp.NickName, 0, "qq登录失败 "+err.Error(), map[string]any{
+			middleware.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, userInfoResp.NickName, 0, "qq登录失败 "+err.Error(), map[string]any{
 				"open_id": userInfoResp.OpenID,
 			})
 			res.FailWithMsg("qq登录失败 "+err.Error(), c)
@@ -55,7 +57,7 @@ func (AuthApi) QQLoginView(c *gin.Context) {
 			username, usernameErr := redis_user.NextAutoUsername(redisDeps)
 			if usernameErr != nil {
 				app.Logger.Errorf("QQ 登录生成用户名失败: %v", usernameErr)
-				log_service.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, userInfoResp.NickName, 0, "qq登录失败", map[string]any{
+				middleware.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, userInfoResp.NickName, 0, "qq登录失败", map[string]any{
 					"open_id": userInfoResp.OpenID,
 				})
 				res.FailWithMsg("qq登录失败", c)
@@ -93,7 +95,7 @@ func (AuthApi) QQLoginView(c *gin.Context) {
 			if result.Error == nil {
 				if result.RowsAffected == 0 {
 					if err = app.DB.Take(&user, "open_id = ?", userInfoResp.OpenID).Error; err != nil {
-						log_service.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, userInfoResp.NickName, 0, "qq登录失败 "+err.Error(), map[string]any{
+						middleware.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, userInfoResp.NickName, 0, "qq登录失败 "+err.Error(), map[string]any{
 							"open_id": userInfoResp.OpenID,
 						})
 						res.FailWithMsg("qq登录失败 "+err.Error(), c)
@@ -103,7 +105,7 @@ func (AuthApi) QQLoginView(c *gin.Context) {
 				break
 			}
 			if !errors.Is(result.Error, gorm.ErrDuplicatedKey) {
-				log_service.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, userInfoResp.NickName, 0, "qq登录失败 "+result.Error.Error(), map[string]any{
+				middleware.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, userInfoResp.NickName, 0, "qq登录失败 "+result.Error.Error(), map[string]any{
 					"open_id": userInfoResp.OpenID,
 				})
 				res.FailWithMsg("qq登录失败 "+result.Error.Error(), c)
@@ -111,7 +113,7 @@ func (AuthApi) QQLoginView(c *gin.Context) {
 			}
 		}
 		if user.ID == 0 {
-			log_service.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, userInfoResp.NickName, 0, "qq登录失败", map[string]any{
+			middleware.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, userInfoResp.NickName, 0, "qq登录失败", map[string]any{
 				"open_id": userInfoResp.OpenID,
 			})
 			res.FailWithMsg("qq登录失败", c)
@@ -120,24 +122,24 @@ func (AuthApi) QQLoginView(c *gin.Context) {
 	}
 
 	if !user.CanLogin() {
-		log_service.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, user.Username, user.ID, user.Status.String(), map[string]any{
+		middleware.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, user.Username, user.ID, user.Status.String(), map[string]any{
 			"open_id": userInfoResp.OpenID,
 		})
 		res.FailWithMsg(user.Status.String(), c)
 		return
 	}
 
-	deps := user_service.DepsFromApp(app)
-	token, refreshToken, _, err := user_service.CreateLoginTokens(deps, &user, user_service.BuildSessionMetaFromGin(c))
+	deps := user_service.NewDepsWithRedis(app.JWT, app.System.Env, app.DB, app.Logger, app.Redis)
+	token, refreshToken, _, err := user_service.CreateLoginTokens(deps, &user, buildSessionMeta(c))
 	if err != nil {
-		log_service.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, user.Username, user.ID, "qq登录失败 "+err.Error(), map[string]any{
+		middleware.EmitLoginEventFromGin(c, "login_fail", enum.QQLoginType, false, user.Username, user.ID, "qq登录失败 "+err.Error(), map[string]any{
 			"open_id": userInfoResp.OpenID,
 		})
 		res.FailWithMsg("qq登录失败 "+err.Error(), c)
 		return
 	}
-	user_service.SetRefreshTokenCookie(c, refreshToken, deps)
-	log_service.EmitLoginEventFromGin(c, "login_success", enum.QQLoginType, true, user.Username, user.ID, "", map[string]any{
+	user_service.SetRefreshTokenCookie(c.Writer, refreshToken, deps)
+	middleware.EmitLoginEventFromGin(c, "login_success", enum.QQLoginType, true, user.Username, user.ID, "", map[string]any{
 		"open_id": userInfoResp.OpenID,
 	})
 

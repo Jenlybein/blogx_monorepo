@@ -1,19 +1,13 @@
 package user_man_api
 
 import (
-	"myblogx/appctx"
-
-	"github.com/gin-gonic/gin"
+	"myblogx/apideps"
 )
 
 type UserManApi struct {
+	App apideps.Deps
 }
 
-func New(ctx *appctx.AppContext) UserManApi {
-	_ = ctx
-	return UserManApi{}
-}
-
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) UserManApi {
+	return UserManApi{App: deps}
 }

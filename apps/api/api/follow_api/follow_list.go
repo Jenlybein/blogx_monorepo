@@ -12,7 +12,7 @@ import (
 
 // TODO：增加用户名搜索
 // FollowListView 获取关注列表
-func (f *FollowApi) FollowListView(c *gin.Context) {
+func (h *FollowApi) FollowListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[FollowListRequest](c)
 
 	claims := jwts.GetClaimsByGin(c)
@@ -21,7 +21,7 @@ func (f *FollowApi) FollowListView(c *gin.Context) {
 	if cr.UserID != claims.UserID {
 		if cr.UserID != 0 {
 			var user models.UserConfModel
-			if err := mustApp(c).DB.Take(&user, "user_id = ?", cr.UserID).Error; err != nil {
+			if err := h.App.DB.Take(&user, "user_id = ?", cr.UserID).Error; err != nil {
 				res.FailWithMsg("用户配置信息不存在", c)
 				return
 			}
@@ -34,7 +34,7 @@ func (f *FollowApi) FollowListView(c *gin.Context) {
 		}
 	}
 
-	queryService := follow_service.NewQueryService(mustApp(c).DB)
+	queryService := follow_service.NewQueryService(h.App.DB)
 	list, count, err := queryService.ListFollowing(cr.UserID, claims.UserID, cr.FollowedUserID, cr.PageInfo)
 	if err != nil {
 		res.FailWithError(err, c)

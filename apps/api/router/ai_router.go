@@ -8,11 +8,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func AIRouter(r *gin.RouterGroup, appContainer api.Api) {
+func AIRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtime) {
 	app := appContainer.AIApi
 
-	group := r.Group("ai", mw.AuthMiddleware)
-	authGroup := group.Group("", mw.AuthMiddleware)
+	group := r.Group("ai", runtimeMw.AuthMiddleware)
+	authGroup := group.Group("", runtimeMw.AuthMiddleware)
 	//adminGroup := authGroup.Group("", mw.AdminMiddleware)
 
 	authGroup.POST("metainfo", mw.BindJson[ai_api.AIBaseRequest], app.AIArticleMetaInfoView)

@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"myblogx/service/site_service"
+	"myblogx/conf"
 	"net/http"
 	"strings"
 )
@@ -73,9 +73,8 @@ type StreamData struct {
 }
 
 // 基础请求方法，封装通用的AI请求逻辑
-func BaseRequest(req Request) (*http.Response, error) {
+func BaseRequest(aiConf conf.AI, req Request) (*http.Response, error) {
 	// 1. 基础配置校验
-	aiConf := site_service.GetRuntimeAI()
 	if !aiConf.Enable {
 		return nil, errors.New("AI服务未开启")
 	}
@@ -117,23 +116,23 @@ func BaseRequest(req Request) (*http.Response, error) {
 }
 
 // Chat 非流式AI对话接口
-func Chat(msgList []Message) (string, error) {
-	model := site_service.GetRuntimeAI().ChatModel
-	return chatWithModel(msgList, model)
+func Chat(aiConf conf.AI, msgList []Message) (string, error) {
+	model := aiConf.ChatModel
+	return chatWithModel(aiConf, msgList, model)
 }
 
 // ChatStream 流式AI对话接口（返回流式输出的内容通道）
-func ChatStream(msgList []Message) (chan string, chan error) {
-	model := site_service.GetRuntimeAI().ChatModel
-	return chatStreamWithModel(msgList, model)
+func ChatStream(aiConf conf.AI, msgList []Message) (chan string, chan error) {
+	model := aiConf.ChatModel
+	return chatStreamWithModel(aiConf, msgList, model)
 }
 
-func chatWithModel(msgList []Message, model string) (string, error) {
+func chatWithModel(aiConf conf.AI, msgList []Message, model string) (string, error) {
 	if len(msgList) == 0 {
 		return "", errors.New("消息列表不能为空")
 	}
 
-	res, err := BaseRequest(Request{
+	res, err := BaseRequest(aiConf, Request{
 		Model:    model,
 		Messages: msgList,
 		Stream:   false,
@@ -169,7 +168,7 @@ func chatWithModel(msgList []Message, model string) (string, error) {
 	return replyContent, nil
 }
 
-func chatStreamWithModel(msgList []Message, model string) (chan string, chan error) {
+func chatStreamWithModel(aiConf conf.AI, msgList []Message, model string) (chan string, chan error) {
 	// 初始化通道
 	contentChan := make(chan string)
 	errChan := make(chan error, 1) // 带缓冲，防止goroutine阻塞
@@ -184,7 +183,7 @@ func chatStreamWithModel(msgList []Message, model string) (chan string, chan err
 		}
 
 		// 复用BaseRequest发送请求
-		res, err := BaseRequest(Request{
+		res, err := BaseRequest(aiConf, Request{
 			Model:    model,
 			Messages: msgList,
 			Stream:   true,

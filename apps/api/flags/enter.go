@@ -20,6 +20,7 @@ type FlagOptions struct {
 	Type    string
 	Sub     string
 	ES      bool
+	Role    string
 }
 
 type Deps struct {
@@ -39,6 +40,7 @@ func Parse() *FlagOptions {
 	flag.StringVar(&Flags.Type, "t", "", "操作类型")
 	flag.StringVar(&Flags.Sub, "s", "", "子操作类型")
 	flag.BoolVar(&Flags.ES, "es", false, "初始化ES索引")
+	flag.StringVar(&Flags.Role, "role", "all", "启动角色: api|river|image-ref|cron|worker|all")
 
 	flag.Parse()
 

@@ -20,9 +20,9 @@ import (
 
 // CreateUploadTaskView 创建图片直传上传任务
 // 前端调用：获取上传凭证、判断是否需要上传（秒传）
-func (ImageApi) CreateUploadTaskView(c *gin.Context) {
-	app := mustApp(c)
-	imageDeps := image_service.DepsFromApp(app)
+func (h ImageApi) CreateUploadTaskView(c *gin.Context) {
+	app := h.App
+	imageDeps := image_service.NewDeps(app.QiNiu, app.Upload, app.DB, app.Redis, app.Logger)
 	cr := middleware.GetBindJson[CreateImageUploadTaskRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
 
@@ -53,9 +53,9 @@ func (ImageApi) CreateUploadTaskView(c *gin.Context) {
 		Bucket:      result.UploadInfo.Bucket,                        // 七牛存储空间
 		ObjectKey:   result.UploadInfo.ObjectKey,                     // 文件存储key
 		UploadToken: result.UploadInfo.Token,                         // 七牛上传凭证
-		Region:      strings.TrimSpace(app.Config.QiNiu.Region),      // 存储区域
+		Region:      strings.TrimSpace(app.QiNiu.Region),             // 存储区域
 		ExpireAt:    result.UploadInfo.ExpireAt.Format(time.RFC3339), // 凭证过期时间
-		MaxSize:     int64(app.Config.QiNiu.Size) * 1024 * 1024,      // 最大上传大小
+		MaxSize:     int64(app.QiNiu.Size) * 1024 * 1024,             // 最大上传大小
 		Hash:        result.Task.Hash,                                // 文件哈希值
 	}, c)
 }
@@ -63,8 +63,8 @@ func (ImageApi) CreateUploadTaskView(c *gin.Context) {
 // CompleteUploadTaskView 手动完成上传任务
 // 作用：前端上传完成后，主动通知后端确认文件上传成功
 // 备注：正式环境优先使用七牛回调，此接口用于本地调试/兜底
-func (ImageApi) CompleteUploadTaskView(c *gin.Context) {
-	imageDeps := image_service.DepsFromGin(c)
+func (h ImageApi) CompleteUploadTaskView(c *gin.Context) {
+	imageDeps := image_service.NewDeps(h.App.QiNiu, h.App.Upload, h.App.DB, h.App.Redis, h.App.Logger)
 	cr := middleware.GetBindJson[CompleteImageUploadTaskRequest](c)
 
 	claims := jwts.MustGetClaimsByGin(c)
@@ -86,8 +86,8 @@ func (ImageApi) CompleteUploadTaskView(c *gin.Context) {
 
 // UploadTaskStatusView 查询上传任务状态
 // 前端轮询使用：实时获取任务是否完成、失败、成功
-func (ImageApi) UploadTaskStatusView(c *gin.Context) {
-	imageDeps := image_service.DepsFromGin(c)
+func (h ImageApi) UploadTaskStatusView(c *gin.Context) {
+	imageDeps := image_service.NewDeps(h.App.QiNiu, h.App.Upload, h.App.DB, h.App.Redis, h.App.Logger)
 	claims := jwts.MustGetClaimsByGin(c)
 	cr := middleware.GetBindUri[models.IDRequest](c)
 
@@ -121,7 +121,7 @@ func (ImageApi) UploadTaskStatusView(c *gin.Context) {
 // QiniuCallbackView 七牛云上传成功回调接口
 // 功能：七牛云文件上传完成后，自动回调该接口，后端完成任务确认
 // 配置：七牛后台填写回调地址：https://你的后端域名/api/images/qiniu/callback
-func (ImageApi) QiniuCallbackView(c *gin.Context) {
+func (h ImageApi) QiniuCallbackView(c *gin.Context) {
 	// 记录并重置请求体（用于后续重复读取）
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -131,7 +131,7 @@ func (ImageApi) QiniuCallbackView(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewReader(body))
 
 	// 校验七牛回调签名合法性（防止伪造请求）
-	ok, err := image_service.VerifyQiniuCallback(image_service.DepsFromGin(c), c.Request)
+	ok, err := image_service.VerifyQiniuCallback(image_service.NewDeps(h.App.QiNiu, h.App.Upload, h.App.DB, h.App.Redis, h.App.Logger), c.Request)
 	if err != nil || !ok {
 		res.FailWithMsg(fmt.Sprintf("校验七牛回调失败: %v", err), c)
 		return
@@ -151,7 +151,7 @@ func (ImageApi) QiniuCallbackView(c *gin.Context) {
 	}
 
 	// 根据文件key自动完成上传任务
-	result, err := image_service.ConfirmUploadTaskByCallback(image_service.DepsFromGin(c), payload.Key, payload.Bucket, payload.Hash, payload.Fsize)
+	result, err := image_service.ConfirmUploadTaskByCallback(image_service.NewDeps(h.App.QiNiu, h.App.Upload, h.App.DB, h.App.Redis, h.App.Logger), payload.Key, payload.Bucket, payload.Hash, payload.Fsize)
 	if err != nil {
 		if errors.Is(err, image_service.ErrUploadTaskNotFound) {
 			res.FailWithMsg("上传任务不存在", c)
@@ -172,7 +172,7 @@ func (ImageApi) QiniuCallbackView(c *gin.Context) {
 
 // QiniuAuditCallbackView 七牛内容审核回调接口。
 // 七牛完成内容审核后回调该接口，服务端根据审核结论更新图片状态。
-func (ImageApi) QiniuAuditCallbackView(c *gin.Context) {
+func (h ImageApi) QiniuAuditCallbackView(c *gin.Context) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		res.FailWithError(err, c)
@@ -180,13 +180,13 @@ func (ImageApi) QiniuAuditCallbackView(c *gin.Context) {
 	}
 	c.Request.Body = io.NopCloser(bytes.NewReader(body))
 
-	ok, err := image_service.VerifyQiniuCallback(image_service.DepsFromGin(c), c.Request)
+	ok, err := image_service.VerifyQiniuCallback(image_service.NewDeps(h.App.QiNiu, h.App.Upload, h.App.DB, h.App.Redis, h.App.Logger), c.Request)
 	if err != nil || !ok {
 		res.FailWithMsg(fmt.Sprintf("校验七牛审核回调失败: %v", err), c)
 		return
 	}
 
-	if err = image_service.HandleQiniuAuditCallback(image_service.DepsFromGin(c), body); err != nil {
+	if err = image_service.HandleQiniuAuditCallback(image_service.NewDeps(h.App.QiNiu, h.App.Upload, h.App.DB, h.App.Redis, h.App.Logger), body); err != nil {
 		res.FailWithMsg(err.Error(), c)
 		return
 	}

@@ -1,19 +1,13 @@
 package profile_api
 
 import (
-	"myblogx/appctx"
-
-	"github.com/gin-gonic/gin"
+	"myblogx/apideps"
 )
 
 type ProfileApi struct {
+	App apideps.Deps
 }
 
-func New(ctx *appctx.AppContext) ProfileApi {
-	_ = ctx
-	return ProfileApi{}
-}
-
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) ProfileApi {
+	return ProfileApi{App: deps}
 }

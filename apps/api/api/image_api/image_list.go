@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (ImageApi) ImageListView(c *gin.Context) {
+func (h ImageApi) ImageListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[common.PageInfo](c)
 
 	list, count, err := common.ListQuery(models.ImageModel{}, common.Options{

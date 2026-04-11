@@ -6,7 +6,6 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
-	"myblogx/service/log_service"
 	"myblogx/service/read_service"
 	"myblogx/service/redis_service"
 	"myblogx/utils/jwts"
@@ -15,11 +14,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (ArticleApi) ArticleUpdateView(c *gin.Context) {
+func (h ArticleApi) ArticleUpdateView(c *gin.Context) {
 	id := middleware.GetBindUri[models.IDRequest](c)
 	cr := middleware.GetBindJson[ArticleUpdateRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
-	writer := newArticleWriteService(mustApp(c).DB, mustApp(c).Logger)
+	writer := newArticleWriteService(h.App.DB, h.App.Logger, h.App.RuntimeSite)
 	article, result, err := writer.UpdateArticle(id.ID, claims, cr)
 	if err != nil {
 		switch {
@@ -37,13 +36,13 @@ func (ArticleApi) ArticleUpdateView(c *gin.Context) {
 	}
 
 	if result.TagChanged {
-		applyTagArticleCountDelta(redis_service.DepsFromGin(c), buildTagArticleCountDelta(result.OldTagIDs, result.NewTagIDs))
+		applyTagArticleCountDelta(redis_service.NewDeps(h.App.Redis, h.App.Logger), buildTagArticleCountDelta(result.OldTagIDs, result.NewTagIDs))
 	}
-	if err := read_service.SyncArticleFavorSnapshots(mustApp(c).DB, []ctype.ID{article.ID}); err != nil {
-		mustApp(c).Logger.Errorf("同步文章收藏快照失败: 文章ID=%d 错误=%v", article.ID, err)
+	if err := read_service.SyncArticleFavorSnapshots(h.App.DB, []ctype.ID{article.ID}); err != nil {
+		h.App.Logger.Errorf("同步文章收藏快照失败: 文章ID=%d 错误=%v", article.ID, err)
 	}
 	res.OkWithMsg("更新文章成功", c)
-	log_service.EmitActionAuditFromGin(c, log_service.GinAuditInput{
+	middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{
 		ActionName: "article_update",
 		TargetType: "article",
 		TargetID:   strconv.FormatUint(uint64(article.ID), 10),

@@ -6,15 +6,14 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/enum/global_notif_enum"
-	"myblogx/service/log_service"
 	"myblogx/utils/jwts"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
-func (GlobalNotifApi) GlobalNotifCreateView(c *gin.Context) {
-	app := mustApp(c)
+func (h GlobalNotifApi) GlobalNotifCreateView(c *gin.Context) {
+	app := h.App
 	cr := middleware.GetBindJson[GlobalNotifCreateRequest](c)
 
 	claims := jwts.MustGetClaimsByGin(c)
@@ -62,7 +61,7 @@ func (GlobalNotifApi) GlobalNotifCreateView(c *gin.Context) {
 		return
 	}
 	res.OkWithMsg("创建成功", c)
-	log_service.EmitActionAuditFromGin(c, log_service.GinAuditInput{
+	middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{
 		ActionName:        "global_notif_create",
 		TargetType:        "global_notif",
 		Success:           true,

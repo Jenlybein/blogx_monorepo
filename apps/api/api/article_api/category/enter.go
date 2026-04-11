@@ -1,19 +1,13 @@
 package category
 
 import (
-	"myblogx/appctx"
-
-	"github.com/gin-gonic/gin"
+	"myblogx/apideps"
 )
 
 type CategoryApi struct {
+	App apideps.Deps
 }
 
-func New(ctx *appctx.AppContext) CategoryApi {
-	_ = ctx
-	return CategoryApi{}
-}
-
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) CategoryApi {
+	return CategoryApi{App: deps}
 }

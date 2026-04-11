@@ -6,7 +6,6 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
-	"myblogx/service/log_service"
 	"myblogx/service/message_service"
 	"myblogx/service/read_service"
 	"strconv"
@@ -14,8 +13,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (ArticleApi) ArticleExamineView(c *gin.Context) {
-	app := mustApp(c)
+func (h ArticleApi) ArticleExamineView(c *gin.Context) {
+	app := h.App
 	id := middleware.GetBindUri[models.IDRequest](c)
 	cr := middleware.GetBindJson[ArticleExamineRequest](c)
 
@@ -55,7 +54,7 @@ func (ArticleApi) ArticleExamineView(c *gin.Context) {
 		})
 	}
 	res.OkWithMsg("文章审核成功", c)
-	log_service.EmitActionAuditFromGin(c, log_service.GinAuditInput{
+	middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{
 		ActionName: "article_examine",
 		TargetType: "article",
 		TargetID:   strconv.FormatUint(uint64(article.ID), 10),

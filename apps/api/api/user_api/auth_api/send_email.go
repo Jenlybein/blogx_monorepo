@@ -9,8 +9,6 @@ import (
 	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_email"
 	"myblogx/service/redis_service/redis_user"
-	"myblogx/service/site_service"
-	"myblogx/service/user_service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mojocn/base64Captcha"
@@ -25,18 +23,22 @@ type SendEmailResponse struct {
 	ID string `json:"id"`
 }
 
-func (AuthApi) SendEmailView(c *gin.Context) {
-	app := mustApp(c)
-	loginConf := site_service.GetRuntimeLogin()
+func (h AuthApi) SendEmailView(c *gin.Context) {
+	app := h.App
+	if app.RuntimeSite == nil {
+		res.FailWithMsg("运行时配置服务未初始化", c)
+		return
+	}
+	loginConf := app.RuntimeSite.GetRuntimeLogin()
 	if !loginConf.EmailLogin {
 		res.FailWithMsg("站点未启用邮箱功能", c)
 		return
 	}
 
 	cr := middleware.GetBindJson[SendEmailRequest](c)
-	redisDeps := redis_service.DepsFromGin(c)
-	meta := user_service.BuildSessionMetaFromGin(c)
-	if !redis_user.AllowEmailSend(redisDeps, cr.Email, meta.IP, cr.Type) {
+	redisDeps := redis_service.NewDeps(h.App.Redis, h.App.Logger)
+	meta := buildSessionMeta(c)
+	if !redis_user.AllowEmailSend(redisDeps, loginConf, cr.Email, meta.IP, cr.Type) {
 		res.FailWithMsg("请求过于频繁，请稍后再试", c)
 		return
 	}
@@ -55,22 +57,22 @@ func (AuthApi) SendEmailView(c *gin.Context) {
 	case 1:
 		shouldSend = !isEmailExist
 		if shouldSend {
-			err = email_service.SendRegisterCode(app.Config.Email, cr.Email, code, timeout)
+			err = email_service.SendRegisterCode(app.Email, cr.Email, code, timeout)
 		}
 	case 2:
 		shouldSend = isEmailExist
 		if shouldSend {
-			err = email_service.SendResetPwdCode(app.Config.Email, cr.Email, code, timeout)
+			err = email_service.SendResetPwdCode(app.Email, cr.Email, code, timeout)
 		}
 	case 3:
 		shouldSend = !isEmailExist
 		if shouldSend {
-			err = email_service.SendBindEmailCode(app.Config.Email, cr.Email, code, timeout)
+			err = email_service.SendBindEmailCode(app.Email, cr.Email, code, timeout)
 		}
 	case 4:
 		shouldSend = isEmailExist
 		if shouldSend {
-			err = email_service.SendLoginCode(app.Config.Email, cr.Email, code, timeout)
+			err = email_service.SendLoginCode(app.Email, cr.Email, code, timeout)
 		}
 	default:
 		res.FailWithMsg("邮件发送失败：不存在的操作类型", c)

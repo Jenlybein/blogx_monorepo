@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (ViewHistoryApi) ArticleViewHistoryView(c *gin.Context) {
+func (h ViewHistoryApi) ArticleViewHistoryView(c *gin.Context) {
 	cr := middleware.GetBindQuery[ArticleViewHistoryRequest](c)
 	claims := jwts.GetClaimsByGin(c)
 

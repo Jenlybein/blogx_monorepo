@@ -17,11 +17,11 @@ import (
 
 // ChatMsgReadUserView 批量标记当前用户收到的消息为已读。
 // 这里只处理“当前用户是接收方”的消息；自己发送的消息和不存在的消息会被自动忽略。
-func (ChatApi) ChatMsgReadUserView(c *gin.Context) {
+func (h ChatApi) ChatMsgReadUserView(c *gin.Context) {
 	cr := middleware.GetBindJson[ChatMsgReadUserRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
-	db := mustApp(c).DB
-	logger := mustApp(c).Logger
+	db := h.App.DB
+	logger := h.App.Logger
 
 	if len(cr.MsgIDList) == 0 {
 		res.FailWithMsg("请输入要标记已读的消息 id 列表", c)

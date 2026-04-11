@@ -1,18 +1,13 @@
 package search_api
 
 import (
-	"myblogx/appctx"
-
-	"github.com/gin-gonic/gin"
+	"myblogx/apideps"
 )
 
-type SearchApi struct{}
-
-func New(ctx *appctx.AppContext) SearchApi {
-	_ = ctx
-	return SearchApi{}
+type SearchApi struct {
+	App apideps.Deps
 }
 
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) SearchApi {
+	return SearchApi{App: deps}
 }

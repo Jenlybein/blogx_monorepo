@@ -10,17 +10,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (ViewHistoryApi) ArticleViewHistoryRemoveView(c *gin.Context) {
+func (h ViewHistoryApi) ArticleViewHistoryRemoveView(c *gin.Context) {
 	cr := middleware.GetBindJson[models.IDListRequest](c)
 	claims := jwts.GetClaimsByGin(c)
 
 	var list []models.UserArticleViewHistoryModel
-	if err := mustApp(c).DB.Find(&list, "user_id = ? and article_id IN ?", claims.UserID, cr.IDList).Error; err != nil {
+	if err := h.App.DB.Find(&list, "user_id = ? and article_id IN ?", claims.UserID, cr.IDList).Error; err != nil {
 		res.FailWithError(err, c)
 		return
 	}
 	if len(list) > 0 {
-		if err := mustApp(c).DB.Delete(&list).Error; err != nil {
+		if err := h.App.DB.Delete(&list).Error; err != nil {
 			res.FailWithMsg(fmt.Sprintf("删除访问历史失败:%v", err), c)
 			return
 		}

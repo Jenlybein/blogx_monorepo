@@ -5,7 +5,7 @@ import (
 	"myblogx/api/user_api/log_api"
 	"myblogx/api/user_api/profile_api"
 	"myblogx/api/user_api/user_man_api"
-	"myblogx/appctx"
+	"myblogx/apideps"
 )
 
 type UserApi struct {
@@ -15,11 +15,11 @@ type UserApi struct {
 	UserManApi user_man_api.UserManApi
 }
 
-func New(ctx *appctx.AppContext) UserApi {
+func New(deps apideps.Deps) UserApi {
 	return UserApi{
-		ProfileApi: profile_api.New(ctx),
-		AuthApi:    auth_api.New(ctx),
-		LogApi:     log_api.New(ctx),
-		UserManApi: user_man_api.New(ctx),
+		ProfileApi: profile_api.New(deps),
+		AuthApi:    auth_api.New(deps),
+		LogApi:     log_api.New(deps),
+		UserManApi: user_man_api.New(deps),
 	}
 }

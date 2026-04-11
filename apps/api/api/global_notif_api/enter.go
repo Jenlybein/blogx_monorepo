@@ -1,26 +1,21 @@
 package global_notif_api
 
 import (
-	"myblogx/appctx"
+	"myblogx/apideps"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/global_notif_enum"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 type GlobalNotifApi struct {
+	App apideps.Deps
 }
 
-func New(ctx *appctx.AppContext) GlobalNotifApi {
-	_ = ctx
-	return GlobalNotifApi{}
-}
-
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) GlobalNotifApi {
+	return GlobalNotifApi{App: deps}
 }
 
 type UserGlobalNotifState struct {

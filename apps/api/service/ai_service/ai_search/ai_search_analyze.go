@@ -3,6 +3,7 @@ package ai_search
 import (
 	"errors"
 	"fmt"
+	"myblogx/conf"
 	"myblogx/service/ai_service"
 	"myblogx/service/search_service"
 	"strings"
@@ -24,13 +25,13 @@ var articleSearchAnswerPrompt = `
 搜索结果(JSON)：%s
 `
 
-func AnalyzeArticleSearch(question string, list []search_service.SearchListResponse) (string, error) {
+func AnalyzeArticleSearch(aiConf conf.AI, question string, list []search_service.SearchListResponse) (string, error) {
 	msgList, err := buildArticleSearchAnalyzeMessages(question, list)
 	if err != nil {
 		return "", err
 	}
 
-	reply, err := ai_service.Chat(msgList)
+	reply, err := ai_service.Chat(aiConf, msgList)
 	if err != nil {
 		return "", fmt.Errorf("文章搜索结果分析失败: %w", err)
 	}
@@ -42,12 +43,12 @@ func AnalyzeArticleSearch(question string, list []search_service.SearchListRespo
 	return reply, nil
 }
 
-func AnalyzeArticleSearchStream(question string, list []search_service.SearchListResponse) (chan string, chan error, error) {
+func AnalyzeArticleSearchStream(aiConf conf.AI, question string, list []search_service.SearchListResponse) (chan string, chan error, error) {
 	msgList, err := buildArticleSearchAnalyzeMessages(question, list)
 	if err != nil {
 		return nil, nil, err
 	}
-	contentChan, errChan := ai_service.ChatStream(msgList)
+	contentChan, errChan := ai_service.ChatStream(aiConf, msgList)
 	return contentChan, errChan, nil
 }
 

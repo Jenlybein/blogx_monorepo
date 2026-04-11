@@ -22,6 +22,7 @@
         "build:api": "turbo run build --filter=api",
         "build": "turbo run build",
         "lint": "pnpm -r --if-present lint",
+        "arch:guard": "powershell -ExecutionPolicy Bypass -File ./scripts/arch_guard.ps1",
         "test": "turbo run test --filter=api"
     },
     "devDependencies": {

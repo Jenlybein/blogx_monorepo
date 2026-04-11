@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"time"
 
-	"myblogx/appctx"
 	"myblogx/models/ctype"
 	"myblogx/service/redis_service"
 
@@ -41,10 +40,6 @@ type hashCounterSyncConfig struct {
 	syncKey    string
 	idName     string
 	applyDelta func(id ctype.ID, delta int) error
-}
-
-func NewScheduler(ctx *appctx.AppContext) *CronService {
-	return NewSchedulerRaw(ctx.DB, ctx.Redis, ctx.Logger)
 }
 
 func NewSchedulerRaw(db *gorm.DB, redisClient *redis.Client, logger *logrus.Logger) *CronService {

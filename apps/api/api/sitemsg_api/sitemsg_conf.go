@@ -10,8 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (a *SitemsgApi) UserMsgConfView(c *gin.Context) {
-	app := mustApp(c)
+func (h *SitemsgApi) UserMsgConfView(c *gin.Context) {
+	app := h.App
 	claims := jwts.MustGetClaimsByGin(c)
 
 	var userConfModel models.UserConfModel
@@ -30,8 +30,8 @@ func (a *SitemsgApi) UserMsgConfView(c *gin.Context) {
 	res.OkWithData(msgConf, c)
 }
 
-func (a *SitemsgApi) UserMsgConfUpdateView(c *gin.Context) {
-	app := mustApp(c)
+func (h *SitemsgApi) UserMsgConfUpdateView(c *gin.Context) {
+	app := h.App
 	cr := middleware.GetBindJson[UserMsgConfResponseAndRequest](c)
 
 	claims := jwts.MustGetClaimsByGin(c)

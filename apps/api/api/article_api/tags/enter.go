@@ -1,18 +1,13 @@
 package tags
 
 import (
-	"myblogx/appctx"
-
-	"github.com/gin-gonic/gin"
+	"myblogx/apideps"
 )
 
-type TagsApi struct{}
-
-func New(ctx *appctx.AppContext) TagsApi {
-	_ = ctx
-	return TagsApi{}
+type TagsApi struct {
+	App apideps.Deps
 }
 
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) TagsApi {
+	return TagsApi{App: deps}
 }

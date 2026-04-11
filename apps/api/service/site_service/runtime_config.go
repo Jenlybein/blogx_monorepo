@@ -24,82 +24,49 @@ type RuntimeConfig struct {
 	AI   conf.AI   `json:"ai"`
 }
 
-var runtimeConfigCache struct {
-	mu   sync.RWMutex
-	data *RuntimeConfig
+// RuntimeConfigService 负责运行时站点配置的加载、缓存与更新。
+// 该服务通过构造器显式注入，避免 package 级全局状态。
+type RuntimeConfigService struct {
+	baseSite   conf.Site
+	baseAI     conf.AI
+	logger     *logrus.Logger
+	db         *gorm.DB
+	configFile string
+
+	mu    sync.RWMutex
+	cache *RuntimeConfig
 }
 
-var runtimeDeps struct {
-	mu            sync.RWMutex
-	baseSite      conf.Site
-	baseAI        conf.AI
-	applyBaseFunc func(site conf.Site, ai conf.AI)
-	logger        *logrus.Logger
-	db            *gorm.DB
-	configFile    string
+func NewRuntimeConfigService(baseSite conf.Site, baseAI conf.AI, logger *logrus.Logger, db *gorm.DB, configFile string) *RuntimeConfigService {
+	return &RuntimeConfigService{
+		baseSite:   baseSite,
+		baseAI:     baseAI,
+		logger:     logger,
+		db:         db,
+		configFile: configFile,
+	}
 }
 
-func ConfigureRuntimeConfig(baseSite conf.Site, baseAI conf.AI, applyBaseFunc func(site conf.Site, ai conf.AI), logger *logrus.Logger, db *gorm.DB, configFile string) {
-	runtimeDeps.mu.Lock()
-	defer runtimeDeps.mu.Unlock()
-	runtimeDeps.baseSite = baseSite
-	runtimeDeps.baseAI = baseAI
-	runtimeDeps.applyBaseFunc = applyBaseFunc
-	runtimeDeps.logger = logger
-	runtimeDeps.db = db
-	runtimeDeps.configFile = configFile
-}
-
-func runtimeBaseConfig() RuntimeConfig {
-	runtimeDeps.mu.RLock()
-	defer runtimeDeps.mu.RUnlock()
+func (s *RuntimeConfigService) runtimeBaseConfig() RuntimeConfig {
 	return RuntimeConfig{
-		Site: runtimeDeps.baseSite,
-		AI:   runtimeDeps.baseAI,
+		Site: s.baseSite,
+		AI:   s.baseAI,
 	}
 }
 
-func runtimeApplyBase(site conf.Site, ai conf.AI) {
-	runtimeDeps.mu.RLock()
-	apply := runtimeDeps.applyBaseFunc
-	runtimeDeps.mu.RUnlock()
-	if apply != nil {
-		apply(site, ai)
-	}
-}
-
-func runtimeLogger() *logrus.Logger {
-	runtimeDeps.mu.RLock()
-	defer runtimeDeps.mu.RUnlock()
-	return runtimeDeps.logger
-}
-
-func runtimeDB() *gorm.DB {
-	runtimeDeps.mu.RLock()
-	defer runtimeDeps.mu.RUnlock()
-	return runtimeDeps.db
-}
-
-func runtimeConfigFile() string {
-	runtimeDeps.mu.RLock()
-	defer runtimeDeps.mu.RUnlock()
-	return runtimeDeps.configFile
-}
-
-func defaultRuntimeConfig() *RuntimeConfig {
-	baseConfig := runtimeBaseConfig()
+func (s *RuntimeConfigService) defaultRuntimeConfig() *RuntimeConfig {
+	baseConfig := s.runtimeBaseConfig()
 	return &RuntimeConfig{
 		Site: baseConfig.Site,
 		AI:   baseConfig.AI,
 	}
 }
 
-func loadRuntimeDefaultConfigFromFile() (*RuntimeConfig, error) {
-	configFile := runtimeConfigFile()
-	if configFile == "" {
+func (s *RuntimeConfigService) loadRuntimeDefaultConfigFromFile() (*RuntimeConfig, error) {
+	if s.configFile == "" {
 		return nil, errors.New("运行时站点默认配置路径未设置")
 	}
-	defaultFile := filepath.Join(filepath.Dir(configFile), "site_default_settings.yaml")
+	defaultFile := filepath.Join(filepath.Dir(s.configFile), "site_default_settings.yaml")
 	byteData, err := os.ReadFile(defaultFile)
 	if err != nil {
 		return nil, err
@@ -115,15 +82,15 @@ func loadRuntimeDefaultConfigFromFile() (*RuntimeConfig, error) {
 	}, nil
 }
 
-func initialRuntimeConfig() *RuntimeConfig {
-	cfg, err := loadRuntimeDefaultConfigFromFile()
+func (s *RuntimeConfigService) initialRuntimeConfig() *RuntimeConfig {
+	cfg, err := s.loadRuntimeDefaultConfigFromFile()
 	if err == nil {
 		return cfg
 	}
-	if logger := runtimeLogger(); logger != nil {
-		logger.Warnf("读取 site_default_settings.yaml 失败，回退到进程内默认值: %v", err)
+	if s.logger != nil {
+		s.logger.Warnf("读取 site_default_settings.yaml 失败，回退到进程内默认值: %v", err)
 	}
-	return defaultRuntimeConfig()
+	return s.defaultRuntimeConfig()
 }
 
 func cloneRuntimeConfig(cfg *RuntimeConfig) *RuntimeConfig {
@@ -134,50 +101,47 @@ func cloneRuntimeConfig(cfg *RuntimeConfig) *RuntimeConfig {
 	return &cp
 }
 
-func setRuntimeConfigCache(cfg *RuntimeConfig) {
-	runtimeConfigCache.mu.Lock()
-	defer runtimeConfigCache.mu.Unlock()
-	runtimeConfigCache.data = cloneRuntimeConfig(cfg)
+func (s *RuntimeConfigService) setRuntimeConfigCache(cfg *RuntimeConfig) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cache = cloneRuntimeConfig(cfg)
 }
 
-func GetRuntimeConfig() RuntimeConfig {
-	runtimeConfigCache.mu.RLock()
-	if runtimeConfigCache.data != nil {
-		cfg := *runtimeConfigCache.data
-		runtimeConfigCache.mu.RUnlock()
+func (s *RuntimeConfigService) GetRuntimeConfig() RuntimeConfig {
+	s.mu.RLock()
+	if s.cache != nil {
+		cfg := *s.cache
+		s.mu.RUnlock()
 		return cfg
 	}
-	runtimeConfigCache.mu.RUnlock()
+	s.mu.RUnlock()
 
-	cfg := defaultRuntimeConfig()
+	cfg := s.defaultRuntimeConfig()
 	return *cfg
 }
 
-func GetRuntimeSite() conf.Site {
-	return GetRuntimeConfig().Site
+func (s *RuntimeConfigService) GetRuntimeSite() conf.Site {
+	return s.GetRuntimeConfig().Site
 }
 
-func GetRuntimeLogin() siteconf.Login {
-	return GetRuntimeSite().Login
+func (s *RuntimeConfigService) GetRuntimeLogin() siteconf.Login {
+	return s.GetRuntimeSite().Login
 }
 
-func GetRuntimeArticle() siteconf.Article {
-	return GetRuntimeSite().Article
+func (s *RuntimeConfigService) GetRuntimeArticle() siteconf.Article {
+	return s.GetRuntimeSite().Article
 }
 
-func GetRuntimeComment() siteconf.Comment {
-	return GetRuntimeSite().Comment
+func (s *RuntimeConfigService) GetRuntimeComment() siteconf.Comment {
+	return s.GetRuntimeSite().Comment
 }
 
-func GetRuntimeAI() conf.AI {
-	return GetRuntimeConfig().AI
+func (s *RuntimeConfigService) GetRuntimeAI() conf.AI {
+	return s.GetRuntimeConfig().AI
 }
 
-func applyRuntimeConfig(cfg *RuntimeConfig) {
-	if cfg != nil {
-		runtimeApplyBase(cfg.Site, cfg.AI)
-	}
-	setRuntimeConfigCache(cfg)
+func (s *RuntimeConfigService) applyRuntimeConfig(cfg *RuntimeConfig) {
+	s.setRuntimeConfigCache(cfg)
 }
 
 func marshalRuntimeConfig(cfg *RuntimeConfig) (siteJSON string, aiJSON string, err error) {
@@ -193,7 +157,7 @@ func marshalRuntimeConfig(cfg *RuntimeConfig) (siteJSON string, aiJSON string, e
 }
 
 func decodeRuntimeConfig(model *models.RuntimeSiteConfigModel) (*RuntimeConfig, error) {
-	cfg := defaultRuntimeConfig()
+	cfg := &RuntimeConfig{}
 	if model == nil {
 		return cfg, nil
 	}
@@ -210,12 +174,12 @@ func decodeRuntimeConfig(model *models.RuntimeSiteConfigModel) (*RuntimeConfig, 
 	return cfg, nil
 }
 
-func ensureRuntimeConfigModel(tx *gorm.DB) (*models.RuntimeSiteConfigModel, *RuntimeConfig, error) {
+func (s *RuntimeConfigService) ensureRuntimeConfigModel(tx *gorm.DB) (*models.RuntimeSiteConfigModel, *RuntimeConfig, error) {
 	var model models.RuntimeSiteConfigModel
 	err := tx.Where("name = ?", runtimeConfigName).Take(&model).Error
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound):
-		cfg := initialRuntimeConfig()
+		cfg := s.initialRuntimeConfig()
 		siteJSON, aiJSON, marshalErr := marshalRuntimeConfig(cfg)
 		if marshalErr != nil {
 			return nil, nil, marshalErr
@@ -236,23 +200,28 @@ func ensureRuntimeConfigModel(tx *gorm.DB) (*models.RuntimeSiteConfigModel, *Run
 		if decodeErr != nil {
 			return nil, nil, decodeErr
 		}
+		if cfg.Site.SiteInfo.Title == "" {
+			cfg.Site = s.defaultRuntimeConfig().Site
+		}
+		if cfg.AI.ChatModel == "" && cfg.AI.BaseURL == "" && cfg.AI.SecretKey == "" {
+			cfg.AI = s.defaultRuntimeConfig().AI
+		}
 		return &model, cfg, nil
 	}
 }
 
 // InitRuntimeConfig 会在启动时把运行时站点配置从数据库加载到内存。
 // 当数据库还没有初始化记录时，会使用 site_default_settings.yaml 中的默认值灌入数据库。
-func InitRuntimeConfig() error {
-	db := runtimeDB()
-	if db == nil {
+func (s *RuntimeConfigService) InitRuntimeConfig() error {
+	if s.db == nil {
 		return errors.New("数据库未初始化")
 	}
-	if !db.Migrator().HasTable(&models.RuntimeSiteConfigModel{}) {
+	if !s.db.Migrator().HasTable(&models.RuntimeSiteConfigModel{}) {
 		return errors.New("运行时配置表不存在，请先执行数据库初始化命令：/app/server -db")
 	}
 	var loaded *RuntimeConfig
-	if err := db.Transaction(func(tx *gorm.DB) error {
-		_, cfg, err := ensureRuntimeConfigModel(tx)
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		_, cfg, err := s.ensureRuntimeConfigModel(tx)
 		if err != nil {
 			return err
 		}
@@ -261,18 +230,17 @@ func InitRuntimeConfig() error {
 	}); err != nil {
 		return err
 	}
-	applyRuntimeConfig(loaded)
+	s.applyRuntimeConfig(loaded)
 	return nil
 }
 
-func UpdateRuntimeSite(site conf.Site) error {
-	db := runtimeDB()
-	if db == nil {
+func (s *RuntimeConfigService) UpdateRuntimeSite(site conf.Site) error {
+	if s.db == nil {
 		return errors.New("数据库未初始化")
 	}
 	var updated *RuntimeConfig
-	if err := db.Transaction(func(tx *gorm.DB) error {
-		model, cfg, err := ensureRuntimeConfigModel(tx)
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		model, cfg, err := s.ensureRuntimeConfigModel(tx)
 		if err != nil {
 			return err
 		}
@@ -292,18 +260,17 @@ func UpdateRuntimeSite(site conf.Site) error {
 	}); err != nil {
 		return err
 	}
-	applyRuntimeConfig(updated)
+	s.applyRuntimeConfig(updated)
 	return nil
 }
 
-func UpdateRuntimeAI(ai conf.AI) error {
-	db := runtimeDB()
-	if db == nil {
+func (s *RuntimeConfigService) UpdateRuntimeAI(ai conf.AI) error {
+	if s.db == nil {
 		return errors.New("数据库未初始化")
 	}
 	var updated *RuntimeConfig
-	if err := db.Transaction(func(tx *gorm.DB) error {
-		model, cfg, err := ensureRuntimeConfigModel(tx)
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		model, cfg, err := s.ensureRuntimeConfigModel(tx)
 		if err != nil {
 			return err
 		}
@@ -323,6 +290,6 @@ func UpdateRuntimeAI(ai conf.AI) error {
 	}); err != nil {
 		return err
 	}
-	applyRuntimeConfig(updated)
+	s.applyRuntimeConfig(updated)
 	return nil
 }

@@ -7,22 +7,22 @@ import (
 	"strings"
 
 	"myblogx/models"
+	"myblogx/models/ctype"
 	"myblogx/models/enum"
 	"myblogx/service/es_service"
 	"myblogx/service/redis_service"
 	"myblogx/utils/jwts"
 
 	"github.com/elastic/go-elasticsearch/v7"
-	"gorm.io/gorm"
 )
 
-func SearchArticles(cr ArticleSearchRequest, claims *jwts.MyClaims, db *gorm.DB, redisDeps redis_service.Deps, esClient *elasticsearch.Client, index string) (ArticleSearchResponse, error) {
+func SearchArticles(cr ArticleSearchRequest, claims *jwts.MyClaims, likeTagIDs []ctype.ID, redisDeps redis_service.Deps, esClient *elasticsearch.Client, index string) (ArticleSearchResponse, error) {
 	normalized, err := normalizeArticleSearchRequest(cr, claims)
 	if err != nil {
 		return ArticleSearchResponse{}, err
 	}
 
-	query, err := buildArticleSearchDSL(normalized, claims, db)
+	query, err := buildArticleSearchDSL(normalized, claims, likeTagIDs)
 	if err != nil {
 		return ArticleSearchResponse{}, err
 	}
@@ -31,8 +31,8 @@ func SearchArticles(cr ArticleSearchRequest, claims *jwts.MyClaims, db *gorm.DB,
 	return executeArticleSearch(redisDeps, esClient, normalized, query, extraBody, models.ResolveArticleESIndex(index))
 }
 
-func SearchArticleList(cr ArticleSearchRequest, claims *jwts.MyClaims, db *gorm.DB, redisDeps redis_service.Deps, esClient *elasticsearch.Client, index string) ([]SearchListResponse, error) {
-	result, err := SearchArticles(cr, claims, db, redisDeps, esClient, index)
+func SearchArticleList(cr ArticleSearchRequest, claims *jwts.MyClaims, likeTagIDs []ctype.ID, redisDeps redis_service.Deps, esClient *elasticsearch.Client, index string) ([]SearchListResponse, error) {
+	result, err := SearchArticles(cr, claims, likeTagIDs, redisDeps, esClient, index)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func normalizeArticleSearchRequest(cr ArticleSearchRequest, claims *jwts.MyClaim
 	return cr, nil
 }
 
-func buildArticleSearchDSL(cr ArticleSearchRequest, claims *jwts.MyClaims, db *gorm.DB) (map[string]any, error) {
+func buildArticleSearchDSL(cr ArticleSearchRequest, claims *jwts.MyClaims, likeTagIDs []ctype.ID) (map[string]any, error) {
 	query := buildDefaultArticleSearchQuery(cr.Key)
 
 	switch cr.Type {
@@ -108,8 +108,8 @@ func buildArticleSearchDSL(cr ArticleSearchRequest, claims *jwts.MyClaims, db *g
 		query = buildPublishedStatusQuery(query, cr.Status)
 	case 2:
 		query = buildPublishedStatusQuery(query, cr.Status)
-		if claims != nil {
-			query = buildLikeTagsQuery(query, claims.UserID, db)
+		if claims != nil && len(likeTagIDs) > 0 {
+			query = buildLikeTagsQuery(query, likeTagIDs)
 		}
 	case 3:
 		query = buildPublishedStatusQuery(query, cr.Status)

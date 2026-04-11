@@ -5,12 +5,11 @@ import (
 	"myblogx/common/res"
 	"myblogx/middleware"
 	"myblogx/models"
-	"myblogx/service/log_service"
 
 	"github.com/gin-gonic/gin"
 )
 
-func (TagsApi) TagDeleteView(c *gin.Context) {
+func (h TagsApi) TagDeleteView(c *gin.Context) {
 	cr := middleware.GetBindJson[models.IDListRequest](c)
 	if len(cr.IDList) == 0 {
 		res.FailWithMsg("请输入要删除的标签 id 列表", c)
@@ -18,7 +17,7 @@ func (TagsApi) TagDeleteView(c *gin.Context) {
 	}
 
 	var relationCount int64
-	if err := mustApp(c).DB.Model(&models.ArticleTagModel{}).
+	if err := h.App.DB.Model(&models.ArticleTagModel{}).
 		Where("tag_id IN ?", cr.IDList).
 		Count(&relationCount).Error; err != nil {
 		res.FailWithError(err, c)
@@ -30,7 +29,7 @@ func (TagsApi) TagDeleteView(c *gin.Context) {
 	}
 
 	var list []models.TagModel
-	if err := mustApp(c).DB.Where("id IN ?", cr.IDList).Find(&list).Error; err != nil {
+	if err := h.App.DB.Where("id IN ?", cr.IDList).Find(&list).Error; err != nil {
 		res.FailWithMsg("查询标签失败", c)
 		return
 	}
@@ -39,12 +38,12 @@ func (TagsApi) TagDeleteView(c *gin.Context) {
 		return
 	}
 
-	if err := mustApp(c).DB.Delete(&list).Error; err != nil {
+	if err := h.App.DB.Delete(&list).Error; err != nil {
 		res.FailWithMsg("删除标签失败", c)
 		return
 	}
 	res.OkWithMsg(fmt.Sprintf("删除标签成功，共删除 %d 条", len(list)), c)
-	log_service.EmitActionAuditFromGin(c, log_service.GinAuditInput{
+	middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{
 		ActionName:  "tag_delete",
 		TargetType:  "tag",
 		Success:     true,

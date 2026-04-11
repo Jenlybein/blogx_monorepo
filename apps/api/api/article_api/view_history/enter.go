@@ -1,19 +1,13 @@
 package view_history
 
 import (
-	"myblogx/appctx"
-
-	"github.com/gin-gonic/gin"
+	"myblogx/apideps"
 )
 
 type ViewHistoryApi struct {
+	App apideps.Deps
 }
 
-func New(ctx *appctx.AppContext) ViewHistoryApi {
-	_ = ctx
-	return ViewHistoryApi{}
-}
-
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) ViewHistoryApi {
+	return ViewHistoryApi{App: deps}
 }

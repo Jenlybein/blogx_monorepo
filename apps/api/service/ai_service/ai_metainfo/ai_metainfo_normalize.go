@@ -4,16 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"myblogx/models/ctype"
-	"myblogx/service/site_service"
 	"myblogx/utils/markdown"
 	"strings"
 )
 
 // cleanArticleMetainfoContent 清洗文章正文，去除格式并裁剪输入长度。
-func cleanArticleMetainfoContent(content string) string {
+func cleanArticleMetainfoContent(content string, maxChars int) string {
 	text := markdown.MdToTextParagraph(content)
 
-	maxChars := site_service.GetRuntimeAI().MaxInputChars
 	if maxChars <= 0 {
 		maxChars = 4096
 	}

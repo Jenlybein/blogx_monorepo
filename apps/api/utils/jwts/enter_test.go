@@ -1,7 +1,6 @@
 package jwts_test
 
 import (
-	"myblogx/appctx"
 	"myblogx/conf"
 	"myblogx/models/enum"
 	"myblogx/test/testutil"
@@ -68,17 +67,7 @@ func TestParseTokenByGin(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	c.Request = req
-	appctx.WithGin(c, appctx.New(
-		"test",
-		"config/settings.yaml",
-		testutil.Config(),
-		testutil.Logger(),
-		testutil.DB(),
-		testutil.Redis(),
-		nil,
-		testutil.ESClient(),
-		testutil.ImageCaptchaStore(),
-	))
+	c.Set("_jwt_config", jwtConf)
 
 	claims, err := jwts.ParseTokenByGin(c)
 	if err != nil {

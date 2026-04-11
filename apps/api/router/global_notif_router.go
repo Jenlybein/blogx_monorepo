@@ -9,9 +9,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func GlobalNotifRouter(r *gin.RouterGroup, appContainer api.Api) {
+func GlobalNotifRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtime) {
 	Group := r.Group("global_notif")
-	authGroup := Group.Group("", mw.AuthMiddleware)
+	authGroup := Group.Group("", runtimeMw.AuthMiddleware)
 	adminGroup := authGroup.Group("", mw.AdminMiddleware)
 
 	app := appContainer.GlobalNotifApi

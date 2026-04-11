@@ -16,7 +16,7 @@ type CommentModel struct {
 	UserAvatar        string             `json:"user_avatar" gorm:"size:256"`
 	UserModel         UserModel          `json:"user_model" gorm:"foreignKey:UserID;references:ID"`
 	ArticleID         ctype.ID           `json:"article_id" gorm:"not null;index:idx_article_root"`
-	ReplyId           ctype.ID           `json:"reply_id" gorm:"default:0"`                       // 回复的评论id，0表示一级评论
+	ReplyId           ctype.ID           `json:"reply_id" gorm:"default:0"` // 回复的评论id，0表示一级评论
 	ReplyUserID       ctype.ID           `json:"reply_user_id" gorm:"default:0"`
 	ReplyUserNickname string             `json:"reply_user_nickname" gorm:"size:64"`
 	RootID            ctype.ID           `json:"root_id" gorm:"default:0;index:idx_article_root"` // 根评论ID，0表示本身就是一级评论

@@ -11,25 +11,25 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (GlobalNotifApi) GlobalNotifListView(c *gin.Context) {
+func (h GlobalNotifApi) GlobalNotifListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[GlobalNotifListRequest](c)
 
 	claims := jwts.MustGetClaimsByGin(c)
 
 	var (
-		whereQuery   = mustApp(c).DB.Where("")
+		whereQuery   = h.App.DB.Where("")
 		userNotifMap = map[ctype.ID]models.UserGlobalNotifModel{}
 	)
 
 	switch cr.Type {
 	case 1: // 普通用户能看，且未被删除的通知
-		state, err := LoadUserGlobalNotifState(mustApp(c).DB, claims.UserID, nil)
+		state, err := LoadUserGlobalNotifState(h.App.DB, claims.UserID, nil)
 		if err != nil {
 			res.FailWithMsg("用户不存在", c)
 			return
 		}
 		userNotifMap = state.UserNotifMap
-		whereQuery = BuildUserVisibleGlobalNotifListQuery(mustApp(c).DB, state)
+		whereQuery = BuildUserVisibleGlobalNotifListQuery(h.App.DB, state)
 	case 2:
 		if !claims.IsAdmin() {
 			res.FailWithMsg("权限不足", c)

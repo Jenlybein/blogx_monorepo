@@ -1,7 +1,6 @@
 package core_test
 
 import (
-	"myblogx/appctx"
 	"myblogx/conf"
 	"myblogx/core"
 	"myblogx/test/testutil"
@@ -16,8 +15,8 @@ func TestInitMySQLESDisabled(t *testing.T) {
 		},
 	})
 
-	core.InitMySQLES(&appctx.AppContext{
-		Config: testutil.Config(),
-		Logger: testutil.Logger(),
+	core.InitMySQLES(core.MySQLESDeps{
+		RiverConfig: testutil.Config().River,
+		Logger:      testutil.Logger(),
 	})
 }

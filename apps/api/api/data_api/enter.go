@@ -1,19 +1,13 @@
 package data_api
 
 import (
-	"myblogx/appctx"
-
-	"github.com/gin-gonic/gin"
+	"myblogx/apideps"
 )
 
 type DataApi struct {
+	App apideps.Deps
 }
 
-func New(ctx *appctx.AppContext) DataApi {
-	_ = ctx
-	return DataApi{}
-}
-
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) DataApi {
+	return DataApi{App: deps}
 }

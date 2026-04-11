@@ -1,6 +1,6 @@
 package article_admin
 
-// func (a *ArticleApi) AdminArticleRemoveView() {
+// func (h *ArticleApi) AdminArticleRemoveView() {
 // 	go message_service.InsertSystemMessage(message_service.SystemMessage{
 // 		ReceiverID:   &article.AuthorID,
 // 		ActionUserID: &article.AuthorID,

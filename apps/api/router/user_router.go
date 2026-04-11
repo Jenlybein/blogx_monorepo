@@ -12,23 +12,23 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func UserRouter(r *gin.RouterGroup, appContainer api.Api) {
+func UserRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtime) {
 	Group := r.Group("users")
-	authGroup := Group.Group("", mw.AuthMiddleware)
+	authGroup := Group.Group("", runtimeMw.AuthMiddleware)
 	adminGroup := authGroup.Group("", mw.AdminMiddleware)
 
 	auth := appContainer.UserApi.AuthApi
-	Group.POST("email/verify", mw.CaptchaMiddleware, mw.BindJson[auth_api.SendEmailRequest], auth.SendEmailView)
-	Group.POST("email/login", mw.EmailVerifyMiddleware, auth.EmailLoginView)
-	Group.POST("email/register", mw.EmailVerifyMiddleware, mw.BindJson[auth_api.RegisterEmailRequest], auth.RegisterEmailView)
+	Group.POST("email/verify", runtimeMw.CaptchaMiddleware, mw.BindJson[auth_api.SendEmailRequest], auth.SendEmailView)
+	Group.POST("email/login", runtimeMw.EmailVerifyMiddleware, auth.EmailLoginView)
+	Group.POST("email/register", runtimeMw.EmailVerifyMiddleware, mw.BindJson[auth_api.RegisterEmailRequest], auth.RegisterEmailView)
 	Group.POST("qq", mw.BindJson[auth_api.QQLoginRequest], auth.QQLoginView)
-	Group.POST("login", mw.CaptchaMiddleware, mw.BindJson[auth_api.PwdLoginRequest], auth.PwdLoginView)
+	Group.POST("login", runtimeMw.CaptchaMiddleware, mw.BindJson[auth_api.PwdLoginRequest], auth.PwdLoginView)
 	Group.POST("refresh", auth.RefreshTokenView)
-	Group.PUT("password/recovery/email", mw.EmailVerifyMiddleware, mw.BindJson[auth_api.ResetPasswordRequest], auth.ResetPwdByEmailView)
+	Group.PUT("password/recovery/email", runtimeMw.EmailVerifyMiddleware, mw.BindJson[auth_api.ResetPasswordRequest], auth.ResetPwdByEmailView)
 	authGroup.PUT("password/renewal/email", mw.BindJson[auth_api.UpdatePasswordRequest], auth.UpdatePwdByEmailView)
 	authGroup.POST("logout", auth.UserLogoutView)
 	authGroup.POST("logout/all", auth.UserLogoutAllView)
-	authGroup.PUT("email/bind", mw.EmailVerifyMiddleware, auth.BindEmailView)
+	authGroup.PUT("email/bind", runtimeMw.EmailVerifyMiddleware, auth.BindEmailView)
 
 	profile := appContainer.UserApi.ProfileApi
 	authGroup.GET("detail", profile.UserDetailView)

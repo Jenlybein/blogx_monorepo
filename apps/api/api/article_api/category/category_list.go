@@ -5,6 +5,7 @@ import (
 	"myblogx/common/res"
 	"myblogx/middleware"
 	"myblogx/models"
+	"myblogx/service/redis_service"
 	"myblogx/service/user_service"
 	"myblogx/utils/jwts"
 
@@ -12,15 +13,26 @@ import (
 )
 
 // 查询分类列表
-func (CategoryApi) CategoryListView(c *gin.Context) {
+func (h CategoryApi) CategoryListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[CategoryListRequest](c)
 
 	var claim *jwts.MyClaims
 	var err error
-	if authResult := user_service.MustAuthenticateAccessTokenByGin(c); authResult != nil {
-		claim = authResult.Claims
-	} else {
+	token := jwts.GetTokenByGin(c)
+	if token == "" {
 		err = user_service.ErrAuthRequired
+	} else {
+		authenticator := user_service.NewAuthenticator(
+			h.App.DB,
+			h.App.Logger,
+			h.App.JWT,
+			redis_service.Deps{Client: h.App.Redis, Logger: h.App.Logger},
+		)
+		if authResult, authErr := authenticator.AuthenticateAccessToken(token); authErr == nil {
+			claim = authResult.Claims
+		} else {
+			err = authErr
+		}
 	}
 
 	preloads := []string{"ArticleList"}

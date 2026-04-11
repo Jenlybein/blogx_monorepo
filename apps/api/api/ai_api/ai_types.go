@@ -47,22 +47,22 @@ type AIDiagnoseRequest struct {
 
 type AIDiagnoseResponse = ai_diagnose.DiagnoseResponse
 
-func (r AIOverwriteRequest) toServiceRequest() ai_overwrite.RewriteRequest {
+func (h AIOverwriteRequest) toServiceRequest() ai_overwrite.RewriteRequest {
 	return ai_overwrite.RewriteRequest{
-		Mode:          r.Mode,
-		SelectionText: r.SelectionText,
-		PrefixText:    r.PrefixText,
-		SuffixText:    r.SuffixText,
-		ArticleTitle:  r.ArticleTitle,
-		TargetStyle:   r.TargetStyle,
+		Mode:          h.Mode,
+		SelectionText: h.SelectionText,
+		PrefixText:    h.PrefixText,
+		SuffixText:    h.SuffixText,
+		ArticleTitle:  h.ArticleTitle,
+		TargetStyle:   h.TargetStyle,
 	}
 }
 
-func (r AIDiagnoseRequest) toServiceRequest() ai_diagnose.DiagnoseRequest {
+func (h AIDiagnoseRequest) toServiceRequest() ai_diagnose.DiagnoseRequest {
 	return ai_diagnose.DiagnoseRequest{
-		SelectionText: r.SelectionText,
-		PrefixText:    r.PrefixText,
-		SuffixText:    r.SuffixText,
-		ArticleTitle:  r.ArticleTitle,
+		SelectionText: h.SelectionText,
+		PrefixText:    h.PrefixText,
+		SuffixText:    h.SuffixText,
+		ArticleTitle:  h.ArticleTitle,
 	}
 }

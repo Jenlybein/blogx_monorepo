@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	api2 "myblogx/api"
+	"myblogx/apideps"
 	"myblogx/conf"
+	mw "myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/models/enum/global_notif_enum"
@@ -68,7 +70,7 @@ func newSitemsgRouterEngine() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	apiGroup := r.Group("/api")
-	router.SitemsgRouter(apiGroup, api2.New(nil))
+	router.SitemsgRouter(apiGroup, api2.New(apideps.Deps{}), mw.Runtime{})
 	return r
 }
 
@@ -98,7 +100,7 @@ func TestSitemsgRouterPutConfBindsJSON(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	apiGroup := r.Group("/api")
-	router.SitemsgRouter(apiGroup, api2.New(nil))
+	router.SitemsgRouter(apiGroup, api2.New(apideps.Deps{}), mw.Runtime{})
 
 	req := testutil.NewJSONRequest(http.MethodPut, "/api/sitemsg/conf", `{
 		"digg_notice_enabled": false,

@@ -3,6 +3,7 @@ package ai_metainfo
 import (
 	"errors"
 	"fmt"
+	"myblogx/conf"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"strings"
@@ -12,7 +13,7 @@ import (
 )
 
 // GenerateArticleMetainfo 根据文章内容生成标题、摘要、分类和标签建议。
-func GenerateArticleMetainfo(db *gorm.DB, logger *logrus.Logger, uid ctype.ID, content string) (*MetainfoResponse, error) {
+func GenerateArticleMetainfo(db *gorm.DB, logger *logrus.Logger, aiConf conf.AI, uid ctype.ID, content string) (*MetainfoResponse, error) {
 	if uid == 0 {
 		return nil, errors.New("用户 ID 不能为空")
 	}
@@ -49,12 +50,12 @@ func GenerateArticleMetainfo(db *gorm.DB, logger *logrus.Logger, uid ctype.ID, c
 		return nil, fmt.Errorf("查询标签候选失败: %w", err)
 	}
 
-	plainText := cleanArticleMetainfoContent(content)
+	plainText := cleanArticleMetainfoContent(content, aiConf.MaxInputChars)
 	if plainText == "" {
 		return nil, errors.New("文章正文提取结果为空")
 	}
 
-	reply, err := requestArticleMetainfoFromAI(plainText, categoryOptions, tagOptions)
+	reply, err := requestArticleMetainfoFromAI(aiConf, plainText, categoryOptions, tagOptions)
 	if err != nil {
 		return nil, err
 	}

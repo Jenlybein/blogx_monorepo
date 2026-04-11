@@ -12,8 +12,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (DataApi) GrowthDataView(c *gin.Context) {
-	app := mustApp(c)
+func (h DataApi) GrowthDataView(c *gin.Context) {
+	app := h.App
 	cr := middleware.GetBindQuery[GrowthDataRequest](c)
 	var resp GrowthDataResponse
 
@@ -26,7 +26,7 @@ func (DataApi) GrowthDataView(c *gin.Context) {
 	var err error
 	switch cr.Type {
 	case 1:
-		flowList := redis_site.GetRecentFlow(redis_service.DepsFromGin(c), 7)
+		flowList := redis_site.GetRecentFlow(redis_service.NewDeps(h.App.Redis, h.App.Logger), 7)
 		resp.DateCountList = make([]DateCountItem, 0, len(flowList))
 		for _, item := range flowList {
 			resp.DateCountList = append(resp.DateCountList, DateCountItem{

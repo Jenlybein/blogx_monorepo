@@ -25,8 +25,8 @@ type UserDetailResponse struct {
 	models.UserConfModel
 }
 
-func (ProfileApi) UserDetailView(c *gin.Context) {
-	app := mustApp(c)
+func (h ProfileApi) UserDetailView(c *gin.Context) {
+	app := h.App
 	claims := jwts.MustGetClaimsByGin(c)
 
 	var user models.UserModel

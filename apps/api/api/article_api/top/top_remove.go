@@ -9,11 +9,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (TopApi) ArticleTopRemoveView(c *gin.Context) {
+func (h TopApi) ArticleTopRemoveView(c *gin.Context) {
 	cr := middleware.GetBindJson[ArticleTopSetRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
-	db := mustApp(c).DB
-	logger := mustApp(c).Logger
+	db := h.App.DB
+	logger := h.App.Logger
 
 	var article models.ArticleModel
 	if err := db.Select("id", "author_id").Take(&article, "id = ?", cr.ArticleID).Error; err != nil {

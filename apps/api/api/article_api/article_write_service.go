@@ -21,8 +21,9 @@ var (
 )
 
 type articleWriteService struct {
-	DB     *gorm.DB
-	Logger *logrus.Logger
+	DB          *gorm.DB
+	Logger      *logrus.Logger
+	RuntimeSite *site_service.RuntimeConfigService
 }
 
 type articleUpdateResult struct {
@@ -34,25 +35,29 @@ type articleUpdateResult struct {
 	Noop       bool
 }
 
-func newArticleWriteService(db *gorm.DB, logger *logrus.Logger) *articleWriteService {
+func newArticleWriteService(db *gorm.DB, logger *logrus.Logger, runtimeSite *site_service.RuntimeConfigService) *articleWriteService {
 	return &articleWriteService{
-		DB:     db,
-		Logger: logger,
+		DB:          db,
+		Logger:      logger,
+		RuntimeSite: runtimeSite,
 	}
 }
 
-func (s *articleWriteService) CreateArticle(claims *jwts.MyClaims, cr ArticleCreateRequest) (*models.ArticleModel, []ctype.ID, error) {
-	runtimeSite := site_service.GetRuntimeSite()
+func (h *articleWriteService) CreateArticle(claims *jwts.MyClaims, cr ArticleCreateRequest) (*models.ArticleModel, []ctype.ID, error) {
+	if h.RuntimeSite == nil {
+		return nil, nil, errors.New("运行时配置服务未初始化")
+	}
+	runtimeSite := h.RuntimeSite.GetRuntimeSite()
 
-	if err := s.DB.Take(&models.UserModel{}, claims.UserID).Error; err != nil {
+	if err := h.DB.Take(&models.UserModel{}, claims.UserID).Error; err != nil {
 		return nil, nil, errArticleUserNotFound
 	}
 
-	if err := validateArticleCategory(s.DB, claims.UserID, cr.CategoryID); err != nil {
+	if err := validateArticleCategory(h.DB, claims.UserID, cr.CategoryID); err != nil {
 		return nil, nil, errArticleCategoryNotFound
 	}
 
-	tagList, err := loadEnabledTagsByIDs(s.DB, cr.TagIDs)
+	tagList, err := loadEnabledTagsByIDs(h.DB, cr.TagIDs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -79,7 +84,7 @@ func (s *articleWriteService) CreateArticle(claims *jwts.MyClaims, cr ArticleCre
 	}
 
 	tagIDs := extractTagIDs(tagList)
-	if err := s.DB.Transaction(func(tx *gorm.DB) error {
+	if err := h.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(article).Error; err != nil {
 			return err
 		}
@@ -91,13 +96,13 @@ func (s *articleWriteService) CreateArticle(claims *jwts.MyClaims, cr ArticleCre
 	return article, tagIDs, nil
 }
 
-func (s *articleWriteService) UpdateArticle(articleID ctype.ID, claims *jwts.MyClaims, cr ArticleUpdateRequest) (*models.ArticleModel, articleUpdateResult, error) {
-	if err := s.DB.Take(&models.UserModel{}, claims.UserID).Error; err != nil {
+func (h *articleWriteService) UpdateArticle(articleID ctype.ID, claims *jwts.MyClaims, cr ArticleUpdateRequest) (*models.ArticleModel, articleUpdateResult, error) {
+	if err := h.DB.Take(&models.UserModel{}, claims.UserID).Error; err != nil {
 		return nil, articleUpdateResult{}, errArticleUserNotFound
 	}
 
 	var article models.ArticleModel
-	if err := s.DB.Take(&article, "id = ? AND author_id = ?", articleID, claims.UserID).Error; err != nil {
+	if err := h.DB.Take(&article, "id = ? AND author_id = ?", articleID, claims.UserID).Error; err != nil {
 		return nil, articleUpdateResult{}, errArticleNotFound
 	}
 
@@ -125,7 +130,7 @@ func (s *articleWriteService) UpdateArticle(articleID ctype.ID, claims *jwts.MyC
 		if *cr.CategoryID == 0 {
 			updateMap["category_id"] = nil
 		} else {
-			if err := validateArticleCategory(s.DB, claims.UserID, cr.CategoryID); err != nil {
+			if err := validateArticleCategory(h.DB, claims.UserID, cr.CategoryID); err != nil {
 				return nil, articleUpdateResult{}, errArticleCategoryNotFound
 			}
 			updateMap["category_id"] = cr.CategoryID
@@ -144,12 +149,12 @@ func (s *articleWriteService) UpdateArticle(articleID ctype.ID, claims *jwts.MyC
 	}
 
 	if cr.TagIDs != nil {
-		oldTagIDs, err := loadArticleTagIDs(s.DB, article.ID)
+		oldTagIDs, err := loadArticleTagIDs(h.DB, article.ID)
 		if err != nil {
 			return nil, articleUpdateResult{}, err
 		}
 
-		tagList, err := loadEnabledTagsByIDs(s.DB, *cr.TagIDs)
+		tagList, err := loadEnabledTagsByIDs(h.DB, *cr.TagIDs)
 		if err != nil {
 			return nil, articleUpdateResult{}, err
 		}
@@ -163,11 +168,14 @@ func (s *articleWriteService) UpdateArticle(articleID ctype.ID, claims *jwts.MyC
 		return &article, result, nil
 	}
 
-	if !site_service.GetRuntimeArticle().SkipExamining && article.Status == enum.ArticleStatusPublished {
+	if h.RuntimeSite == nil {
+		return nil, articleUpdateResult{}, errors.New("运行时配置服务未初始化")
+	}
+	if !h.RuntimeSite.GetRuntimeArticle().SkipExamining && article.Status == enum.ArticleStatusPublished {
 		updateMap["status"] = enum.ArticleStatusExamining
 	}
 
-	if err := s.DB.Transaction(func(tx *gorm.DB) error {
+	if err := h.DB.Transaction(func(tx *gorm.DB) error {
 		if len(updateMap) > 0 {
 			if err := tx.Model(&article).Updates(updateMap).Error; err != nil {
 				return err

@@ -5,21 +5,23 @@ import (
 	"myblogx/common/res"
 	"myblogx/middleware"
 	"myblogx/models/enum"
-	"myblogx/service/log_service"
 	"myblogx/service/redis_service"
-	"myblogx/service/site_service"
 	"myblogx/utils/jwts"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
-func (ArticleApi) ArticleCreateView(c *gin.Context) {
+func (h ArticleApi) ArticleCreateView(c *gin.Context) {
 	cr := middleware.GetBindJson[ArticleCreateRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
-	writer := newArticleWriteService(mustApp(c).DB, mustApp(c).Logger)
+	writer := newArticleWriteService(h.App.DB, h.App.Logger, h.App.RuntimeSite)
+	if h.App.RuntimeSite == nil {
+		res.FailWithMsg("运行时配置服务未初始化", c)
+		return
+	}
 
-	if claims.Role != enum.RoleAdmin && site_service.GetRuntimeSite().SiteInfo.Mode == enum.SiteModeBlog {
+	if claims.Role != enum.RoleAdmin && h.App.RuntimeSite.GetRuntimeSite().SiteInfo.Mode == enum.SiteModeBlog {
 		res.FailWithMsg("站点处于个人博客模式，普通用户无法创建文章", c)
 		return
 	}
@@ -35,11 +37,11 @@ func (ArticleApi) ArticleCreateView(c *gin.Context) {
 		return
 	}
 
-	applyTagArticleCountDelta(redis_service.DepsFromGin(c), buildTagArticleCountDelta(nil, tagIDs))
+	applyTagArticleCountDelta(redis_service.NewDeps(h.App.Redis, h.App.Logger), buildTagArticleCountDelta(nil, tagIDs))
 
 	res.OkWithMsg("创建文章成功", c)
 
-	log_service.EmitActionAuditFromGin(c, log_service.GinAuditInput{
+	middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{
 		ActionName: "article_create",
 		TargetType: "article",
 		TargetID:   strconv.FormatUint(uint64(article.ID), 10),

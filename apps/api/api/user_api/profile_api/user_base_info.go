@@ -28,8 +28,8 @@ type UserBaseInfoResponse struct {
 	Place               string   `json:"place"`
 }
 
-func (ProfileApi) UserBaseInfoView(c *gin.Context) {
-	app := mustApp(c)
+func (h ProfileApi) UserBaseInfoView(c *gin.Context) {
+	app := h.App
 	cr := middleware.GetBindQuery[models.IDRequest](c)
 
 	var user models.UserModel
@@ -40,7 +40,7 @@ func (ProfileApi) UserBaseInfoView(c *gin.Context) {
 
 	viewCountDelta := 0
 	if claims := jwts.GetClaimsByGin(c); claims != nil && claims.UserID != 0 && claims.UserID != user.ID {
-		counted, err := user_service.StatRecordUserHomeView(user_service.DepsFromApp(app), user.ID, claims.UserID)
+		counted, err := user_service.StatRecordUserHomeView(user_service.NewDepsWithRedis(app.JWT, app.System.Env, app.DB, app.Logger, app.Redis), user.ID, claims.UserID)
 		if err != nil {
 			res.FailWithError(err, c)
 			return

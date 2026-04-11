@@ -1,19 +1,13 @@
 package favorite
 
 import (
-	"myblogx/appctx"
-
-	"github.com/gin-gonic/gin"
+	"myblogx/apideps"
 )
 
 type FavoriteApi struct {
+	App apideps.Deps
 }
 
-func New(ctx *appctx.AppContext) FavoriteApi {
-	_ = ctx
-	return FavoriteApi{}
-}
-
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) FavoriteApi {
+	return FavoriteApi{App: deps}
 }

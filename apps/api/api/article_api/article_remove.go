@@ -6,27 +6,26 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/service/article_service"
-	"myblogx/service/log_service"
 
 	"github.com/gin-gonic/gin"
 )
 
-func (ArticleApi) ArticleRemoveView(c *gin.Context) {
+func (h ArticleApi) ArticleRemoveView(c *gin.Context) {
 	cr := middleware.GetBindJson[models.IDListRequest](c)
 
 	var list []models.ArticleModel
-	mustApp(c).DB.Find(&list, "id in ?", cr.IDList)
+	h.App.DB.Find(&list, "id in ?", cr.IDList)
 
 	if len(list) == 0 {
 		res.FailWithMsg("删除失败，文章不存在", c)
 		return
 	}
-	if err := article_service.DeleteArticles(mustApp(c).DB, list, false); err != nil {
+	if err := article_service.DeleteArticles(h.App.DB, list, false); err != nil {
 		res.FailWithMsg("删除文章失败", c)
 		return
 	}
 	res.OkWithMsg(fmt.Sprintf("文章删除成功, 成功删除%d条", len(list)), c)
-	log_service.EmitActionAuditFromGin(c, log_service.GinAuditInput{
+	middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{
 		ActionName:  "article_admin_remove",
 		TargetType:  "article",
 		Success:     true,

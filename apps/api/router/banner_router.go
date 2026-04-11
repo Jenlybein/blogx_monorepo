@@ -9,9 +9,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func BannerRouter(r *gin.RouterGroup, appContainer api.Api) {
+func BannerRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtime) {
 	Group := r.Group("banners")
-	authGroup := Group.Group("", mw.AuthMiddleware)
+	authGroup := Group.Group("", runtimeMw.AuthMiddleware)
 	adminGroup := authGroup.Group("", mw.AdminMiddleware)
 
 	app := appContainer.BannerApi

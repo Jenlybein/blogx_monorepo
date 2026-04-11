@@ -11,8 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (a *SitemsgApi) SitemsgRemoveView(c *gin.Context) {
-	app := mustApp(c)
+func (h *SitemsgApi) SitemsgRemoveView(c *gin.Context) {
+	app := h.App
 	cr := middleware.GetBindJson[SitemsgRemoveRequest](c)
 
 	claims := jwts.MustGetClaimsByGin(c)

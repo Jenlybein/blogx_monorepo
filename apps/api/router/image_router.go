@@ -10,9 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func ImageRouter(r *gin.RouterGroup, appContainer api.Api) {
+func ImageRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtime) {
 	Group := r.Group("images")
-	authGroup := Group.Group("", mw.AuthMiddleware)
+	authGroup := Group.Group("", runtimeMw.AuthMiddleware)
 	adminGroup := authGroup.Group("", mw.AdminMiddleware)
 
 	app := appContainer.ImageApi

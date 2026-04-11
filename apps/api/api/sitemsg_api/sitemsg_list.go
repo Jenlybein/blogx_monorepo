@@ -11,8 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (a *SitemsgApi) SitemsgListView(c *gin.Context) {
-	app := mustApp(c)
+func (h *SitemsgApi) SitemsgListView(c *gin.Context) {
+	app := h.App
 	cr := middleware.GetBindQuery[SitemsgListRequest](c)
 
 	var typeList []message_enum.Type

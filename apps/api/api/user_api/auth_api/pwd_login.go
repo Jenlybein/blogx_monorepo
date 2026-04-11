@@ -6,10 +6,8 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
-	"myblogx/service/log_service"
 	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_user"
-	"myblogx/service/site_service"
 	"myblogx/service/user_service"
 	"myblogx/utils/pwd"
 	"strings"
@@ -22,22 +20,28 @@ type PwdLoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
-func (AuthApi) PwdLoginView(c *gin.Context) {
-	app := mustApp(c)
-	if !site_service.GetRuntimeLogin().UsernamePwdLogin {
-		log_service.EmitLoginEventFromGin(c, "login_fail", enum.PasswordLoginType, false, "", 0, "站点未启用密码登录", nil)
+func (h AuthApi) PwdLoginView(c *gin.Context) {
+	app := h.App
+	runtimeSite := app.RuntimeSite
+	if runtimeSite == nil {
+		res.FailWithMsg("运行时配置服务未初始化", c)
+		return
+	}
+	loginConf := runtimeSite.GetRuntimeLogin()
+	if !loginConf.UsernamePwdLogin {
+		middleware.EmitLoginEventFromGin(c, "login_fail", enum.PasswordLoginType, false, "", 0, "站点未启用密码登录", nil)
 		res.FailWithMsg("站点未启用密码登录功能", c)
 		return
 	}
 
 	cr := middleware.GetBindJson[PwdLoginRequest](c)
-	redisDeps := redis_service.DepsFromGin(c)
+	redisDeps := redis_service.NewDeps(h.App.Redis, h.App.Logger)
 
 	// 登录失败次数限制
-	meta := user_service.BuildSessionMetaFromGin(c)
+	meta := buildSessionMeta(c)
 	account := strings.TrimSpace(cr.Username)
 	if !redis_user.CheckLoginAllowed(redisDeps, account, meta.IP) {
-		log_service.EmitLoginEventFromGin(c, "login_risk_control", enum.PasswordLoginType, false, account, 0, user_service.ErrLoginTooFrequent.Error(), map[string]any{
+		middleware.EmitLoginEventFromGin(c, "login_risk_control", enum.PasswordLoginType, false, account, 0, user_service.ErrLoginTooFrequent.Error(), map[string]any{
 			"username": account,
 		})
 		res.FailWithMsg(user_service.ErrLoginTooFrequent.Error(), c)
@@ -51,9 +55,9 @@ func (AuthApi) PwdLoginView(c *gin.Context) {
 		account, account,
 	).Error; err != nil {
 		// Redis 记录登录失败
-		redis_user.RecordLoginFailure(redisDeps, account, meta.IP)
+		redis_user.RecordLoginFailure(redisDeps, loginConf, account, meta.IP)
 		// 日志记录登录失败
-		log_service.EmitLoginEventFromGin(c, "login_fail", enum.PasswordLoginType, false, account, 0, "账号或密码错误", map[string]any{
+		middleware.EmitLoginEventFromGin(c, "login_fail", enum.PasswordLoginType, false, account, 0, "账号或密码错误", map[string]any{
 			"username": account,
 		})
 		res.FailWithMsg("账号或密码错误", c)
@@ -62,8 +66,8 @@ func (AuthApi) PwdLoginView(c *gin.Context) {
 
 	// 校验密码
 	if !pwd.CompareHashAndPassword(user.Password, cr.Password) {
-		redis_user.RecordLoginFailure(redisDeps, account, meta.IP)
-		log_service.EmitLoginEventFromGin(c, "login_fail", enum.PasswordLoginType, false, account, ctype.ID(user.ID), "账号或密码错误", map[string]any{
+		redis_user.RecordLoginFailure(redisDeps, loginConf, account, meta.IP)
+		middleware.EmitLoginEventFromGin(c, "login_fail", enum.PasswordLoginType, false, account, ctype.ID(user.ID), "账号或密码错误", map[string]any{
 			"username": account,
 		})
 		res.FailWithMsg("账号或密码错误", c)
@@ -72,7 +76,7 @@ func (AuthApi) PwdLoginView(c *gin.Context) {
 
 	// 账号被禁用
 	if !user.CanLogin() {
-		log_service.EmitLoginEventFromGin(c, "login_fail", enum.PasswordLoginType, false, user.Username, user.ID, user.Status.String(), map[string]any{
+		middleware.EmitLoginEventFromGin(c, "login_fail", enum.PasswordLoginType, false, user.Username, user.ID, user.Status.String(), map[string]any{
 			"username": user.Username,
 		})
 		res.FailWithMsg(user.Status.String(), c)
@@ -83,10 +87,10 @@ func (AuthApi) PwdLoginView(c *gin.Context) {
 	redis_user.ResetLoginFailures(redisDeps, account, meta.IP)
 
 	// 登录成功后创建服务端会话，再签发短期访问令牌。
-	deps := user_service.DepsFromApp(app)
+	deps := user_service.NewDepsWithRedis(app.JWT, app.System.Env, app.DB, app.Logger, app.Redis)
 	token, refreshToken, _, err := user_service.CreateLoginTokens(deps, &user, meta)
 	if err != nil {
-		log_service.EmitLoginEventFromGin(c, "login_fail", enum.PasswordLoginType, false, user.Username, user.ID, err.Error(), map[string]any{
+		middleware.EmitLoginEventFromGin(c, "login_fail", enum.PasswordLoginType, false, user.Username, user.ID, err.Error(), map[string]any{
 			"username": user.Username,
 		})
 		res.FailWithError(err, c)
@@ -94,10 +98,10 @@ func (AuthApi) PwdLoginView(c *gin.Context) {
 	}
 
 	// 设置刷新令牌
-	user_service.SetRefreshTokenCookie(c, refreshToken, deps)
+	user_service.SetRefreshTokenCookie(c.Writer, refreshToken, deps)
 
 	// 记录登录日志
-	log_service.EmitLoginEventFromGin(c, "login_success", enum.PasswordLoginType, true, user.Username, user.ID, "", map[string]any{
+	middleware.EmitLoginEventFromGin(c, "login_success", enum.PasswordLoginType, true, user.Username, user.ID, "", map[string]any{
 		"username": user.Username,
 	})
 

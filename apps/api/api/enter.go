@@ -18,7 +18,7 @@ import (
 	"myblogx/api/site_api"
 	"myblogx/api/sitemsg_api"
 	"myblogx/api/user_api"
-	"myblogx/appctx"
+	"myblogx/apideps"
 )
 
 type Api struct {
@@ -39,24 +39,22 @@ type Api struct {
 	DataApi         data_api.DataApi
 }
 
-var App = Api{}
-
-func New(ctx *appctx.AppContext) Api {
+func New(deps apideps.Deps) Api {
 	return Api{
-		SiteApi:         site_api.New(ctx),
-		LogApi:          log_api.New(ctx),
-		ImageApi:        image_api.New(ctx),
-		BannerApi:       banner_api.New(ctx),
-		ImageCaptchaApi: captcha_api.New(ctx),
-		UserApi:         user_api.New(ctx),
-		ArticleApi:      article_api.New(ctx),
-		CommentApi:      comment_api.New(ctx),
-		ChatApi:         chat_api.New(ctx),
-		SitemsgApi:      sitemsg_api.New(ctx),
-		GlobalNotifApi:  global_notif_api.New(ctx),
-		FollowApi:       follow_api.New(ctx),
-		SearchApi:       search_api.New(ctx),
-		AIApi:           ai_api.New(ctx),
-		DataApi:         data_api.New(ctx),
+		SiteApi:         site_api.New(deps),
+		LogApi:          log_api.New(deps),
+		ImageApi:        image_api.New(deps),
+		BannerApi:       banner_api.New(deps),
+		ImageCaptchaApi: captcha_api.New(deps),
+		UserApi:         user_api.New(deps),
+		ArticleApi:      article_api.New(deps),
+		CommentApi:      comment_api.New(deps),
+		ChatApi:         chat_api.New(deps),
+		SitemsgApi:      sitemsg_api.New(deps),
+		GlobalNotifApi:  global_notif_api.New(deps),
+		FollowApi:       follow_api.New(deps),
+		SearchApi:       search_api.New(deps),
+		AIApi:           ai_api.New(deps),
+		DataApi:         data_api.New(deps),
 	}
 }

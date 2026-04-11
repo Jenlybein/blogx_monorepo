@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"myblogx/appctx"
 	"myblogx/conf"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
@@ -109,8 +108,18 @@ func GetTokenByGin(c *gin.Context) string {
 
 func ParseTokenByGin(c *gin.Context) (*MyClaims, error) {
 	tokenString := GetTokenByGin(c)
-	ctx := appctx.MustFromGin(c)
-	return ParseToken(ctx.Config.Jwt, tokenString)
+	if c == nil {
+		return nil, errors.New("请登录：token 为空")
+	}
+	value, ok := c.Get("_jwt_config")
+	if !ok {
+		return nil, errors.New("jwt 配置缺失")
+	}
+	jwtConfig, ok := value.(conf.Jwt)
+	if !ok {
+		return nil, errors.New("jwt 配置类型错误")
+	}
+	return ParseToken(jwtConfig, tokenString)
 }
 
 func GetClaimsByGin(c *gin.Context) (claims *MyClaims) {
@@ -119,11 +128,7 @@ func GetClaimsByGin(c *gin.Context) (claims *MyClaims) {
 			return parsedClaims
 		}
 	}
-	claims, err := ParseTokenByGin(c)
-	if err != nil {
-		return nil
-	}
-	return claims
+	return nil
 }
 
 func MustGetClaimsByGin(c *gin.Context) (claims *MyClaims) {

@@ -9,9 +9,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func LogRouter(r *gin.RouterGroup, appContainer api.Api) {
+func LogRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtime) {
 	group := r.Group("logs")
-	group.Use(mw.AuthMiddleware, mw.AdminMiddleware)
+	group.Use(runtimeMw.AuthMiddleware, mw.AdminMiddleware)
 
 	app := appContainer.LogApi
 

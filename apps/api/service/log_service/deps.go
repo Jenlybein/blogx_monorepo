@@ -3,10 +3,8 @@ package log_service
 import (
 	"database/sql"
 
-	"myblogx/appctx"
 	"myblogx/conf"
 
-	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
 
@@ -18,23 +16,12 @@ type Deps struct {
 	ClickHouse       *sql.DB
 }
 
-func DepsFromApp(ctx *appctx.AppContext) Deps {
-	if ctx == nil || ctx.Config == nil {
-		return Deps{}
-	}
+func NewDeps(logConfig conf.Logrus, systemConfig conf.System, clickHouseEnable bool, logger *logrus.Logger, clickHouse *sql.DB) Deps {
 	return Deps{
-		LogConfig:        ctx.Config.Log,
-		SystemConfig:     ctx.Config.System,
-		ClickHouseEnable: ctx.Config.ClickHouse.Enabled,
-		Logger:           ctx.Logger,
-		ClickHouse:       ctx.ClickHouse,
+		LogConfig:        logConfig,
+		SystemConfig:     systemConfig,
+		ClickHouseEnable: clickHouseEnable,
+		Logger:           logger,
+		ClickHouse:       clickHouse,
 	}
 }
-
-func DepsFromGin(c *gin.Context) Deps {
-	if c == nil {
-		return Deps{}
-	}
-	return DepsFromApp(appctx.MustFromGin(c))
-}
-

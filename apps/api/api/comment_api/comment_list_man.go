@@ -27,7 +27,7 @@ type CommentManListResponse struct {
 	comment_service.ManageCommentItem
 }
 
-func (CommentApi) CommentManListView(c *gin.Context) {
+func (h CommentApi) CommentManListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[CommentManListRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
 
@@ -42,7 +42,7 @@ func (CommentApi) CommentManListView(c *gin.Context) {
 			return
 		}
 	}
-	queryService := comment_service.NewQueryService(mustApp(c).DB, redis_service.DepsFromGin(c))
+	queryService := comment_service.NewQueryService(h.App.DB, redis_service.NewDeps(h.App.Redis, h.App.Logger))
 	commentList, count, err := queryService.ListManagedComments(comment_service.ManageCommentQuery{
 		Type:      cr.Type,
 		Status:    cr.Status,

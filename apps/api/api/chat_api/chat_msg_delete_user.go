@@ -17,7 +17,7 @@ import (
 // 低风险：普通用户消息列表的已删过滤还是 NOT IN (subquery)。
 // chat_delete_user.go 在依赖状态表子查询排除消息。配合当前索引能跑，但如果以后状态表很大，NOT EXISTS 或显式 LEFT JOIN ... IS NULL 往往更容易拿到稳定执行计划。
 
-func (ChatApi) ChatMsgDeleteUserView(c *gin.Context) {
+func (h ChatApi) ChatMsgDeleteUserView(c *gin.Context) {
 	cr := middleware.GetBindJson[ChatMsgDeleteUserRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
 
@@ -27,7 +27,7 @@ func (ChatApi) ChatMsgDeleteUserView(c *gin.Context) {
 	}
 
 	var msgList []models.ChatMsgModel
-	if err := mustApp(c).DB.Select("id", "session_id").
+	if err := h.App.DB.Select("id", "session_id").
 		Find(&msgList, "id IN ? AND (sender_id = ? OR receiver_id = ?)", cr.MsgIDList, claims.UserID, claims.UserID).Error; err != nil {
 		res.FailWithError(err, c)
 		return
@@ -35,7 +35,7 @@ func (ChatApi) ChatMsgDeleteUserView(c *gin.Context) {
 
 	if len(msgList) > 0 {
 		// 单条消息删除保留“用户消息状态表”，只影响当前用户视图，不动原消息数据。
-		if err := insertChatMsgUserStates(mustApp(c).DB, claims.UserID, msgList); err != nil {
+		if err := insertChatMsgUserStates(h.App.DB, claims.UserID, msgList); err != nil {
 			res.FailWithError(err, c)
 			return
 		}

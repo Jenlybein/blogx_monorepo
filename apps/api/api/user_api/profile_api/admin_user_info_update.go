@@ -6,7 +6,6 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
-	"myblogx/service/log_service"
 	"myblogx/service/read_service"
 	"myblogx/service/user_service"
 	"myblogx/utils/maps"
@@ -25,8 +24,8 @@ type AdminUserInfoUpdateRequest struct {
 	Status   *enum.UserStatus `json:"status"`
 }
 
-func (ProfileApi) AdminUserInfoUpdateView(c *gin.Context) {
-	app := mustApp(c)
+func (h ProfileApi) AdminUserInfoUpdateView(c *gin.Context) {
+	app := h.App
 	cr := middleware.GetBindJson[AdminUserInfoUpdateRequest](c)
 
 	userMap, err := maps.FieldsStructToMap(&cr, &models.UserModel{})
@@ -52,13 +51,13 @@ func (ProfileApi) AdminUserInfoUpdateView(c *gin.Context) {
 	}
 
 	if (cr.Role != nil && *cr.Role != userModel.Role) || (cr.Status != nil && *cr.Status != userModel.Status) {
-		if err = user_service.InvalidateUserAuthState(user_service.DepsFromApp(app), &userModel); err != nil {
+		if err = user_service.InvalidateUserAuthState(user_service.NewDepsWithRedis(app.JWT, app.System.Env, app.DB, app.Logger, app.Redis), &userModel); err != nil {
 			res.FailWithMsg("用户信息更新成功，但会话失效处理失败", c)
 			return
 		}
 	}
 	res.OkWithMsg("用户信息更新成功", c)
-	log_service.EmitActionAuditFromGin(c, log_service.GinAuditInput{
+	middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{
 		ActionName: "admin_user_update",
 		TargetType: "user",
 		TargetID:   strconv.FormatUint(uint64(cr.UserID), 10),

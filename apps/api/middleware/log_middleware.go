@@ -15,9 +15,17 @@ import (
 
 // LogMiddleware 运行日志中间件
 func LogMiddleware(c *gin.Context) {
-	app := mustApp(c)
+	runtimeFromContext(c).LogMiddleware(c)
+}
+
+// LogMiddleware 运行日志中间件
+func (h Runtime) LogMiddleware(c *gin.Context) {
 	// 生成全局唯一的请求ID，用于全链路日志追踪
 	requestID := newRequestID()
+	c.Set("_log_deps", h.Log)
+	c.Set("_authenticator", h.Authenticator)
+	c.Set("_jwt_config", h.JWT)
+	c.Set("_redis_deps", h.Redis)
 	// 将请求ID存入 Gin 上下文，方便后续日志/业务使用
 	requestmeta.SetRequestID(c, requestID)
 	// 将请求ID写入响应头，前端/网关可用于问题排查
@@ -30,7 +38,7 @@ func LogMiddleware(c *gin.Context) {
 	c.Next()
 
 	// 记录请求结束时间，用于计算接口耗时
-	if !app.Config.Log.RequestLogEnabled {
+	if !h.LogConfig.RequestLogEnabled {
 		return
 	}
 
@@ -49,12 +57,12 @@ func LogMiddleware(c *gin.Context) {
 	}
 
 	// 尝试解析 JWT Token，存在则记录操作用户ID
-	if claims, err := jwts.ParseTokenByGin(c); err == nil {
+	if claims, err := jwts.ParseToken(h.JWT, jwts.GetTokenByGin(c)); err == nil {
 		fields["user_id"] = uint64(claims.UserID)
 	}
 
 	// 获取运行时日志实例并绑定字段
-	entry := log_service.RuntimeEntry(log_service.DepsFromGin(c), fields)
+	entry := log_service.RuntimeEntry(h.Log, fields)
 	switch {
 	case c.Writer.Status() >= 500:
 		entry.Error("请求执行失败")

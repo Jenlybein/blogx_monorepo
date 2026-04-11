@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"myblogx/conf"
 	"myblogx/models"
 	"myblogx/service/ai_service"
 	"strings"
@@ -43,7 +44,7 @@ var articleSearchPrompt = `
 标签候选：%s
 `
 
-func RewriteArticleSearch(db *gorm.DB, content string) (*ArticleSearchRewrite, error) {
+func RewriteArticleSearch(db *gorm.DB, aiConf conf.AI, content string) (*ArticleSearchRewrite, error) {
 	if strings.TrimSpace(content) == "" {
 		return nil, errors.New("搜索内容不能为空")
 	}
@@ -70,7 +71,7 @@ func RewriteArticleSearch(db *gorm.DB, content string) (*ArticleSearchRewrite, e
 		},
 	}
 
-	reply, err := ai_service.Chat(msgList)
+	reply, err := ai_service.Chat(aiConf, msgList)
 	if err != nil {
 		return nil, fmt.Errorf("文章搜索意图分析失败: %w", err)
 	}
@@ -78,7 +79,7 @@ func RewriteArticleSearch(db *gorm.DB, content string) (*ArticleSearchRewrite, e
 	return normalizeArticleSearchRewrite(reply, content, tagList)
 }
 
-func AnalyzeArticleSearchIntent(content string) (*ArticleSearchRewrite, error) {
+func AnalyzeArticleSearchIntent(aiConf conf.AI, content string) (*ArticleSearchRewrite, error) {
 	msgList := []ai_service.Message{
 		{
 			Role:    "system",
@@ -90,7 +91,7 @@ func AnalyzeArticleSearchIntent(content string) (*ArticleSearchRewrite, error) {
 		},
 	}
 
-	reply, err := ai_service.Chat(msgList)
+	reply, err := ai_service.Chat(aiConf, msgList)
 	if err != nil {
 		return nil, fmt.Errorf("文章搜索意图分析失败: %w", err)
 	}

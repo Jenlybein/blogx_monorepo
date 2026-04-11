@@ -29,8 +29,8 @@ type UserInfoUpdateRequest struct {
 	HomeStyleID         *ctype.ID   `json:"home_style_id"`
 }
 
-func (ProfileApi) UserInfoUpdateView(c *gin.Context) {
-	app := mustApp(c)
+func (h ProfileApi) UserInfoUpdateView(c *gin.Context) {
+	app := h.App
 	cr := middleware.GetBindJson[UserInfoUpdateRequest](c)
 
 	userMap, err := maps.FieldsStructToMap(&cr, &models.UserModel{})

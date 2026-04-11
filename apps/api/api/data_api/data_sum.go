@@ -11,8 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (DataApi) SumView(c *gin.Context) {
-	app := mustApp(c)
+func (h DataApi) SumView(c *gin.Context) {
+	app := h.App
 	var data SumResponse
 
 	now := time.Now()
@@ -34,14 +34,14 @@ func (DataApi) SumView(c *gin.Context) {
 		res.FailWithMsg("获取汇总数据失败", c)
 		return
 	}
-	loginCount, err := log_service.CountDistinctLoginUsersSince(log_service.DepsFromGin(c), todayStart)
+	loginCount, err := log_service.CountDistinctLoginUsersSince(log_service.NewDeps(h.App.Log, h.App.System, h.App.ClickHouseConfig.Enabled, h.App.Logger, h.App.ClickHouse), todayStart)
 	if err != nil {
 		app.Logger.Errorf("统计今日登录用户失败: %v", err)
 	} else {
 		data.NewLoginCount = loginCount
 	}
 
-	data.FlowCount = redis_site.GetFlow(redis_service.DepsFromGin(c))
+	data.FlowCount = redis_site.GetFlow(redis_service.NewDeps(h.App.Redis, h.App.Logger))
 
 	res.OkWithData(data, c)
 }

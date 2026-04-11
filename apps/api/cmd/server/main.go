@@ -4,13 +4,14 @@ package main
 
 import (
 	"myblogx/api"
-	"myblogx/appctx"
+	"myblogx/apideps"
 	"myblogx/buildinfo"
 	"myblogx/core"
 	"myblogx/flags"
 	"myblogx/router"
 	"myblogx/service/cron_service"
 	"myblogx/service/log_service"
+	"strings"
 
 	"github.com/mojocn/base64Captcha"
 )
@@ -46,26 +47,88 @@ func main() {
 		ESClient:    esClient,
 		ESIndex:     config.ES.Index,
 	})
-	if err := core.InitRuntimeSite(config, logger, db, flag.File); err != nil {
+	runtimeSite, err := core.InitRuntimeSite(config, logger, db, flag.File)
+	if err != nil {
 		logger.Fatalf("运行时站点配置初始化失败: %v", err)
 	}
 
-	ctx := appctx.New(
-		buildinfo.Version,
-		flag.File,
-		config,
-		logger,
-		db,
-		redisClient,
-		clickHouse,
-		esClient,
-		base64Captcha.DefaultMemStore,
-	)
+	apiDeps := apideps.Deps{
+		Version:           buildinfo.Version,
+		ConfigFile:        flag.File,
+		System:            config.System,
+		JWT:               config.Jwt,
+		Log:               config.Log,
+		ClickHouseConfig:  config.ClickHouse,
+		ES:                config.ES,
+		QQ:                config.QQ,
+		Email:             config.Email,
+		QiNiu:             config.QiNiu,
+		Upload:            config.Upload,
+		Logger:            logger,
+		DB:                db,
+		Redis:             redisClient,
+		ClickHouse:        clickHouse,
+		ESClient:          esClient,
+		RuntimeSite:       runtimeSite,
+		ImageCaptchaStore: base64Captcha.DefaultMemStore,
+	}
 
-	core.InitMySQLES(ctx)
-	core.InitImageRefRiver(ctx)
-
-	cron_service.NewScheduler(ctx).Start()
-
-	router.Run(ctx, api.New(ctx))
+	role := strings.ToLower(strings.TrimSpace(flag.Role))
+	switch role {
+	case "api":
+		router.Run(apiDeps, api.New(apiDeps))
+		return
+	case "river":
+		core.InitMySQLES(core.MySQLESDeps{
+			RiverConfig: config.River,
+			Logger:      logger,
+			DB:          db,
+			ESClient:    esClient,
+		})
+		select {}
+	case "image-ref":
+		core.InitImageRefRiver(core.ImageRefRiverDeps{
+			ImageRefRiverConfig: config.ImageRefRiver,
+			QiNiuConfig:         config.QiNiu,
+			Logger:              logger,
+			DB:                  db,
+		})
+		select {}
+	case "cron":
+		cron_service.NewSchedulerRaw(db, redisClient, logger).Start()
+		select {}
+	case "worker":
+		core.InitMySQLES(core.MySQLESDeps{
+			RiverConfig: config.River,
+			Logger:      logger,
+			DB:          db,
+			ESClient:    esClient,
+		})
+		core.InitImageRefRiver(core.ImageRefRiverDeps{
+			ImageRefRiverConfig: config.ImageRefRiver,
+			QiNiuConfig:         config.QiNiu,
+			Logger:              logger,
+			DB:                  db,
+		})
+		cron_service.NewSchedulerRaw(db, redisClient, logger).Start()
+		select {}
+	case "all":
+		core.InitMySQLES(core.MySQLESDeps{
+			RiverConfig: config.River,
+			Logger:      logger,
+			DB:          db,
+			ESClient:    esClient,
+		})
+		core.InitImageRefRiver(core.ImageRefRiverDeps{
+			ImageRefRiverConfig: config.ImageRefRiver,
+			QiNiuConfig:         config.QiNiu,
+			Logger:              logger,
+			DB:                  db,
+		})
+		cron_service.NewSchedulerRaw(db, redisClient, logger).Start()
+		router.Run(apiDeps, api.New(apiDeps))
+		return
+	default:
+		logger.Fatalf("未知 role 参数: %s，可选值: api|river|image-ref|cron|worker|all", role)
+	}
 }

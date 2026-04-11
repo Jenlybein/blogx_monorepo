@@ -15,10 +15,10 @@ import (
 	"gorm.io/gorm"
 )
 
-func (CommentApi) CommentDiggView(c *gin.Context) {
+func (h CommentApi) CommentDiggView(c *gin.Context) {
 	id := middleware.GetBindUri[models.IDRequest](c)
-	db := mustApp(c).DB
-	logger := mustApp(c).Logger
+	db := h.App.DB
+	logger := h.App.Logger
 
 	var comment models.CommentModel
 	if err := db.Preload("ArticleModel", func(db *gorm.DB) *gorm.DB { return db.Select("id", "title") }).Take(&comment, "id = ? and status = ?", id.ID, enum.CommentStatusPublished).Error; err != nil {
@@ -43,7 +43,7 @@ func (CommentApi) CommentDiggView(c *gin.Context) {
 			res.FailWithMsg("点赞状态已变化，请刷新后重试", c)
 			return
 		}
-		if err := redis_comment.SetCacheDigg(redis_service.DepsFromGin(c), id.ID, -1); err != nil {
+		if err := redis_comment.SetCacheDigg(redis_service.NewDeps(h.App.Redis, h.App.Logger), id.ID, -1); err != nil {
 			logger.Errorf("回写评论点赞缓存失败: 评论ID=%d 错误=%v", id.ID, err)
 		}
 		res.OkWithMsg("取消点赞成功", c)
@@ -66,7 +66,7 @@ func (CommentApi) CommentDiggView(c *gin.Context) {
 		res.FailWithMsg("请勿重复点赞", c)
 		return
 	}
-	if err := redis_comment.SetCacheDigg(redis_service.DepsFromGin(c), id.ID, 1); err != nil {
+	if err := redis_comment.SetCacheDigg(redis_service.NewDeps(h.App.Redis, h.App.Logger), id.ID, 1); err != nil {
 		logger.Errorf("写入评论点赞缓存失败: 评论ID=%d 错误=%v", id.ID, err)
 	}
 	go message_service.InsertCommentDiggMessage(db, logger, message_service.CommentDiggMessage{

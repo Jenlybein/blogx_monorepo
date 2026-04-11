@@ -12,8 +12,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (a *SitemsgApi) SitemsgReadView(c *gin.Context) {
-	app := mustApp(c)
+func (h *SitemsgApi) SitemsgReadView(c *gin.Context) {
+	app := h.App
 	cr := middleware.GetBindJson[SitemsgReadRequest](c)
 
 	claims := jwts.MustGetClaimsByGin(c)

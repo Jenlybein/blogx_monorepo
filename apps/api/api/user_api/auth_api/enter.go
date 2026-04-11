@@ -1,19 +1,13 @@
 package auth_api
 
 import (
-	"myblogx/appctx"
-
-	"github.com/gin-gonic/gin"
+	"myblogx/apideps"
 )
 
 type AuthApi struct {
+	App apideps.Deps
 }
 
-func New(ctx *appctx.AppContext) AuthApi {
-	_ = ctx
-	return AuthApi{}
-}
-
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) AuthApi {
+	return AuthApi{App: deps}
 }

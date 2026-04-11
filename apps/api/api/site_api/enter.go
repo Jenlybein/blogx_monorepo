@@ -3,36 +3,35 @@
 package site_api
 
 import (
-	"myblogx/appctx"
+	"myblogx/apideps"
 	"myblogx/common/res"
-	"myblogx/service/site_service"
 
 	"github.com/gin-gonic/gin"
 )
 
 type SiteApi struct {
+	App apideps.Deps
 }
 
-func New(ctx *appctx.AppContext) SiteApi {
-	_ = ctx
-	return SiteApi{}
-}
-
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) SiteApi {
+	return SiteApi{App: deps}
 }
 
 // 敏感信息占位符
 var sensitive_place_holder = "******"
 
 // 站点 qq 登录地址
-func (SiteApi) SiteInfoQQView(c *gin.Context) {
-	res.OkWithData(mustApp(c).Config.QQ.Url(), c)
+func (h SiteApi) SiteInfoQQView(c *gin.Context) {
+	res.OkWithData(h.App.QQ.Url(), c)
 }
 
 // AI 信息获取
-func (SiteApi) SiteInfoAIView(c *gin.Context) {
-	ai := site_service.GetRuntimeAI()
+func (h SiteApi) SiteInfoAIView(c *gin.Context) {
+	if h.App.RuntimeSite == nil {
+		res.FailWithMsg("运行时配置服务未初始化", c)
+		return
+	}
+	ai := h.App.RuntimeSite.GetRuntimeAI()
 	res.OkWithData(SiteAIResponse{
 		Enable:   ai.Enable,
 		Nickname: ai.Nickname,
@@ -42,8 +41,12 @@ func (SiteApi) SiteInfoAIView(c *gin.Context) {
 }
 
 // SEO 信息获取，适合 Nuxt 等前端在服务端渲染或页面切换时拉取。
-func (SiteApi) SiteSEOView(c *gin.Context) {
-	site := site_service.GetRuntimeSite()
+func (h SiteApi) SiteSEOView(c *gin.Context) {
+	if h.App.RuntimeSite == nil {
+		res.FailWithMsg("运行时配置服务未初始化", c)
+		return
+	}
+	site := h.App.RuntimeSite.GetRuntimeSite()
 	res.OkWithData(SiteSEOResponse{
 		SiteTitle:    site.SiteInfo.Title,
 		ProjectTitle: site.Project.Title,

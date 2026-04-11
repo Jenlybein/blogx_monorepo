@@ -6,10 +6,8 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/enum"
-	"myblogx/service/log_service"
 	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_user"
-	"myblogx/service/site_service"
 	"myblogx/service/user_service"
 	"myblogx/utils/pwd"
 
@@ -22,11 +20,15 @@ type RegisterEmailRequest struct {
 	Pwd string `json:"pwd" binding:"required"`
 }
 
-func (AuthApi) RegisterEmailView(c *gin.Context) {
-	app := mustApp(c)
-	redisDeps := redis_service.DepsFromGin(c)
-	if !site_service.GetRuntimeLogin().EmailLogin {
-		log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, "", 0, "站点未启用邮箱注册", nil)
+func (h AuthApi) RegisterEmailView(c *gin.Context) {
+	app := h.App
+	redisDeps := redis_service.NewDeps(h.App.Redis, h.App.Logger)
+	if app.RuntimeSite == nil {
+		res.FailWithMsg("运行时配置服务未初始化", c)
+		return
+	}
+	if !app.RuntimeSite.GetRuntimeLogin().EmailLogin {
+		middleware.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, "", 0, "站点未启用邮箱注册", nil)
 		res.FailWithMsg("站点未启用邮箱注册功能", c)
 		return
 	}
@@ -35,7 +37,7 @@ func (AuthApi) RegisterEmailView(c *gin.Context) {
 
 	email := c.GetString("email")
 	if email == "" {
-		log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, "", 0, "邮箱验证失败：邮箱不存在", nil)
+		middleware.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, "", 0, "邮箱验证失败：邮箱不存在", nil)
 		res.FailWithMsg("邮箱验证失败：邮箱不存在", c)
 		return
 	}
@@ -43,14 +45,14 @@ func (AuthApi) RegisterEmailView(c *gin.Context) {
 	// 注册用户
 	hashedPassword, err := pwd.GenerateFromPassword(cr.Pwd)
 	if err != nil {
-		log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱注册失败", nil)
+		middleware.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱注册失败", nil)
 		res.FailWithMsg("邮箱注册失败", c)
 		return
 	}
 	username, err := redis_user.NextAutoUsername(redisDeps)
 	if err != nil {
 		app.Logger.Errorf("邮箱注册生成用户名失败: %v", err)
-		log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱注册失败", nil)
+		middleware.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱注册失败", nil)
 		res.FailWithMsg("邮箱注册失败", c)
 		return
 	}
@@ -88,7 +90,7 @@ func (AuthApi) RegisterEmailView(c *gin.Context) {
 		}{Error: err, RowsAffected: resultRows}
 		if result.Error == nil {
 			if result.RowsAffected == 0 {
-				log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱已被使用", nil)
+				middleware.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱已被使用", nil)
 				res.FailWithMsg("邮箱已被使用", c)
 				return
 			}
@@ -102,36 +104,36 @@ func (AuthApi) RegisterEmailView(c *gin.Context) {
 		username, err = redis_user.NextAutoUsername(redisDeps)
 		if err != nil {
 			app.Logger.Errorf("邮箱注册生成用户名失败: %v", err)
-			log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱注册失败", nil)
+			middleware.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱注册失败", nil)
 			res.FailWithMsg("邮箱注册失败", c)
 			return
 		}
 	}
 	if err != nil {
-		log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱注册失败", nil)
+		middleware.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱注册失败", nil)
 		res.FailWithMsg("邮箱注册失败", c)
 		app.Logger.Errorf("邮箱注册失败 %v", err)
 		return
 	}
 	if user.ID == 0 {
-		log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱注册失败", nil)
+		middleware.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, email, 0, "邮箱注册失败", nil)
 		res.FailWithMsg("邮箱注册失败", c)
 		app.Logger.Errorf("邮箱注册失败: 自动用户名重试次数耗尽")
 		return
 	}
 
-	deps := user_service.DepsFromApp(app)
-	jwtToken, refreshToken, _, err := user_service.CreateLoginTokens(deps, &user, user_service.BuildSessionMetaFromGin(c))
+	deps := user_service.NewDepsWithRedis(app.JWT, app.System.Env, app.DB, app.Logger, app.Redis)
+	jwtToken, refreshToken, _, err := user_service.CreateLoginTokens(deps, &user, buildSessionMeta(c))
 	if err != nil {
-		log_service.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, user.Username, user.ID, "邮箱登录失败", nil)
+		middleware.EmitLoginEventFromGin(c, "register_fail", enum.EmailLoginType, false, user.Username, user.ID, "邮箱登录失败", nil)
 		res.FailWithMsg("邮箱登录失败", c)
 		return
 	}
-	user_service.SetRefreshTokenCookie(c, refreshToken, deps)
-	log_service.EmitLoginEventFromGin(c, "register_success", enum.EmailLoginType, true, user.Username, user.ID, "", map[string]any{
+	user_service.SetRefreshTokenCookie(c.Writer, refreshToken, deps)
+	middleware.EmitLoginEventFromGin(c, "register_success", enum.EmailLoginType, true, user.Username, user.ID, "", map[string]any{
 		"email": email,
 	})
-	log_service.EmitLoginEventFromGin(c, "login_success", enum.EmailLoginType, true, user.Username, user.ID, "", map[string]any{
+	middleware.EmitLoginEventFromGin(c, "login_success", enum.EmailLoginType, true, user.Username, user.ID, "", map[string]any{
 		"email": email,
 	})
 

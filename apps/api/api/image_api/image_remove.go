@@ -8,14 +8,13 @@ import (
 	"myblogx/models/ctype"
 	"myblogx/service/image_ref_river_service"
 	"myblogx/service/image_service"
-	"myblogx/service/log_service"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-func (ImageApi) ImageRemoveView(c *gin.Context) {
-	app := mustApp(c)
+func (h ImageApi) ImageRemoveView(c *gin.Context) {
+	app := h.App
 	cr := middleware.GetBindJson[models.IDListRequest](c)
 
 	var list []models.ImageModel
@@ -29,7 +28,7 @@ func (ImageApi) ImageRemoveView(c *gin.Context) {
 	}
 
 	for _, item := range list {
-		if err := image_service.DeleteObject(image_service.DepsFromApp(app), item.Bucket, item.ObjectKey); err != nil {
+		if err := image_service.DeleteObject(image_service.NewDeps(app.QiNiu, app.Upload, app.DB, app.Redis, app.Logger), item.Bucket, item.ObjectKey); err != nil {
 			res.FailWithMsg(fmt.Sprintf("删除七牛对象失败: %v", err), c)
 			return
 		}
@@ -51,7 +50,7 @@ func (ImageApi) ImageRemoveView(c *gin.Context) {
 
 	msg := fmt.Sprintf("操作成功，删除了 %d 张图片", len(list))
 	res.OkWithData(msg, c)
-	log_service.EmitActionAuditFromGin(c, log_service.GinAuditInput{
+	middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{
 		ActionName:  "image_remove",
 		TargetType:  "image",
 		Success:     true,

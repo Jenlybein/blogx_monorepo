@@ -9,8 +9,6 @@ import (
 	"unicode/utf8"
 
 	"myblogx/utils/logsafe"
-
-	"github.com/gin-gonic/gin"
 )
 
 // CaptureLogMode 定义请求/响应 body 与 header 的按位采集模式。
@@ -67,6 +65,11 @@ var sensitiveKeys = map[string]struct{}{
 	"token":            {},
 }
 
+type contextValueStore interface {
+	Set(any, any)
+	Get(any) (any, bool)
+}
+
 // NeedRequestBody 返回当前模式是否需要采集原始请求体。
 func (mode CaptureLogMode) NeedRequestBody() bool {
 	return mode&ReqBody != 0
@@ -88,7 +91,7 @@ func (mode CaptureLogMode) NeedResponseHeader() bool {
 }
 
 // SetRawRequestBody 将处理后的原始请求体缓存到 Gin 上下文。
-func SetRawRequestBody(c *gin.Context, body string) {
+func SetRawRequestBody(c contextValueStore, body string) {
 	if c == nil || body == "" {
 		return
 	}
@@ -96,7 +99,7 @@ func SetRawRequestBody(c *gin.Context, body string) {
 }
 
 // GetRawRequestBody 从 Gin 上下文读取处理后的原始请求体。
-func GetRawRequestBody(c *gin.Context) string {
+func GetRawRequestBody(c contextValueStore) string {
 	if c == nil {
 		return ""
 	}
@@ -109,7 +112,7 @@ func GetRawRequestBody(c *gin.Context) string {
 }
 
 // SetRawResponseBody 将处理后的原始响应体缓存到 Gin 上下文。
-func SetRawResponseBody(c *gin.Context, body string) {
+func SetRawResponseBody(c contextValueStore, body string) {
 	if c == nil || body == "" {
 		return
 	}
@@ -117,7 +120,7 @@ func SetRawResponseBody(c *gin.Context, body string) {
 }
 
 // GetRawResponseBody 从 Gin 上下文读取处理后的原始响应体。
-func GetRawResponseBody(c *gin.Context) string {
+func GetRawResponseBody(c contextValueStore) string {
 	if c == nil {
 		return ""
 	}
@@ -130,7 +133,7 @@ func GetRawResponseBody(c *gin.Context) string {
 }
 
 // SetRawRequestHeader 将处理后的原始请求头缓存到 Gin 上下文。
-func SetRawRequestHeader(c *gin.Context, header string) {
+func SetRawRequestHeader(c contextValueStore, header string) {
 	if c == nil || header == "" {
 		return
 	}
@@ -138,7 +141,7 @@ func SetRawRequestHeader(c *gin.Context, header string) {
 }
 
 // GetRawRequestHeader 从 Gin 上下文读取处理后的原始请求头。
-func GetRawRequestHeader(c *gin.Context) string {
+func GetRawRequestHeader(c contextValueStore) string {
 	if c == nil {
 		return ""
 	}
@@ -151,7 +154,7 @@ func GetRawRequestHeader(c *gin.Context) string {
 }
 
 // SetRawResponseHeader 将处理后的原始响应头缓存到 Gin 上下文。
-func SetRawResponseHeader(c *gin.Context, header string) {
+func SetRawResponseHeader(c contextValueStore, header string) {
 	if c == nil || header == "" {
 		return
 	}
@@ -159,7 +162,7 @@ func SetRawResponseHeader(c *gin.Context, header string) {
 }
 
 // GetRawResponseHeader 从 Gin 上下文读取处理后的原始响应头。
-func GetRawResponseHeader(c *gin.Context) string {
+func GetRawResponseHeader(c contextValueStore) string {
 	if c == nil {
 		return ""
 	}

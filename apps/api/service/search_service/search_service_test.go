@@ -5,6 +5,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
+	"myblogx/repository/user_repo"
 	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_article"
 	"myblogx/test/testutil"
@@ -62,10 +63,8 @@ func TestBuildDefaultArticleSearchQueryOnlyPublished(t *testing.T) {
 }
 
 func TestBuildLikeTagsQueryWithoutUserConf(t *testing.T) {
-	db := testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{}, &models.TagModel{})
-
 	query := buildDefaultArticleSearchQuery("")
-	query = buildLikeTagsQuery(query, 0, db)
+	query = buildLikeTagsQuery(query, nil)
 
 	boolQuery, ok := extractSearchBoolQuery(query)
 	if !ok {
@@ -100,7 +99,11 @@ func TestBuildLikeTagsQueryWithLikeTags(t *testing.T) {
 	}
 
 	query := buildDefaultArticleSearchQuery("golang")
-	query = buildLikeTagsQuery(query, user.ID, db)
+	likeTagIDs, err := user_repo.LoadLikeTagIDs(db, user.ID)
+	if err != nil {
+		t.Fatalf("加载偏好标签失败: %v", err)
+	}
+	query = buildLikeTagsQuery(query, likeTagIDs)
 
 	boolQuery, ok := extractSearchBoolQuery(query)
 	if !ok {

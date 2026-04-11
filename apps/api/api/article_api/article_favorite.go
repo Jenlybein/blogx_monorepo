@@ -18,8 +18,8 @@ import (
 	"gorm.io/gorm"
 )
 
-func (ArticleApi) ArticleFavoriteSaveView(c *gin.Context) {
-	app := mustApp(c)
+func (h ArticleApi) ArticleFavoriteSaveView(c *gin.Context) {
+	app := h.App
 	cr := middleware.GetBindJson[ArticleFavoriteRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
 
@@ -59,12 +59,12 @@ func (ArticleApi) ArticleFavoriteSaveView(c *gin.Context) {
 			ArticleTitle: article.Title,
 		})
 
-		if err := redis_article.SetCacheFavorite(redis_service.DepsFromGin(c), cr.ArticleID, 1); err != nil {
+		if err := redis_article.SetCacheFavorite(redis_service.NewDeps(h.App.Redis, h.App.Logger), cr.ArticleID, 1); err != nil {
 			app.Logger.Errorf("文章收藏数据加一失败: 错误=%v", err)
 		}
 		res.OkWithMsg("收藏成功", c)
 	} else {
-		if err := redis_article.SetCacheFavorite(redis_service.DepsFromGin(c), cr.ArticleID, -1); err != nil {
+		if err := redis_article.SetCacheFavorite(redis_service.NewDeps(h.App.Redis, h.App.Logger), cr.ArticleID, -1); err != nil {
 			app.Logger.Errorf("文章收藏数据减一失败: 错误=%v", err)
 		}
 		res.OkWithMsg("取消收藏成功", c)

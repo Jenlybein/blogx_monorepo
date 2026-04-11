@@ -21,7 +21,7 @@ type UserLoginListRequest struct {
 	Type    int8     `form:"type" binding:"required,oneof=1 2"` // 1：用户查自己 2：管理员查任意用户
 }
 
-func (LogApi) UserLoginLogList(c *gin.Context) {
+func (h LogApi) UserLoginLogList(c *gin.Context) {
 	cr := middleware.GetBindQuery[UserLoginListRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
 
@@ -41,7 +41,7 @@ func (LogApi) UserLoginLogList(c *gin.Context) {
 
 	eventName := "login_success"
 	success := true
-	list, count, err := log_service.ListLoginEvents(log_service.DepsFromGin(c), log_service.LoginEventQuery{
+	list, count, err := log_service.ListLoginEvents(log_service.NewDeps(h.App.Log, h.App.System, h.App.ClickHouseConfig.Enabled, h.App.Logger, h.App.ClickHouse), log_service.LoginEventQuery{
 		PageInfo: common.PageInfo{
 			Limit: cr.Limit,
 			Page:  cr.Page,

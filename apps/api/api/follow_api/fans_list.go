@@ -12,7 +12,7 @@ import (
 
 // TODO：增加用户名搜索
 // FansListView 获取粉丝列表
-func (f *FollowApi) FansListView(c *gin.Context) {
+func (h *FollowApi) FansListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[FansListRequest](c)
 
 	claims := jwts.GetClaimsByGin(c)
@@ -21,7 +21,7 @@ func (f *FollowApi) FansListView(c *gin.Context) {
 	if cr.UserID != claims.UserID {
 		if cr.UserID != 0 {
 			var user models.UserConfModel
-			if err := mustApp(c).DB.Take(&user, "user_id = ?", cr.UserID).Error; err != nil {
+			if err := h.App.DB.Take(&user, "user_id = ?", cr.UserID).Error; err != nil {
 				res.FailWithMsg("用户配置信息不存在", c)
 				return
 			}
@@ -34,7 +34,7 @@ func (f *FollowApi) FansListView(c *gin.Context) {
 		}
 	}
 
-	queryService := follow_service.NewQueryService(mustApp(c).DB)
+	queryService := follow_service.NewQueryService(h.App.DB)
 	list, count, err := queryService.ListFans(cr.UserID, claims.UserID, cr.FansUserID, cr.PageInfo)
 	if err != nil {
 		res.FailWithError(err, c)

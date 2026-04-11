@@ -9,12 +9,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (CategoryApi) CategoryOptionsView(c *gin.Context) {
+func (h CategoryApi) CategoryOptionsView(c *gin.Context) {
 
 	claims := jwts.GetClaimsByGin(c)
 
 	var list []models.OptionsResponse[ctype.ID]
-	if err := mustApp(c).DB.Model(&models.CategoryModel{}).Where("user_id = ?", claims.UserID).Select("id as value", "title as label").Scan(&list).Error; err != nil {
+	if err := h.App.DB.Model(&models.CategoryModel{}).Where("user_id = ?", claims.UserID).Select("id as value", "title as label").Scan(&list).Error; err != nil {
 		res.FailWithError(err, c)
 		return
 	}

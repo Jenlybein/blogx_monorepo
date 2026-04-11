@@ -1,18 +1,13 @@
 package follow_api
 
 import (
-	"myblogx/appctx"
-
-	"github.com/gin-gonic/gin"
+	"myblogx/apideps"
 )
 
-type FollowApi struct{}
-
-func New(ctx *appctx.AppContext) FollowApi {
-	_ = ctx
-	return FollowApi{}
+type FollowApi struct {
+	App apideps.Deps
 }
 
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) FollowApi {
+	return FollowApi{App: deps}
 }

@@ -2,11 +2,9 @@ package redis_service
 
 import (
 	"context"
-	"myblogx/appctx"
 	"strconv"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"github.com/sirupsen/logrus"
 )
@@ -16,21 +14,11 @@ type Deps struct {
 	Logger *logrus.Logger
 }
 
-func DepsFromApp(ctx *appctx.AppContext) Deps {
-	if ctx == nil {
-		return Deps{}
-	}
+func NewDeps(client *redis.Client, logger *logrus.Logger) Deps {
 	return Deps{
-		Client: ctx.Redis,
-		Logger: ctx.Logger,
+		Client: client,
+		Logger: logger,
 	}
-}
-
-func DepsFromGin(c *gin.Context) Deps {
-	if c == nil {
-		return Deps{}
-	}
-	return DepsFromApp(appctx.MustFromGin(c))
 }
 
 var (

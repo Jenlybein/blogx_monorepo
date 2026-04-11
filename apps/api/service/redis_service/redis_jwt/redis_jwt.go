@@ -3,14 +3,12 @@ package redis_jwt
 import (
 	"context"
 	"fmt"
-	"myblogx/appctx"
 	"myblogx/conf"
 	"myblogx/service/redis_service"
 	"myblogx/utils/jwts"
 	"strconv"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 )
 
@@ -84,11 +82,6 @@ func SetTokenBlack(deps redis_service.Deps, jwtConfig conf.Jwt, token string, bl
 	}
 }
 
-func SetTokenBlackByGin(c *gin.Context, token string, blackType BlackType) {
-	ctx := appctx.MustFromGin(c)
-	SetTokenBlack(redis_service.DepsFromApp(ctx), ctx.Config.Jwt, token, blackType)
-}
-
 // HasTokenBlack 检查 token 是否在 Redis 的黑名单中。
 func HasTokenBlack(deps redis_service.Deps, token string) (blackType BlackType, ok bool) {
 	if deps.Client == nil {
@@ -116,10 +109,4 @@ func HasTokenBlack(deps redis_service.Deps, token string) (blackType BlackType, 
 	}
 
 	return blackType, false
-}
-
-// HasTokenBlackByGin 检查 token 是否在 Redis 的黑名单中。
-func HasTokenBlackByGin(c *gin.Context) (blackType BlackType, ok bool) {
-	token := jwts.GetTokenByGin(c)
-	return HasTokenBlack(redis_service.DepsFromGin(c), token)
 }

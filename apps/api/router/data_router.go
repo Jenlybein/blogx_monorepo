@@ -8,11 +8,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func DataRouter(r *gin.RouterGroup, appContainer api.Api) {
+func DataRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtime) {
 	app := appContainer.DataApi
 
-	group := r.Group("data", mw.AuthMiddleware)
-	authGroup := group.Group("", mw.AuthMiddleware)
+	group := r.Group("data", runtimeMw.AuthMiddleware)
+	authGroup := group.Group("", runtimeMw.AuthMiddleware)
 	adminGroup := authGroup.Group("", mw.AdminMiddleware)
 
 	adminGroup.GET("sum", app.SumView)

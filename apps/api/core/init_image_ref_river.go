@@ -1,23 +1,33 @@
 package core
 
 import (
-	"myblogx/appctx"
+	"myblogx/conf"
 	"myblogx/service/image_ref_river_service"
+
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
-func InitImageRefRiver(ctx *appctx.AppContext) {
-	if !ctx.Config.ImageRefRiver.Enabled {
-		ctx.Logger.Infof("配置中未启用图片引用监听")
+type ImageRefRiverDeps struct {
+	ImageRefRiverConfig conf.ImageRefRiver
+	QiNiuConfig         conf.QiNiu
+	Logger              *logrus.Logger
+	DB                  *gorm.DB
+}
+
+func InitImageRefRiver(deps ImageRefRiverDeps) {
+	if !deps.ImageRefRiverConfig.Enabled {
+		deps.Logger.Infof("配置中未启用图片引用监听")
 		return
 	}
 
-	r, err := image_ref_river_service.NewRiver(ctx.Config.ImageRefRiver, ctx.Config.QiNiu, ctx.Logger, ctx.DB)
+	r, err := image_ref_river_service.NewRiver(deps.ImageRefRiverConfig, deps.QiNiuConfig, deps.Logger, deps.DB)
 	if err != nil {
-		ctx.Logger.Fatal(err)
+		deps.Logger.Fatal(err)
 	}
 	go func() {
 		if err := r.Run(); err != nil {
-			ctx.Logger.Errorf("图片引用监听运行失败: %v", err)
+			deps.Logger.Errorf("图片引用监听运行失败: %v", err)
 		}
 	}()
 }

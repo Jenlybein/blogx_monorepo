@@ -1,18 +1,13 @@
 package service_test
 
 import (
-	"myblogx/appctx"
 	"myblogx/conf"
 	"myblogx/models/enum"
 	"myblogx/service/redis_service"
 	redis_jwt "myblogx/service/redis_service/redis_jwt"
 	"myblogx/test/testutil"
 	"myblogx/utils/jwts"
-	"net/http"
-	"net/http/httptest"
 	"testing"
-
-	"github.com/gin-gonic/gin"
 )
 
 func TestBlackTypeHelpers(t *testing.T) {
@@ -72,50 +67,5 @@ func TestTokenBlacklistFlow(t *testing.T) {
 	}
 	if blackType != 0 {
 		t.Fatalf("未命中黑名单时类型应为 0, got=%v", blackType)
-	}
-}
-
-func TestHasTokenBlackByGin(t *testing.T) {
-	_ = testutil.SetupMiniRedis(t)
-	testutil.SetConfig(&conf.Config{
-		Jwt: conf.Jwt{
-			Expire: 1,
-			Secret: "test-secret",
-			Issuer: "test",
-		},
-	})
-	jwtConf := testutil.Config().Jwt
-	deps := redis_service.Deps{Client: testutil.Redis(), Logger: testutil.Logger()}
-
-	token, err := jwts.GetToken(jwtConf, jwts.Claims{
-		UserID:   2,
-		Role:     enum.RoleUser,
-		Username: "u2",
-	})
-	if err != nil {
-		t.Fatalf("生成 token 失败: %v", err)
-	}
-	redis_jwt.SetTokenBlack(deps, jwtConf, token, redis_jwt.AdminBlackType)
-
-	gin.SetMode(gin.TestMode)
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	c.Request = req
-	appctx.WithGin(c, appctx.New(
-		"test",
-		"config/settings.yaml",
-		testutil.Config(),
-		testutil.Logger(),
-		testutil.DB(),
-		testutil.Redis(),
-		nil,
-		testutil.ESClient(),
-		testutil.ImageCaptchaStore(),
-	))
-
-	if _, ok := redis_jwt.HasTokenBlackByGin(c); ok {
-		t.Fatal("黑名单 token 通过 Header 检查时应返回 ok=false")
 	}
 }

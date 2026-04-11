@@ -5,7 +5,6 @@ import (
 	"myblogx/common/res"
 	"myblogx/middleware"
 	"myblogx/models"
-	"myblogx/service/log_service"
 	"myblogx/utils/jwts"
 	"time"
 
@@ -14,8 +13,8 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func (GlobalNotifApi) GlobalNotifAdminRemoveView(c *gin.Context) {
-	app := mustApp(c)
+func (h GlobalNotifApi) GlobalNotifAdminRemoveView(c *gin.Context) {
+	app := h.App
 	cr := middleware.GetBindJson[models.IDListRequest](c)
 
 	if len(cr.IDList) == 0 {
@@ -39,7 +38,7 @@ func (GlobalNotifApi) GlobalNotifAdminRemoveView(c *gin.Context) {
 		return
 	}
 	res.OkWithMsg(fmt.Sprintf("请求删除公告%d个，成功%d条", len(cr.IDList), len(list)), c)
-	log_service.EmitActionAuditFromGin(c, log_service.GinAuditInput{
+	middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{
 		ActionName:  "global_notif_admin_remove",
 		TargetType:  "global_notif",
 		Success:     true,
@@ -53,18 +52,18 @@ func (GlobalNotifApi) GlobalNotifAdminRemoveView(c *gin.Context) {
 	})
 }
 
-func (GlobalNotifApi) GlobalNotifUserRemoveView(c *gin.Context) {
+func (h GlobalNotifApi) GlobalNotifUserRemoveView(c *gin.Context) {
 	cr := middleware.GetBindJson[models.IDListRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
 
-	state, err := LoadUserGlobalNotifState(mustApp(c).DB, claims.UserID, nil)
+	state, err := LoadUserGlobalNotifState(h.App.DB, claims.UserID, nil)
 	if err != nil {
 		res.FailWithMsg("用户不存在", c)
 		return
 	}
 
 	var notifList []models.GlobalNotifModel
-	if err := BuildUserVisibleGlobalNotifListQuery(mustApp(c).DB, state).Where("id IN ?", cr.IDList).Find(&notifList).Error; err != nil {
+	if err := BuildUserVisibleGlobalNotifListQuery(h.App.DB, state).Where("id IN ?", cr.IDList).Find(&notifList).Error; err != nil {
 		res.FailWithError(err, c)
 		return
 	}
@@ -77,7 +76,7 @@ func (GlobalNotifApi) GlobalNotifUserRemoveView(c *gin.Context) {
 	}
 
 	var successCount int
-	err = mustApp(c).DB.Transaction(func(tx *gorm.DB) error {
+	err = h.App.DB.Transaction(func(tx *gorm.DB) error {
 		now := time.Now()
 		for _, notif := range notifList {
 			match := map[string]any{

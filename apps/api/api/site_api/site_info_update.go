@@ -4,8 +4,6 @@ import (
 	"myblogx/common/res"
 	"myblogx/conf"
 	"myblogx/middleware"
-	"myblogx/service/log_service"
-	"myblogx/service/site_service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,9 +16,14 @@ var confMap = map[string]any{
 
 // 更新站点运行时配置。
 // 这里只允许修改数据库中的运行时配置，不再修改 settings.yaml 和前端 HTML 文件。
-func (s SiteApi) SiteUpdateView(c *gin.Context) {
+func (h SiteApi) SiteUpdateView(c *gin.Context) {
 	cr := middleware.GetBindUri[SiteInfoRequest](c)
-	var auditInput log_service.GinAuditInput
+	runtimeSite := h.App.RuntimeSite
+	if runtimeSite == nil {
+		res.FailWithMsg("运行时配置服务未初始化", c)
+		return
+	}
+	var auditInput middleware.GinAuditInput
 
 	targetStruct, ok := confMap[cr.Name]
 	if !ok {
@@ -34,11 +37,11 @@ func (s SiteApi) SiteUpdateView(c *gin.Context) {
 
 	switch s := targetStruct.(type) {
 	case *conf.Site:
-		if err := site_service.UpdateRuntimeSite(*s); err != nil {
+		if err := runtimeSite.UpdateRuntimeSite(*s); err != nil {
 			res.FailWithError(err, c)
 			return
 		}
-		auditInput = log_service.GinAuditInput{
+		auditInput = middleware.GinAuditInput{
 			ActionName:        "site_runtime_update",
 			TargetType:        "runtime_site_config",
 			TargetID:          "site",
@@ -49,15 +52,15 @@ func (s SiteApi) SiteUpdateView(c *gin.Context) {
 			UseRawRequestHead: true,
 		}
 	case *conf.AI:
-		current := site_service.GetRuntimeAI()
+		current := runtimeSite.GetRuntimeAI()
 		if s.SecretKey == sensitive_place_holder {
 			s.SecretKey = current.SecretKey
 		}
-		if err := site_service.UpdateRuntimeAI(*s); err != nil {
+		if err := runtimeSite.UpdateRuntimeAI(*s); err != nil {
 			res.FailWithError(err, c)
 			return
 		}
-		auditInput = log_service.GinAuditInput{
+		auditInput = middleware.GinAuditInput{
 			ActionName: "site_runtime_update",
 			TargetType: "runtime_site_config",
 			TargetID:   "ai",
@@ -81,5 +84,5 @@ func (s SiteApi) SiteUpdateView(c *gin.Context) {
 	}
 
 	res.OkWithMsg("站点配置更新成功", c)
-	log_service.EmitActionAuditFromGin(c, auditInput)
+	middleware.EmitActionAuditFromGin(c, auditInput)
 }

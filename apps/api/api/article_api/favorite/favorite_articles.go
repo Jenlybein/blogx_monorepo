@@ -2,6 +2,7 @@ package favorite
 
 import (
 	"errors"
+	"myblogx/apideps"
 	"myblogx/common/res"
 	"myblogx/middleware"
 	"myblogx/models"
@@ -23,19 +24,28 @@ var favoriteArticleOrderMap = map[string]string{
 // 1. 收藏夹所有者和管理员可直接查看
 // 2. 其他人只有在收藏夹公开时才能查看
 // 3. 列表按收藏时间排序，支持按文章标题关键字筛选
-func (FavoriteApi) FavoriteArticlesView(c *gin.Context) {
+func (h FavoriteApi) FavoriteArticlesView(c *gin.Context) {
 	cr := middleware.GetBindQuery[FavoriteArticlesRequest](c)
 	var claims *jwts.MyClaims
-	if authResult := user_service.MustAuthenticateAccessTokenByGin(c); authResult != nil {
-		claims = authResult.Claims
+	token := jwts.GetTokenByGin(c)
+	if token != "" {
+		authenticator := user_service.NewAuthenticator(
+			h.App.DB,
+			h.App.Logger,
+			h.App.JWT,
+			redis_service.Deps{Client: h.App.Redis, Logger: h.App.Logger},
+		)
+		if authResult, err := authenticator.AuthenticateAccessToken(token); err == nil {
+			claims = authResult.Claims
+		}
 	}
 
-	favoriteModel, err := getAccessibleFavorite(c, cr.FavoriteID, claims)
+	favoriteModel, err := getAccessibleFavorite(h.App, c, cr.FavoriteID, claims)
 	if err != nil {
 		return
 	}
 
-	queryService := favorite_service.NewQueryService(mustApp(c).DB, redis_service.DepsFromGin(c))
+	queryService := favorite_service.NewQueryService(h.App.DB, redis_service.NewDeps(h.App.Redis, h.App.Logger))
 	list, count, err := queryService.ListFavoriteArticles(favorite_service.FavoriteArticlesQuery{
 		PageInfo:   cr.PageInfo,
 		FavoriteID: favoriteModel.ID,
@@ -47,9 +57,9 @@ func (FavoriteApi) FavoriteArticlesView(c *gin.Context) {
 	res.OkWithList(list, count, c)
 }
 
-func getAccessibleFavorite(c *gin.Context, favoriteID ctype.ID, claims *jwts.MyClaims) (*models.FavoriteModel, error) {
+func getAccessibleFavorite(app apideps.Deps, c *gin.Context, favoriteID ctype.ID, claims *jwts.MyClaims) (*models.FavoriteModel, error) {
 	var favoriteModel models.FavoriteModel
-	if err := mustApp(c).DB.Take(&favoriteModel, "id = ?", favoriteID).Error; err != nil {
+	if err := app.DB.Take(&favoriteModel, "id = ?", favoriteID).Error; err != nil {
 		res.FailWithMsg("收藏夹不存在", c)
 		return nil, err
 	}
@@ -61,7 +71,7 @@ func getAccessibleFavorite(c *gin.Context, favoriteID ctype.ID, claims *jwts.MyC
 	}
 
 	var userConf models.UserConfModel
-	if err := mustApp(c).DB.Take(&userConf, "user_id = ?", favoriteModel.UserID).Error; err != nil {
+	if err := app.DB.Take(&userConf, "user_id = ?", favoriteModel.UserID).Error; err != nil {
 		res.FailWithMsg("用户不存在", c)
 		return nil, err
 	}

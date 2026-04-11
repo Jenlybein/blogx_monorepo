@@ -15,11 +15,11 @@ import (
 	"gorm.io/gorm"
 )
 
-func (ArticleApi) ArticleDetailView(c *gin.Context) {
+func (h ArticleApi) ArticleDetailView(c *gin.Context) {
 	cr := middleware.GetBindUri[models.IDRequest](c)
 
 	var article models.ArticleModel
-	if err := mustApp(c).DB.Select(
+	if err := h.App.DB.Select(
 		"ID",
 		"CreatedAt",
 		"UpdatedAt",
@@ -45,8 +45,17 @@ func (ArticleApi) ArticleDetailView(c *gin.Context) {
 	}
 
 	var claims *jwts.MyClaims
-	if authResult := user_service.MustAuthenticateAccessTokenByGin(c); authResult != nil {
-		claims = authResult.Claims
+	token := jwts.GetTokenByGin(c)
+	if token != "" {
+		authenticator := user_service.NewAuthenticator(
+			h.App.DB,
+			h.App.Logger,
+			h.App.JWT,
+			redis_service.Deps{Client: h.App.Redis, Logger: h.App.Logger},
+		)
+		if authResult, err := authenticator.AuthenticateAccessToken(token); err == nil {
+			claims = authResult.Claims
+		}
 	}
 	if claims == nil {
 		if article.Status != enum.ArticleStatusPublished {
@@ -59,7 +68,7 @@ func (ArticleApi) ArticleDetailView(c *gin.Context) {
 	}
 
 	// 获取 redis 里的点赞、收藏、评论数增量
-	counters := redis_article.GetBatchCounters(redis_service.DepsFromGin(c), []ctype.ID{article.ID})
+	counters := redis_article.GetBatchCounters(redis_service.NewDeps(h.App.Redis, h.App.Logger), []ctype.ID{article.ID})
 	article.DiggCount += counters.DiggMap[article.ID]
 	article.ViewCount += counters.ViewMap[article.ID]
 	article.FavorCount += counters.FavorMap[article.ID]
@@ -70,14 +79,14 @@ func (ArticleApi) ArticleDetailView(c *gin.Context) {
 	isFavor := false
 	if claims != nil {
 		var diggCount int64
-		if err := mustApp(c).DB.Model(&models.ArticleDiggModel{}).
+		if err := h.App.DB.Model(&models.ArticleDiggModel{}).
 			Where("article_id = ? AND user_id = ?", article.ID, claims.UserID).
 			Count(&diggCount).Error; err == nil {
 			isDigg = diggCount > 0
 		}
 
 		var favorCount int64
-		if err := mustApp(c).DB.Model(&models.UserArticleFavorModel{}).
+		if err := h.App.DB.Model(&models.UserArticleFavorModel{}).
 			Where("article_id = ? AND user_id = ?", article.ID, claims.UserID).
 			Count(&favorCount).Error; err == nil {
 			isFavor = favorCount > 0

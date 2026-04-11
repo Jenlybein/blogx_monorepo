@@ -8,9 +8,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func ChatRouter(r *gin.RouterGroup, appContainer api.Api) {
+func ChatRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtime) {
 	group := r.Group("chat")
-	authGroup := group.Group("", mw.AuthMiddleware)
+	authGroup := group.Group("", runtimeMw.AuthMiddleware)
 
 	app := appContainer.ChatApi
 	authGroup.GET("sessions", mw.BindQuery[chat_api.ChatSessionListRequest], app.ChatSessionListView)

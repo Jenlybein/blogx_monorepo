@@ -9,11 +9,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func CommentRouter(r *gin.RouterGroup, appContainer api.Api) {
+func CommentRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtime) {
 	app := appContainer.CommentApi
 
 	Group := r.Group("comments")
-	authGroup := Group.Group("", mw.AuthMiddleware)
+	authGroup := Group.Group("", runtimeMw.AuthMiddleware)
 	// adminGroup := authGroup.Group("", mw.AdminMiddleware)
 
 	Group.GET("", mw.BindQuery[comment_api.CommentRootListRequest], app.CommentRootListView)

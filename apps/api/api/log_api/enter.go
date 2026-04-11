@@ -3,7 +3,7 @@ package log_api
 import (
 	"database/sql"
 
-	"myblogx/appctx"
+	"myblogx/apideps"
 	"myblogx/common"
 	"myblogx/common/res"
 	"myblogx/middleware"
@@ -14,15 +14,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type LogApi struct{}
-
-func New(ctx *appctx.AppContext) LogApi {
-	_ = ctx
-	return LogApi{}
+type LogApi struct {
+	App apideps.Deps
 }
 
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) LogApi {
+	return LogApi{App: deps}
 }
 
 type RuntimeLogListRequest struct {
@@ -61,9 +58,9 @@ type ActionAuditListRequest struct {
 	Success    *bool    `form:"success"`
 }
 
-func (l *LogApi) RuntimeLogListView(c *gin.Context) {
+func (h *LogApi) RuntimeLogListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[RuntimeLogListRequest](c)
-	list, count, err := log_service.ListRuntimeLogs(log_service.DepsFromGin(c), log_service.RuntimeLogQuery{
+	list, count, err := log_service.ListRuntimeLogs(log_service.NewDeps(h.App.Log, h.App.System, h.App.ClickHouseConfig.Enabled, h.App.Logger, h.App.ClickHouse), log_service.RuntimeLogQuery{
 		PageInfo: common.PageInfo{
 			Limit: cr.Limit,
 			Page:  cr.Page,
@@ -88,9 +85,9 @@ func (l *LogApi) RuntimeLogListView(c *gin.Context) {
 	res.OkWithList(list, int(count), c)
 }
 
-func (l *LogApi) RuntimeLogDetailView(c *gin.Context) {
+func (h *LogApi) RuntimeLogDetailView(c *gin.Context) {
 	cr := middleware.GetBindUri[models.IDRequest](c)
-	item, err := log_service.GetRuntimeLog(log_service.DepsFromGin(c), uint64(cr.ID))
+	item, err := log_service.GetRuntimeLog(log_service.NewDeps(h.App.Log, h.App.System, h.App.ClickHouseConfig.Enabled, h.App.Logger, h.App.ClickHouse), uint64(cr.ID))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			res.FailWithMsg("运行日志不存在", c)
@@ -102,9 +99,9 @@ func (l *LogApi) RuntimeLogDetailView(c *gin.Context) {
 	res.OkWithData(item, c)
 }
 
-func (l *LogApi) LoginLogListView(c *gin.Context) {
+func (h *LogApi) LoginLogListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[LoginLogListRequest](c)
-	list, count, err := log_service.ListLoginEvents(log_service.DepsFromGin(c), log_service.LoginEventQuery{
+	list, count, err := log_service.ListLoginEvents(log_service.NewDeps(h.App.Log, h.App.System, h.App.ClickHouseConfig.Enabled, h.App.Logger, h.App.ClickHouse), log_service.LoginEventQuery{
 		PageInfo: common.PageInfo{
 			Limit: cr.Limit,
 			Page:  cr.Page,
@@ -127,9 +124,9 @@ func (l *LogApi) LoginLogListView(c *gin.Context) {
 	res.OkWithList(list, int(count), c)
 }
 
-func (l *LogApi) LoginLogDetailView(c *gin.Context) {
+func (h *LogApi) LoginLogDetailView(c *gin.Context) {
 	cr := middleware.GetBindUri[models.IDRequest](c)
-	item, err := log_service.GetLoginEvent(log_service.DepsFromGin(c), uint64(cr.ID))
+	item, err := log_service.GetLoginEvent(log_service.NewDeps(h.App.Log, h.App.System, h.App.ClickHouseConfig.Enabled, h.App.Logger, h.App.ClickHouse), uint64(cr.ID))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			res.FailWithMsg("登录事件不存在", c)
@@ -141,9 +138,9 @@ func (l *LogApi) LoginLogDetailView(c *gin.Context) {
 	res.OkWithData(item, c)
 }
 
-func (l *LogApi) ActionAuditListView(c *gin.Context) {
+func (h *LogApi) ActionAuditListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[ActionAuditListRequest](c)
-	list, count, err := log_service.ListActionAudits(log_service.DepsFromGin(c), log_service.ActionAuditQuery{
+	list, count, err := log_service.ListActionAudits(log_service.NewDeps(h.App.Log, h.App.System, h.App.ClickHouseConfig.Enabled, h.App.Logger, h.App.ClickHouse), log_service.ActionAuditQuery{
 		PageInfo: common.PageInfo{
 			Limit: cr.Limit,
 			Page:  cr.Page,
@@ -166,9 +163,9 @@ func (l *LogApi) ActionAuditListView(c *gin.Context) {
 	res.OkWithList(list, int(count), c)
 }
 
-func (l *LogApi) ActionAuditDetailView(c *gin.Context) {
+func (h *LogApi) ActionAuditDetailView(c *gin.Context) {
 	cr := middleware.GetBindUri[models.IDRequest](c)
-	item, err := log_service.GetActionAudit(log_service.DepsFromGin(c), uint64(cr.ID))
+	item, err := log_service.GetActionAudit(log_service.NewDeps(h.App.Log, h.App.System, h.App.ClickHouseConfig.Enabled, h.App.Logger, h.App.ClickHouse), uint64(cr.ID))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			res.FailWithMsg("操作审计日志不存在", c)

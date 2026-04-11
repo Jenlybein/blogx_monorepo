@@ -15,6 +15,7 @@ import (
 	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_article"
 	"myblogx/service/user_service"
+	"myblogx/utils/jwts"
 	"myblogx/utils/user_info"
 	"time"
 
@@ -23,11 +24,23 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func (ArticleApi) ArticleVisitView(c *gin.Context) {
+func (h ArticleApi) ArticleVisitView(c *gin.Context) {
 	cr := middleware.GetBindJson[ArticleViewCountRequest](c)
 
 	// 获取用户登录信息
-	authResult := user_service.MustAuthenticateAccessTokenByGin(c)
+	var authResult *user_service.AuthResult
+	token := jwts.GetTokenByGin(c)
+	if token != "" {
+		authenticator := user_service.NewAuthenticator(
+			h.App.DB,
+			h.App.Logger,
+			h.App.JWT,
+			redis_service.Deps{Client: h.App.Redis, Logger: h.App.Logger},
+		)
+		if result, err := authenticator.AuthenticateAccessToken(token); err == nil {
+			authResult = result
+		}
+	}
 
 	if authResult == nil {
 		// TODO：获取更真实可靠的ip和设备id防爬虫？
@@ -43,17 +56,17 @@ func (ArticleApi) ArticleVisitView(c *gin.Context) {
 		hash := md5.Sum([]byte(fmt.Sprintf("%s:%s", ip, ua)))
 		key := fmt.Sprintf("g:%s", hex.EncodeToString(hash[:]))
 
-		if redis_article.GetGuestArticleHistoryCache(redis_service.DepsFromGin(c), int(cr.ArticleID), key) {
+		if redis_article.GetGuestArticleHistoryCache(redis_service.NewDeps(h.App.Redis, h.App.Logger), int(cr.ArticleID), key) {
 			fmt.Printf("访客已经阅读过该文章, %d", cr.ArticleID)
 			res.OkWithMsg("访客已访问过该文章", c)
 			return
 		}
 
-		redis_article.SetGuestArticleHistoryCache(redis_service.DepsFromGin(c), int(cr.ArticleID), key)
+		redis_article.SetGuestArticleHistoryCache(redis_service.NewDeps(h.App.Redis, h.App.Logger), int(cr.ArticleID), key)
 	} else {
 		claims := authResult.Claims
 		// 已登录用户，靠用户 id 进行确认
-		if redis_article.GetUserArticleHistoryCache(redis_service.DepsFromGin(c), int(cr.ArticleID), int(claims.UserID)) {
+		if redis_article.GetUserArticleHistoryCache(redis_service.NewDeps(h.App.Redis, h.App.Logger), int(cr.ArticleID), int(claims.UserID)) {
 			// TODO：加消息队列通知数据库更新访问历史
 			res.OkWithMsg("用户已访问过该文章", c)
 			return
@@ -61,7 +74,7 @@ func (ArticleApi) ArticleVisitView(c *gin.Context) {
 
 		// 验证文章是否存在并已发布
 		var articleID ctype.ID
-		err := mustApp(c).DB.Model(&models.ArticleModel{}).
+		err := h.App.DB.Model(&models.ArticleModel{}).
 			Where("id = ? and status = ?", cr.ArticleID, enum.ArticleStatusPublished).
 			Select("id").Take(&articleID).Error
 		if err != nil {
@@ -70,7 +83,7 @@ func (ArticleApi) ArticleVisitView(c *gin.Context) {
 				return
 			}
 			// 记录详细错误日志（建议使用日志库，如 zap）
-			mustApp(c).Logger.Errorf("数据库验证文章失败: 错误=%v 文章ID=%d", err, cr.ArticleID)
+			h.App.Logger.Errorf("数据库验证文章失败: 错误=%v 文章ID=%d", err, cr.ArticleID)
 			res.FailWithMsg("服务器内部错误", c)
 			return
 		}
@@ -81,7 +94,7 @@ func (ArticleApi) ArticleVisitView(c *gin.Context) {
 			UserID:    claims.UserID,
 		}
 
-		if err = mustApp(c).DB.Clauses(clause.OnConflict{
+		if err = h.App.DB.Clauses(clause.OnConflict{
 			Columns: []clause.Column{
 				{Name: "article_id"},
 				{Name: "user_id"},
@@ -91,14 +104,14 @@ func (ArticleApi) ArticleVisitView(c *gin.Context) {
 				"deleted_at": nil,
 			}),
 		}).Create(&articleHistory).Error; err != nil {
-			mustApp(c).Logger.Errorf("数据库更新浏览历史失败: 错误=%v 文章ID=%d", err, cr.ArticleID)
+			h.App.Logger.Errorf("数据库更新浏览历史失败: 错误=%v 文章ID=%d", err, cr.ArticleID)
 			res.FailWithMsg("服务器内部错误", c)
 			return
 		}
 
-		redis_article.SetUserArticleHistoryCache(redis_service.DepsFromGin(c), int(cr.ArticleID), int(claims.UserID))
+		redis_article.SetUserArticleHistoryCache(redis_service.NewDeps(h.App.Redis, h.App.Logger), int(cr.ArticleID), int(claims.UserID))
 	}
 
-	redis_article.SetCacheView(redis_service.DepsFromGin(c), cr.ArticleID, 1)
+	redis_article.SetCacheView(redis_service.NewDeps(h.App.Redis, h.App.Logger), cr.ArticleID, 1)
 	res.OkWithMsg("文章访问量增加成功", c)
 }

@@ -22,9 +22,9 @@ type ArticleSearchRequest struct {
 	// 1 默认搜索 2 最新发布 3 最多回复
 	// 4 最多点赞 5 最多收藏 6 最多浏览
 	common.PageInfo
-	Type          int8               `form:"type"`
-	Sort          int8               `form:"sort"`
-	PageMode      PageMode           `form:"page_mode"`
+	Type     int8     `form:"type"`
+	Sort     int8     `form:"sort"`
+	PageMode PageMode `form:"page_mode"`
 	// tag_ids 统一由 handler 做兼容解析（支持 tag_ids=1,2 与 tag_ids=1&tag_ids=2）
 	// 避免 query binder 在遇到 "1,2" 时按单个 ID 解析导致失败。
 	TagIDs        []ctype.ID         `form:"-"`

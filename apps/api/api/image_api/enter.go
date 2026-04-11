@@ -1,18 +1,13 @@
 package image_api
 
 import (
-	"myblogx/appctx"
-
-	"github.com/gin-gonic/gin"
+	"myblogx/apideps"
 )
 
-type ImageApi struct{}
-
-func New(ctx *appctx.AppContext) ImageApi {
-	_ = ctx
-	return ImageApi{}
+type ImageApi struct {
+	App apideps.Deps
 }
 
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) ImageApi {
+	return ImageApi{App: deps}
 }

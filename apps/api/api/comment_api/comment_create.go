@@ -12,7 +12,6 @@ import (
 	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_article"
 	"myblogx/service/redis_service/redis_comment"
-	"myblogx/service/site_service"
 	"myblogx/utils/jwts"
 
 	"github.com/gin-gonic/gin"
@@ -25,10 +24,14 @@ type CommentCreateRequest struct {
 	ReplyId   *ctype.ID `json:"reply_id"`
 }
 
-func (CommentApi) CommentCreateView(c *gin.Context) {
+func (h CommentApi) CommentCreateView(c *gin.Context) {
 	cr := middleware.GetBindJson[CommentCreateRequest](c)
-	db := mustApp(c).DB
-	logger := mustApp(c).Logger
+	if h.App.RuntimeSite == nil {
+		res.FailWithMsg("运行时配置服务未初始化", c)
+		return
+	}
+	db := h.App.DB
+	logger := h.App.Logger
 
 	var article models.ArticleModel
 	if err := db.Take(&article, cr.ArticleID).Error; err != nil {
@@ -96,7 +99,7 @@ func (CommentApi) CommentCreateView(c *gin.Context) {
 	}
 
 	// 临时审核（模拟审核过程，之后再修改）
-	if (claims != nil && claims.IsAdmin()) || site_service.GetRuntimeComment().SkipExamining {
+	if (claims != nil && claims.IsAdmin()) || h.App.RuntimeSite.GetRuntimeComment().SkipExamining {
 		status = enum.CommentStatusPublished
 		if err := db.Model(&model).Update("status", status).Error; err != nil {
 			res.FailWithMsg("审核失败", c)
@@ -126,11 +129,11 @@ func (CommentApi) CommentCreateView(c *gin.Context) {
 		}
 
 		// 只有已发布评论才计入前台计数
-		if err := redis_article.SetCacheComment(redis_service.DepsFromGin(c), cr.ArticleID, 1); err != nil {
+		if err := redis_article.SetCacheComment(redis_service.NewDeps(h.App.Redis, h.App.Logger), cr.ArticleID, 1); err != nil {
 			logger.Errorf("写入评论计数缓存失败: 文章ID=%d 错误=%v", cr.ArticleID, err)
 		}
 		if rootCommentID != 0 {
-			if err := redis_comment.SetCacheReply(redis_service.DepsFromGin(c), rootCommentID, 1); err != nil {
+			if err := redis_comment.SetCacheReply(redis_service.NewDeps(h.App.Redis, h.App.Logger), rootCommentID, 1); err != nil {
 				logger.Errorf("写入回复数缓存失败: 根评论ID=%d 错误=%v", rootCommentID, err)
 			}
 		}

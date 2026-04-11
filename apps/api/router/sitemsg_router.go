@@ -8,9 +8,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SitemsgRouter(r *gin.RouterGroup, appContainer api.Api) {
+func SitemsgRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtime) {
 	Group := r.Group("sitemsg")
-	authGroup := Group.Group("", mw.AuthMiddleware)
+	authGroup := Group.Group("", runtimeMw.AuthMiddleware)
 	// adminGroup := authGroup.Group("", mw.AdminMiddleware)
 
 	app := appContainer.SitemsgApi

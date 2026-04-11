@@ -61,7 +61,7 @@ func TestScoreArticleQualityShortArticle(t *testing.T) {
 		},
 	})
 
-	resp, err := ScoreArticleQuality(ArticleScoreRequest{
+	resp, err := ScoreArticleQuality(testutil.Config().AI, ArticleScoreRequest{
 		Title:   "Go 写作实践",
 		Content: "# Go 写作实践\n\n这是一篇完整的文章。\n\n它讨论了表达、结构和示例。",
 	})
@@ -210,7 +210,7 @@ func TestScoreArticleQualityLongArticle(t *testing.T) {
 		builder.WriteString("这是用于测试超长文章评分流程的段落内容，它会重复出现以触发长文模式，并验证多轮状态收口是否正常。\n")
 	}
 
-	resp, err := ScoreArticleQuality(ArticleScoreRequest{
+	resp, err := ScoreArticleQuality(testutil.Config().AI, ArticleScoreRequest{
 		Title:   "超长文章标题",
 		Content: builder.String(),
 	})

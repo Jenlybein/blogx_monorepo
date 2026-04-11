@@ -1,19 +1,13 @@
 package sitemsg_api
 
 import (
-	"myblogx/appctx"
-
-	"github.com/gin-gonic/gin"
+	"myblogx/apideps"
 )
 
 type SitemsgApi struct {
+	App apideps.Deps
 }
 
-func New(ctx *appctx.AppContext) SitemsgApi {
-	_ = ctx
-	return SitemsgApi{}
-}
-
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) SitemsgApi {
+	return SitemsgApi{App: deps}
 }

@@ -2,25 +2,26 @@ package ai_scoring
 
 import (
 	"fmt"
+	"myblogx/conf"
 	"myblogx/service/ai_service"
 	"strings"
 )
 
 // ScoreArticleQuality 对整篇文章做质量评分与写作建议分析。
-func ScoreArticleQuality(req ArticleScoreRequest) (*ArticleScoreResponse, error) {
+func ScoreArticleQuality(aiConf conf.AI, req ArticleScoreRequest) (*ArticleScoreResponse, error) {
 	title, content, headings := prepareArticleForScoring(req.Title, req.Content)
 	if len([]rune(strings.TrimSpace(content))) < articleScoringMinChars {
 		return nil, fmt.Errorf("文章内容过短，建议补充完整后再评分")
 	}
 
 	if len([]rune(content)) <= articleScoringDirectMaxChars {
-		return scoreShortArticle(title, content, headings)
+		return scoreShortArticle(aiConf, title, content, headings)
 	}
-	return scoreLongArticle(title, content, headings)
+	return scoreLongArticle(aiConf, title, content, headings)
 }
 
-func scoreShortArticle(title string, content string, headings []string) (*ArticleScoreResponse, error) {
-	reply, err := ai_service.Chat([]ai_service.Message{
+func scoreShortArticle(aiConf conf.AI, title string, content string, headings []string) (*ArticleScoreResponse, error) {
+	reply, err := ai_service.Chat(aiConf, []ai_service.Message{
 		{
 			Role:    "system",
 			Content: buildFullArticlePrompt(title, content, headings),
@@ -37,14 +38,14 @@ func scoreShortArticle(title string, content string, headings []string) (*Articl
 	return normalizeFinalResponse(&response, ""), nil
 }
 
-func scoreLongArticle(title string, content string, headings []string) (*ArticleScoreResponse, error) {
+func scoreLongArticle(aiConf conf.AI, title string, content string, headings []string) (*ArticleScoreResponse, error) {
 	chunkList := splitArticleChunks(content)
 	if len(chunkList) == 0 {
 		return nil, fmt.Errorf("文章内容过短，建议补充完整后再评分")
 	}
 
 	totalChunks := len(chunkList)
-	reply, err := ai_service.Chat([]ai_service.Message{
+	reply, err := ai_service.Chat(aiConf, []ai_service.Message{
 		{
 			Role:    "system",
 			Content: buildFirstChunkPrompt(title, chunkList[0], totalChunks),
@@ -61,7 +62,7 @@ func scoreLongArticle(title string, content string, headings []string) (*Article
 	statePtr := normalizeState(&state, "", 1, totalChunks)
 
 	for index := 1; index < totalChunks-1; index++ {
-		reply, err = ai_service.Chat([]ai_service.Message{
+		reply, err = ai_service.Chat(aiConf, []ai_service.Message{
 			{
 				Role:    "system",
 				Content: buildMiddleChunkPrompt(title, chunkList[index], totalChunks, statePtr),
@@ -79,7 +80,7 @@ func scoreLongArticle(title string, content string, headings []string) (*Article
 	}
 
 	finalChunk := chunkList[totalChunks-1]
-	reply, err = ai_service.Chat([]ai_service.Message{
+	reply, err = ai_service.Chat(aiConf, []ai_service.Message{
 		{
 			Role:    "system",
 			Content: buildFinalChunkPrompt(title, finalChunk, totalChunks, statePtr, headings),

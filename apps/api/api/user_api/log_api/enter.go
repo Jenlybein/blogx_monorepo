@@ -1,19 +1,13 @@
 package log_api
 
 import (
-	"myblogx/appctx"
-
-	"github.com/gin-gonic/gin"
+	"myblogx/apideps"
 )
 
 type LogApi struct {
+	App apideps.Deps
 }
 
-func New(ctx *appctx.AppContext) LogApi {
-	_ = ctx
-	return LogApi{}
-}
-
-func mustApp(c *gin.Context) *appctx.AppContext {
-	return appctx.MustFromGin(c)
+func New(deps apideps.Deps) LogApi {
+	return LogApi{App: deps}
 }

@@ -2,14 +2,15 @@ package captcha_api
 
 import (
 	"image/color"
+	"myblogx/apideps"
 	"myblogx/common/res"
-	"myblogx/service/site_service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mojocn/base64Captcha"
 )
 
 type ImageCaptchaApi struct {
+	App apideps.Deps
 }
 
 type ImageCaptchaResponse struct {
@@ -17,8 +18,8 @@ type ImageCaptchaResponse struct {
 	Base64    string `json:"base64"`
 }
 
-func (i *ImageCaptchaApi) CaptchaView(c *gin.Context) {
-	if !site_service.GetRuntimeLogin().Captcha {
+func (h *ImageCaptchaApi) CaptchaView(c *gin.Context) {
+	if h.App.RuntimeSite == nil || !h.App.RuntimeSite.GetRuntimeLogin().Captcha {
 		res.FailWithMsg("站点未启用验证码功能", c)
 		return
 	}
@@ -38,7 +39,7 @@ func (i *ImageCaptchaApi) CaptchaView(c *gin.Context) {
 	var driver base64Captcha.Driver = driverString.ConvertFonts()
 
 	//生成验证码
-	captcha := base64Captcha.NewCaptcha(driver, mustApp(c).ImageCaptchaStore)
+	captcha := base64Captcha.NewCaptcha(driver, h.App.ImageCaptchaStore)
 	if id, b64s, _, err := captcha.Generate(); err == nil {
 		res.OkWithData(&ImageCaptchaResponse{
 			CaptchaId: id,
