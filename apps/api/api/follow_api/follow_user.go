@@ -5,8 +5,8 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
-	"myblogx/repository/read_repo"
 	"myblogx/service/db_service"
+	"myblogx/service/read_service"
 	"myblogx/service/user_service"
 	"myblogx/utils/jwts"
 
@@ -28,7 +28,7 @@ func (h FollowApi) FollowUserView(c *gin.Context) {
 	// TODO：考虑每天关注量上限和取关量上限
 
 	createdOrRestored := false
-	userMap, err := read_repo.LoadUserDisplayMap(h.App.DB, []ctype.ID{claims.UserID, cr.ID})
+	userMap, err := read_service.LoadUserDisplayMap(h.App.DB, []ctype.ID{claims.UserID, cr.ID})
 	if err != nil {
 		res.FailWithMsg("查询用户信息失败", c)
 		return

@@ -6,8 +6,8 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
-	"myblogx/repository/read_repo"
 	"myblogx/service/message_service"
+	"myblogx/service/read_service"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -30,7 +30,7 @@ func (h ArticleApi) ArticleExamineView(c *gin.Context) {
 		res.FailWithMsg("文章审核失败", c)
 		return
 	}
-	if err := read_repo.SyncArticleFavorSnapshots(app.DB, []ctype.ID{article.ID}); err != nil {
+	if err := read_service.SyncArticleFavorSnapshots(app.DB, []ctype.ID{article.ID}); err != nil {
 		app.Logger.Errorf("同步文章收藏快照失败: 文章ID=%d 错误=%v", article.ID, err)
 	}
 

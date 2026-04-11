@@ -7,9 +7,9 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
-	"myblogx/repository/read_repo"
 	dbservice "myblogx/service/db_service"
 	"myblogx/service/message_service"
+	"myblogx/service/read_service"
 	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_article"
 	"myblogx/utils/jwts"
@@ -29,7 +29,7 @@ func (h ArticleApi) ArticleFavoriteSaveView(c *gin.Context) {
 		res.FailWithMsg("查询文章失败", c)
 		return
 	}
-	userMap, err := read_repo.LoadUserDisplayMap(app.DB, []ctype.ID{claims.UserID, article.AuthorID})
+	userMap, err := read_service.LoadUserDisplayMap(app.DB, []ctype.ID{claims.UserID, article.AuthorID})
 	if err != nil {
 		res.FailWithMsg("查询用户信息失败", c)
 		return
@@ -73,14 +73,14 @@ func (h ArticleApi) ArticleFavoriteSaveView(c *gin.Context) {
 
 // getOrCreateFavoriteID 获取收藏夹；如果获取的是默认收藏夹，不存在就新建
 func getOrCreateFavoriteID(db *gorm.DB, favorID, userID ctype.ID) (*models.FavoriteModel, error) {
-	userMap, err := read_repo.LoadUserDisplayMap(db, []ctype.ID{userID})
+	userMap, err := read_service.LoadUserDisplayMap(db, []ctype.ID{userID})
 	if err != nil {
 		return nil, err
 	}
 	return getOrCreateFavoriteWithOwner(db, favorID, userID, userMap[userID])
 }
 
-func getOrCreateFavoriteWithOwner(db *gorm.DB, favorID, userID ctype.ID, owner read_repo.UserDisplay) (*models.FavoriteModel, error) {
+func getOrCreateFavoriteWithOwner(db *gorm.DB, favorID, userID ctype.ID, owner read_service.UserDisplay) (*models.FavoriteModel, error) {
 	var favorite models.FavoriteModel
 	if favorID == 0 {
 		if err := db.Where("is_default = ? AND user_id = ?", true, userID).
@@ -109,7 +109,7 @@ func getOrCreateFavoriteWithOwner(db *gorm.DB, favorID, userID ctype.ID, owner r
 }
 
 // switchArticleFavorite 只处理单个收藏关系的切换，避免收藏夹解析和副作用逻辑混在一起。
-func switchArticleFavorite(tx *gorm.DB, article models.ArticleModel, userID, favorID ctype.ID, author read_repo.UserDisplay) (bool, error) {
+func switchArticleFavorite(tx *gorm.DB, article models.ArticleModel, userID, favorID ctype.ID, author read_service.UserDisplay) (bool, error) {
 	var articleFavorite models.UserArticleFavorModel
 	if err := tx.Select("id").
 		Take(&articleFavorite, "article_id = ? and user_id = ? and favor_id = ?", article.ID, userID, favorID).Error; err == nil {

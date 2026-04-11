@@ -7,8 +7,9 @@ Go 项目架构守卫脚本，用于强制校验代码规范与架构约束。
 - 禁止 api/service/repository 直接 import appctx
 - 禁止使用 Service Locator 模式（MustFromGin/DepsFromGin/mustApp）
 - 禁止使用 global.* 全局变量
-- 禁止调用 runtime 配置包级单例（site_service.GetRuntime*）
+- 禁止调用 runtime 配置包级单例（site_service.GetRuntime*）或 Configure(...)
 - 禁止 service 层依赖 gin Web 框架
+- 禁止 api/service 层函数签名直接接收 *conf.Config
 
 .EXAMPLE
 ./arch-guard.ps1
@@ -67,14 +68,24 @@ function Assert-NoGlobalToken {
     Assert-NoMatch -RuleName "禁止 global.*" -Root $Root -Pattern '\bglobal\.'
 }
 
-function Assert-NoRuntimeSingletonCall {
+function Assert-NoRuntimeSingletonOrConfigureCall {
     param([string]$Root)
-    Assert-NoMatch -RuleName "禁止 runtime 配置包级单例调用" -Root $Root -Pattern 'site_service\.GetRuntime'
+    Assert-NoMatch -RuleName "禁止 runtime 包级单例与 Configure 调用" -Root $Root -Pattern 'site_service\.GetRuntime|Configure\('
 }
 
 function Assert-ServiceNoGinImport {
     param([string]$Root)
     Assert-NoMatch -RuleName "service 禁止 import gin" -Root $Root -Pattern '"github\.com/gin-gonic/gin"'
+}
+
+function Assert-ApiNoRepositoryImport {
+    param([string]$Root)
+    Assert-NoMatch -RuleName "api 禁止 import repository" -Root $Root -Pattern '"myblogx/repository/'
+}
+
+function Assert-ApiServiceNoWholeConfigPointerSignature {
+    param([string]$Root)
+    Assert-NoMatch -RuleName "api/service 禁止使用 *conf.Config 签名" -Root $Root -Pattern '\*conf\.Config\)'
 }
 
 function Assert-RepositoryNoServiceImport {
@@ -89,8 +100,11 @@ Assert-NoServiceLocator -Root (Join-Path $apiRoot "api")
 Assert-NoServiceLocator -Root (Join-Path $apiRoot "service")
 Assert-NoServiceLocator -Root (Join-Path $apiRoot "repository")
 Assert-NoGlobalToken -Root $apiRoot
-Assert-NoRuntimeSingletonCall -Root $apiRoot
+Assert-NoRuntimeSingletonOrConfigureCall -Root $apiRoot
 Assert-ServiceNoGinImport -Root (Join-Path $apiRoot "service")
+Assert-ApiNoRepositoryImport -Root (Join-Path $apiRoot "api")
+Assert-ApiServiceNoWholeConfigPointerSignature -Root (Join-Path $apiRoot "api")
+Assert-ApiServiceNoWholeConfigPointerSignature -Root (Join-Path $apiRoot "service")
 Assert-RepositoryNoServiceImport -Root (Join-Path $apiRoot "repository")
 
 Write-Host "架构守卫检查通过。" -ForegroundColor Green

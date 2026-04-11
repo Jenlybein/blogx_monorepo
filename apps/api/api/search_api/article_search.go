@@ -4,7 +4,6 @@ import (
 	"myblogx/common/res"
 	"myblogx/middleware"
 	"myblogx/models/ctype"
-	"myblogx/repository/user_repo"
 	"myblogx/service/redis_service"
 	"myblogx/service/search_service"
 	"myblogx/service/user_service"
@@ -37,7 +36,7 @@ func (h SearchApi) ArticleSearchView(c *gin.Context) {
 	app := h.App
 	var likeTagIDs []ctype.ID
 	if claims != nil && cr.NormalizeType() == 2 {
-		if tags, err := user_repo.LoadLikeTagIDs(app.DB, claims.UserID); err == nil {
+		if tags, err := search_service.LoadUserLikeTagIDs(app.DB, claims.UserID); err == nil {
 			likeTagIDs = tags
 		} else {
 			app.Logger.Warnf("加载用户偏好标签失败，降级为无偏好搜索: user_id=%d err=%v", claims.UserID, err)

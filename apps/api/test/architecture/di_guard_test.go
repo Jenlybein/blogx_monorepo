@@ -68,6 +68,19 @@ func TestRepositoryNoServiceImport(t *testing.T) {
 	}
 }
 
+func TestApiNoRepositoryImport(t *testing.T) {
+	root := projectRoot(t)
+	target := filepath.Join(root, "api")
+	pattern := regexp.MustCompile(`"myblogx/repository/`)
+
+	violations := collectViolations(t, []string{target}, func(path string, content string) bool {
+		return pattern.MatchString(content)
+	})
+	if len(violations) > 0 {
+		t.Fatalf("检测到 api 越层依赖 repository: %v", violations)
+	}
+}
+
 func TestNoRuntimeSingletonCall(t *testing.T) {
 	root := projectRoot(t)
 	targets := []string{
@@ -82,6 +95,34 @@ func TestNoRuntimeSingletonCall(t *testing.T) {
 	})
 	if len(violations) > 0 {
 		t.Fatalf("检测到 runtime 配置包级单例调用: %v", violations)
+	}
+}
+
+func TestNoRuntimeSingletonOrConfigureCallInNonTestCode(t *testing.T) {
+	root := projectRoot(t)
+	pattern := regexp.MustCompile(`site_service\.GetRuntime|Configure\(`)
+
+	violations := collectViolations(t, []string{root}, func(path string, content string) bool {
+		return pattern.MatchString(content)
+	})
+	if len(violations) > 0 {
+		t.Fatalf("检测到禁止的隐式配置入口（site_service.GetRuntime/Configure）: %v", violations)
+	}
+}
+
+func TestApiServiceNoWholeConfigPointerSignature(t *testing.T) {
+	root := projectRoot(t)
+	targets := []string{
+		filepath.Join(root, "api"),
+		filepath.Join(root, "service"),
+	}
+	pattern := regexp.MustCompile(`\*conf\.Config\)`)
+
+	violations := collectViolations(t, targets, func(path string, content string) bool {
+		return pattern.MatchString(content)
+	})
+	if len(violations) > 0 {
+		t.Fatalf("检测到 api/service 使用整份配置指针签名: %v", violations)
 	}
 }
 
