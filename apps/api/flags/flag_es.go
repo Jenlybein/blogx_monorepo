@@ -11,7 +11,10 @@ import (
 	"gorm.io/gorm"
 )
 
-func FlagESIndex(deps Deps) {
+func FlagESIndex(deps Deps) error {
+	if deps.ESClient == nil {
+		return logESError(deps.Logger, "初始化索引失败: ES 客户端未初始化")
+	}
 	article := models.ArticleModel{}
 	index := models.ResolveArticleESIndex(deps.ESIndex)
 	pipelineName := article.PipelineName()
@@ -19,20 +22,24 @@ func FlagESIndex(deps Deps) {
 	fmt.Printf("正在初始化索引: %s\n", index)
 	if err := es_service.CreateIndexForce(deps.ESClient, index, article.Mapping()); err != nil {
 		logESError(deps.Logger, "初始化索引失败: %v", err)
-		return
+		return err
 	}
 	logESInfo(deps.Logger, "索引 %s 初始化成功", index)
 
 	fmt.Printf("正在初始化流水线: %s\n", pipelineName)
 	if err := es_service.CreatePipelineForce(deps.ESClient, pipelineName, article.Pipeline()); err != nil {
 		logESError(deps.Logger, "初始化流水线失败: %v", err)
-		return
+		return err
 	}
 	logESInfo(deps.Logger, "流水线 %s 初始化成功", pipelineName)
+	return nil
 }
 
 // FlagESDelete 非交互地删除 ES 索引和流水线。
-func FlagESDelete(deps Deps) {
+func FlagESDelete(deps Deps) error {
+	if deps.ESClient == nil {
+		return logESError(deps.Logger, "删除索引失败: ES 客户端未初始化")
+	}
 	article := models.ArticleModel{}
 	index := models.ResolveArticleESIndex(deps.ESIndex)
 	pipelineName := article.PipelineName()
@@ -40,57 +47,58 @@ func FlagESDelete(deps Deps) {
 	fmt.Printf("正在删除索引: %s\n", index)
 	if err := es_service.DeleteIndex(deps.ESClient, index); err != nil {
 		logESError(deps.Logger, "删除索引失败: %v", err)
-		return
+		return err
 	}
 	logESInfo(deps.Logger, "索引 %s 删除成功", index)
 
 	fmt.Printf("正在删除流水线: %s\n", pipelineName)
 	if err := es_service.DeletePipeline(deps.ESClient, pipelineName); err != nil {
 		logESError(deps.Logger, "删除流水线失败: %v", err)
-		return
+		return err
 	}
 	logESInfo(deps.Logger, "流水线 %s 删除成功", pipelineName)
+	return nil
 }
 
 // FlagESEnsure 非交互地确保 ES 索引和流水线存在。
-func FlagESEnsure(deps Deps) {
+func FlagESEnsure(deps Deps) error {
+	if deps.ESClient == nil {
+		return logESError(deps.Logger, "确保索引失败: ES 客户端未初始化")
+	}
 	article := models.ArticleModel{}
 	index := models.ResolveArticleESIndex(deps.ESIndex)
 	pipelineName := article.PipelineName()
 
 	if err := es_service.EnsureIndex(deps.ESClient, index, article.Mapping()); err != nil {
 		logESError(deps.Logger, "确保索引失败: %v", err)
-		return
+		return err
 	}
 	logESInfo(deps.Logger, "索引 %s 已就绪", index)
 
 	if err := es_service.EnsurePipeline(deps.ESClient, pipelineName, article.Pipeline()); err != nil {
 		logESError(deps.Logger, "确保流水线失败: %v", err)
-		return
+		return err
 	}
 	logESInfo(deps.Logger, "流水线 %s 已就绪", pipelineName)
+	return nil
 }
 
 // FlagESArticleSync 全量同步文章数据到 ES。
-func FlagESArticleSync(deps Deps) {
+func FlagESArticleSync(deps Deps) error {
 	if deps.DB == nil {
-		logESError(deps.Logger, "文章同步失败: 数据库未初始化")
-		return
+		return logESError(deps.Logger, "文章同步失败: 数据库未初始化")
 	}
 	if deps.ESClient == nil {
-		logESError(deps.Logger, "文章同步失败: ES 客户端未初始化")
-		return
+		return logESError(deps.Logger, "文章同步失败: ES 客户端未初始化")
 	}
 
 	index := models.ResolveArticleESIndex(deps.ESIndex)
 	exists, err := es_service.ExistsIndex(deps.ESClient, index)
 	if err != nil {
-		logESError(deps.Logger, "文章同步失败: 检查 ES 索引失败: %v", err)
-		return
+		return logESError(deps.Logger, "文章同步失败: 检查 ES 索引失败: %v", err)
 	}
 	if !exists {
-		logESError(deps.Logger, "文章同步失败: ES 索引 %s 不存在，请先执行 -es -s init", index)
-		return
+		return logESError(deps.Logger, "文章同步失败: ES 索引 %s 不存在，请先执行 -es -s init", index)
 	}
 
 	batchSize := 128
@@ -100,10 +108,10 @@ func FlagESArticleSync(deps Deps) {
 
 	total, err := syncArticleDocuments(deps.DB, deps.ESClient, index, batchSize, deps.Logger)
 	if err != nil {
-		logESError(deps.Logger, "文章同步失败: %v", err)
-		return
+		return logESError(deps.Logger, "文章同步失败: %v", err)
 	}
 	logESInfo(deps.Logger, "文章同步完成，共同步 %d 篇文章到索引 %s", total, index)
+	return nil
 }
 
 // syncArticleDocuments 全量同步文章数据到 ES
@@ -150,9 +158,11 @@ func logESInfo(logger *logrus.Logger, format string, args ...any) {
 	logger.Infof(format, args...)
 }
 
-func logESError(logger *logrus.Logger, format string, args ...any) {
+func logESError(logger *logrus.Logger, format string, args ...any) error {
+	err := fmt.Errorf(format, args...)
 	if logger == nil {
-		return
+		return err
 	}
-	logger.Errorf(format, args...)
+	logger.Error(err)
+	return err
 }

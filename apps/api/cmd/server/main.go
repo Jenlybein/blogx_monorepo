@@ -14,18 +14,28 @@ func main() {
 	flag := flags.Parse()
 	config := core.ReadCfg(&flag.File)
 
-	infra, err := app.Bootstrap(config, flag.File, buildinfo.Version)
+	infra, err := app.InitInfra(config, flag.File, buildinfo.Version)
 	if err != nil {
 		panic(err)
 	}
 
-	flags.Run(flag, flags.Deps{
+	runResult, err := flags.Run(flag, flags.Deps{
 		RiverConfig: infra.Config.River,
 		Logger:      infra.Logger,
 		DB:          infra.DB,
 		ESClient:    infra.ESClient,
 		ESIndex:     infra.Config.ES.Index,
 	})
+	if err != nil {
+		panic(err)
+	}
+	if !runResult.ContinueStartup {
+		return
+	}
+
+	if err = app.InitRuntimeServices(infra); err != nil {
+		panic(err)
+	}
 
 	role := strings.ToLower(strings.TrimSpace(flag.Role))
 	lifecycle := app.NewLifecycle(infra.Logger)

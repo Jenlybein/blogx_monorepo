@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"myblogx/conf"
-	"os"
 
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/sirupsen/logrus"
@@ -37,6 +36,10 @@ type Deps struct {
 	ESIndex     string
 }
 
+type RunResult struct {
+	ContinueStartup bool
+}
+
 func Parse() *FlagOptions {
 	var Flags = new(FlagOptions)
 
@@ -59,42 +62,54 @@ func Parse() *FlagOptions {
 	return Flags
 }
 
-func Run(op *FlagOptions, deps Deps) {
+func Run(op *FlagOptions, deps Deps) (RunResult, error) {
 	if op.DB {
 		// 执行数据库迁移
-		FlagDB(deps.DB, deps.Logger)
-		os.Exit(0)
+		if err := FlagDB(deps.DB, deps.Logger); err != nil {
+			return RunResult{}, err
+		}
+		return RunResult{ContinueStartup: false}, nil
 	}
 
 	if op.ES {
 		switch op.Sub {
 		case "init":
-			FlagESIndex(deps)
-			os.Exit(0)
+			if err := FlagESIndex(deps); err != nil {
+				return RunResult{}, err
+			}
+			return RunResult{ContinueStartup: false}, nil
 		case "delete":
-			FlagESDelete(deps)
-			os.Exit(0)
+			if err := FlagESDelete(deps); err != nil {
+				return RunResult{}, err
+			}
+			return RunResult{ContinueStartup: false}, nil
 		case "ensure":
-			FlagESEnsure(deps)
-			os.Exit(0)
+			if err := FlagESEnsure(deps); err != nil {
+				return RunResult{}, err
+			}
+			return RunResult{ContinueStartup: false}, nil
 		case "article-sync":
-			FlagESArticleSync(deps)
-			os.Exit(0)
+			if err := FlagESArticleSync(deps); err != nil {
+				return RunResult{}, err
+			}
+			return RunResult{ContinueStartup: false}, nil
 		}
-		fmt.Println("未知子操作类型")
-		os.Exit(0)
+		return RunResult{}, fmt.Errorf("未知 ES 子操作类型: %s", op.Sub)
 	}
 
 	switch op.Type {
 	case "run":
 		switch op.Sub {
 		case "init":
-			FlagDB(deps.DB, deps.Logger)
-			FlagESEnsure(deps)
-			return
+			if err := FlagDB(deps.DB, deps.Logger); err != nil {
+				return RunResult{}, err
+			}
+			if err := FlagESEnsure(deps); err != nil {
+				return RunResult{}, err
+			}
+			return RunResult{ContinueStartup: true}, nil
 		default:
-			fmt.Println("未知子操作类型")
-			os.Exit(1)
+			return RunResult{}, fmt.Errorf("未知运行子操作类型: %s", op.Sub)
 		}
 	case "user":
 		u := FlagUser{}
@@ -112,11 +127,11 @@ func Run(op *FlagOptions, deps Deps) {
 					NonInteractive: op.UserNoPrompt,
 				},
 			)
-			os.Exit(0)
+			return RunResult{ContinueStartup: false}, nil
 		default:
-			fmt.Println("未知子操作类型")
-			os.Exit(1)
+			return RunResult{}, fmt.Errorf("未知用户子操作类型: %s", op.Sub)
 		}
 	}
 
+	return RunResult{ContinueStartup: true}, nil
 }

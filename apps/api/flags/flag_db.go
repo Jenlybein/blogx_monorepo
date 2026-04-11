@@ -1,13 +1,18 @@
 package flags
 
 import (
+	"fmt"
 	"myblogx/models"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
-func FlagDB(db *gorm.DB, logger *logrus.Logger) {
+func FlagDB(db *gorm.DB, logger *logrus.Logger) error {
+	if db == nil {
+		return fmt.Errorf("数据库迁移失败: 数据库未初始化")
+	}
+
 	err := db.AutoMigrate(
 		&models.UserModel{},
 		&models.UserConfModel{},
@@ -42,7 +47,7 @@ func FlagDB(db *gorm.DB, logger *logrus.Logger) {
 		if logger != nil {
 			logger.Error("数据库迁移失败", err)
 		}
-		return
+		return err
 	}
 	// if db.Migrator().HasTable("image_upload_task_models") {
 	// 	if err := db.Migrator().DropTable("image_upload_task_models"); err != nil {
@@ -52,4 +57,5 @@ func FlagDB(db *gorm.DB, logger *logrus.Logger) {
 	if logger != nil {
 		logger.Info("数据库迁移成功")
 	}
+	return nil
 }

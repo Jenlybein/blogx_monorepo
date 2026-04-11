@@ -54,5 +54,5 @@ RUN printf '%s\n' \
 	&& chmod +x /usr/local/bin/mysqldump \
 	&& mkdir -p /app/logs /app/uploads /app/var
 
-# 容器启动时执行服务进程
-CMD ["./server"]
+# 容器默认只执行服务进程；部署层可按需覆盖配置文件与角色。
+CMD ["/app/server"]

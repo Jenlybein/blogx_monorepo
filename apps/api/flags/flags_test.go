@@ -62,12 +62,16 @@ func TestParse(t *testing.T) {
 
 func TestRunNoOp(t *testing.T) {
 	testutil.InitGlobals()
-	Run(&FlagOptions{}, Deps{})
+	if _, err := Run(&FlagOptions{}, Deps{}); err != nil {
+		t.Fatalf("Run no-op 返回错误: %v", err)
+	}
 }
 
 func TestFlagDB(t *testing.T) {
 	db := testutil.SetupSQLite(t)
-	FlagDB(db, nil)
+	if err := FlagDB(db, nil); err != nil {
+		t.Fatalf("FlagDB 返回错误: %v", err)
+	}
 
 	if !db.Migrator().HasTable(&models.UserModel{}) {
 		t.Fatal("UserModel 表未迁移")
@@ -84,7 +88,9 @@ func TestFlagESIndexNoOp(t *testing.T) {
 	})
 
 	withStdin(t, "3\n3\n", func() {
-		FlagESIndex(Deps{ESIndex: testutil.Config().ES.Index})
+		if err := FlagESIndex(Deps{ESIndex: testutil.Config().ES.Index}); err == nil {
+			t.Fatal("ESClient 为空时应返回错误")
+		}
 	})
 }
 

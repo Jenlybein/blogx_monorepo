@@ -32,15 +32,15 @@ type Infra struct {
 	RuntimeSite *site_service.RuntimeConfigService
 }
 
-// Bootstrap 统一初始化基础设施：Logger/Redis/DB/ES/RuntimeConfigService。
-func Bootstrap(cfg *conf.Config, configFile string, version string) (*Infra, error) {
+// InitInfra 初始化不依赖业务表的基础设施。
+func InitInfra(cfg *conf.Config, configFile string, version string) (*Infra, error) {
 	if cfg == nil {
-		return nil, fmt.Errorf("bootstrap 失败: 配置不能为空")
+		return nil, fmt.Errorf("初始化基础设施失败: 配置不能为空")
 	}
 	normalizeConfig(cfg)
 
 	if err := core.InitSnowflake(cfg); err != nil {
-		return nil, fmt.Errorf("bootstrap 失败: %w", err)
+		return nil, fmt.Errorf("初始化基础设施失败: %w", err)
 	}
 
 	logger := core.InitLogrus(&cfg.Log, &cfg.System)
@@ -59,22 +59,42 @@ func Bootstrap(cfg *conf.Config, configFile string, version string) (*Infra, err
 		logger.Errorf("初始化结构化日志文件失败: %v", err)
 	}
 
-	runtimeSite, err := core.InitRuntimeSite(cfg, logger, db, configFile)
-	if err != nil {
-		return nil, fmt.Errorf("bootstrap 失败: 运行时站点配置初始化失败: %w", err)
+	return &Infra{
+		Version:    version,
+		ConfigFile: configFile,
+		Config:     cfg,
+		Logger:     logger,
+		DB:         db,
+		Redis:      redisClient,
+		ESClient:   esClient,
+		ClickHouse: clickHouse,
+	}, nil
+}
+
+// InitRuntimeServices 初始化依赖业务表的运行时服务。
+func InitRuntimeServices(infra *Infra) error {
+	if err := validateInfra(infra); err != nil {
+		return err
 	}
 
-	return &Infra{
-		Version:     version,
-		ConfigFile:  configFile,
-		Config:      cfg,
-		Logger:      logger,
-		DB:          db,
-		Redis:       redisClient,
-		ESClient:    esClient,
-		ClickHouse:  clickHouse,
-		RuntimeSite: runtimeSite,
-	}, nil
+	runtimeSite, err := core.InitRuntimeSite(infra.Config, infra.Logger, infra.DB, infra.ConfigFile)
+	if err != nil {
+		return fmt.Errorf("运行时站点配置初始化失败: %w", err)
+	}
+	infra.RuntimeSite = runtimeSite
+	return nil
+}
+
+// Bootstrap 初始化完整运行所需的基础设施与运行时服务。
+func Bootstrap(cfg *conf.Config, configFile string, version string) (*Infra, error) {
+	infra, err := InitInfra(cfg, configFile, version)
+	if err != nil {
+		return nil, err
+	}
+	if err = InitRuntimeServices(infra); err != nil {
+		return nil, fmt.Errorf("bootstrap 失败: %w", err)
+	}
+	return infra, nil
 }
 
 func validateInfra(infra *Infra) error {

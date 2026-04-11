@@ -5883,217 +5883,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiMessageResponse"
                     },
-                    "data": {
+                    {
                       "type": "object",
                       "properties": {
-                        "count": {
-                          "type": "integer"
-                        },
-                        "list": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string"
-                              },
-                              "created_at": {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "updated_at": {
-                                "type": "string",
-                                "format": "date-time"
-                              },
-                              "deleted_at": {
-                                "type": "string",
-                                "nullable": true,
-                                "format": "date-time"
-                              },
-                              "title": {
-                                "type": "string"
-                              },
-                              "abstract": {
-                                "type": "string"
-                              },
-                              "content": {
-                                "type": "string"
-                              },
-                              "html_content": {
-                                "type": "string"
-                              },
-                              "category_id": {
-                                "type": "integer",
-                                "nullable": true
-                              },
-                              "cover": {
-                                "type": "string"
-                              },
-                              "author_id": {
-                                "type": "integer"
-                              },
-                              "view_count": {
-                                "type": "integer"
-                              },
-                              "digg_count": {
-                                "type": "integer"
-                              },
-                              "comment_count": {
-                                "type": "integer"
-                              },
-                              "favor_count": {
-                                "type": "integer"
-                              },
-                              "comments_toggle": {
-                                "type": "boolean"
-                              },
-                              "status": {
-                                "type": "integer"
-                              },
-                              "tags": {
-                                "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "id": {
-                                      "type": "string"
-                                    },
-                                    "title": {
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "id",
-                                    "title"
-                                  ]
-                                }
-                              },
-                              "category": {
-                                "type": "object",
-                                "properties": {
-                                  "id": {
-                                    "type": "string"
-                                  },
-                                  "title": {
-                                    "type": "string"
-                                  }
-                                }
-                              },
-                              "author": {
-                                "type": "object",
-                                "properties": {
-                                  "id": {
-                                    "type": "string"
-                                  },
-                                  "nickname": {
-                                    "type": "string"
-                                  },
-                                  "avatar": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "id",
-                                  "nickname",
-                                  "avatar"
-                                ]
-                              },
-                              "top": {
-                                "type": "object",
-                                "properties": {
-                                  "user": {
-                                    "type": "boolean"
-                                  },
-                                  "admin": {
-                                    "type": "boolean"
-                                  }
-                                }
-                              },
-                              "highlight": {
-                                "type": "object",
-                                "properties": {
-                                  "title": {
-                                    "type": "string"
-                                  },
-                                  "abstract": {
-                                    "type": "string"
-                                  }
-                                }
-                              },
-                              "score": {
-                                "type": "number"
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "created_at",
-                              "updated_at",
-                              "title",
-                              "abstract",
-                              "cover",
-                              "view_count",
-                              "digg_count",
-                              "comment_count",
-                              "favor_count",
-                              "comments_toggle",
-                              "status",
-                              "tags",
-                              "author"
-                            ]
-                          }
-                        },
-                        "pagination": {
-                          "type": "object",
-                          "properties": {
-                            "mode": {
-                              "type": "string",
-                              "enum": [
-                                "has_more",
-                                "count"
-                              ]
-                            },
-                            "page": {
-                              "type": "integer"
-                            },
-                            "limit": {
-                              "type": "integer"
-                            },
-                            "has_more": {
-                              "type": "boolean"
-                            },
-                            "total": {
-                              "type": "integer"
-                            },
-                            "total_pages": {
-                              "type": "integer"
-                            }
-                          },
-                          "required": [
-                            "mode",
-                            "page",
-                            "limit",
-                            "has_more"
-                          ]
+                        "data": {
+                          "$ref": "#/components/schemas/ArticleSearchResponseData"
                         }
                       },
                       "required": [
-                        "list",
-                        "pagination"
+                        "data"
                       ]
-                    },
-                    "msg": {
-                      "type": "string"
                     }
-                  },
-                  "required": [
-                    "code",
-                    "data",
-                    "msg"
                   ]
                 }
               }
@@ -7310,7 +7114,7 @@
       "get": {
         "summary": "运行日志列表",
         "deprecated": false,
-        "description": "管理员分页查询运行日志、请求日志、错误日志和任务日志。未传时间范围时默认查询最近 7 天。",
+        "description": "管理员分页查询运行日志、请求日志、错误日志和后台任务日志。支持 request_id、trace_id、错误码、事件名等链路筛选；模糊搜索字段启用时必须同时传 start_at 和 end_at，且范围不能超过 7 天。",
         "tags": [
           "日志管理"
         ],
@@ -7410,7 +7214,79 @@
           {
             "name": "key",
             "in": "query",
-            "description": "关键词，会在 message、path、request_id 中模糊搜索。",
+            "description": "关键词，会在 message、path、request_id、trace_id、error_message、event_name 中模糊搜索。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "request_id",
+            "in": "query",
+            "description": "请求 ID。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "request_id_prefix",
+            "in": "query",
+            "description": "是否按 request_id 前缀匹配。",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "trace_id",
+            "in": "query",
+            "description": "链路追踪 ID。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "trace_id_prefix",
+            "in": "query",
+            "description": "是否按 trace_id 前缀匹配。",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "error_code",
+            "in": "query",
+            "description": "错误码，精确匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error_message",
+            "in": "query",
+            "description": "错误信息，模糊匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "event_name",
+            "in": "query",
+            "description": "事件名，模糊匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "module",
+            "in": "query",
+            "description": "模块名，优先匹配 service，必要时回退到 extra_json 模糊匹配。",
             "required": false,
             "schema": {
               "type": "string"
@@ -7467,7 +7343,7 @@
       "get": {
         "summary": "运行日志详情",
         "deprecated": false,
-        "description": "管理员按事件 ID 查询单条运行日志详情。",
+        "description": "管理员按 event_id 查询单条运行日志详情。",
         "tags": [
           "日志管理"
         ],
@@ -7533,7 +7409,7 @@
       "get": {
         "summary": "登录事件日志列表",
         "deprecated": false,
-        "description": "管理员分页查询登录成功、失败、登出等登录事件日志。未传时间范围时默认查询最近 7 天。",
+        "description": "管理员分页查询登录成功、失败、登出等登录事件日志。支持按 request_id、trace_id、错误码、事件名等字段筛选；模糊搜索字段启用时必须同时传 start_at 和 end_at，且范围不能超过 7 天。",
         "tags": [
           "日志管理"
         ],
@@ -7615,7 +7491,16 @@
           {
             "name": "event_name",
             "in": "query",
-            "description": "事件名，例如 login_success。",
+            "description": "事件名模糊匹配，例如 login_success。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "event_name_exact",
+            "in": "query",
+            "description": "事件名精确匹配。",
             "required": false,
             "schema": {
               "type": "string"
@@ -7628,6 +7513,69 @@
             "required": false,
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "name": "request_id",
+            "in": "query",
+            "description": "请求 ID。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "request_id_prefix",
+            "in": "query",
+            "description": "是否按 request_id 前缀匹配。",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "trace_id",
+            "in": "query",
+            "description": "链路追踪 ID。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "trace_id_prefix",
+            "in": "query",
+            "description": "是否按 trace_id 前缀匹配。",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "error_code",
+            "in": "query",
+            "description": "错误码，精确匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error_message",
+            "in": "query",
+            "description": "错误信息，模糊匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "module",
+            "in": "query",
+            "description": "模块名，优先匹配 service，必要时回退到 extra_json 模糊匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -7681,7 +7629,7 @@
       "get": {
         "summary": "登录事件日志详情",
         "deprecated": false,
-        "description": "管理员按事件 ID 查询单条登录事件日志详情。",
+        "description": "管理员按 event_id 查询单条登录事件日志详情。",
         "tags": [
           "日志管理"
         ],
@@ -7747,7 +7695,7 @@
       "get": {
         "summary": "操作审计日志列表",
         "deprecated": false,
-        "description": "管理员分页查询后台操作审计日志。未传时间范围时默认查询最近 7 天。",
+        "description": "管理员分页查询后台操作审计日志。支持按 request_id、trace_id、错误码、操作名、目标对象等筛选；模糊搜索字段启用时必须同时传 start_at 和 end_at，且范围不能超过 7 天。",
         "tags": [
           "日志管理"
         ],
@@ -7845,6 +7793,96 @@
             }
           },
           {
+            "name": "path",
+            "in": "query",
+            "description": "请求路径，支持模糊匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "request_id",
+            "in": "query",
+            "description": "请求 ID。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "request_id_prefix",
+            "in": "query",
+            "description": "是否按 request_id 前缀匹配。",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "trace_id",
+            "in": "query",
+            "description": "链路追踪 ID。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "trace_id_prefix",
+            "in": "query",
+            "description": "是否按 trace_id 前缀匹配。",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "error_code",
+            "in": "query",
+            "description": "错误码，精确匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error_message",
+            "in": "query",
+            "description": "错误信息，模糊匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "event_name",
+            "in": "query",
+            "description": "事件名模糊匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "event_name_like",
+            "in": "query",
+            "description": "事件名模糊匹配，兼容历史参数。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "module",
+            "in": "query",
+            "description": "模块名，优先匹配 service，必要时回退到 extra_json 模糊匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "Authorization",
             "in": "header",
             "description": "",
@@ -7895,7 +7933,7 @@
       "get": {
         "summary": "操作审计日志详情",
         "deprecated": false,
-        "description": "管理员按事件 ID 查询单条操作审计日志详情。",
+        "description": "管理员按 event_id 查询单条操作审计日志详情。",
         "tags": [
           "日志管理"
         ],
@@ -7937,6 +7975,789 @@
                       "properties": {
                         "data": {
                           "$ref": "#/components/schemas/ActionAuditRecord"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/logs/cdc": {
+      "get": {
+        "summary": "CDC 执行日志列表",
+        "deprecated": false,
+        "description": "管理员分页查询 CDC 执行日志。支持按 stream、source_table、action、result、cdc_job_id、request_id、trace_id 等字段筛选；模糊搜索字段启用时必须同时传 start_at 和 end_at，且范围不能超过 7 天。",
+        "tags": [
+          "日志管理"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "页码",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "每页条数",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "start_at",
+            "in": "query",
+            "description": "开始时间，格式：2006-01-02 15:04:05",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "end_at",
+            "in": "query",
+            "description": "结束时间，格式：2006-01-02 15:04:05",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "service",
+            "in": "query",
+            "description": "服务名。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "level",
+            "in": "query",
+            "description": "日志级别。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stream",
+            "in": "query",
+            "description": "事件流名称，例如 main、image_ref、es_projection。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source_table",
+            "in": "query",
+            "description": "源表名，例如 blogx.article_models。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "description": "动作类型，例如 insert、update、delete。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "result",
+            "in": "query",
+            "description": "执行结果，例如 success、failed。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "retry_count",
+            "in": "query",
+            "description": "重试次数，精确匹配。",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "request_id",
+            "in": "query",
+            "description": "请求 ID。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "request_id_prefix",
+            "in": "query",
+            "description": "是否按 request_id 前缀匹配。",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "trace_id",
+            "in": "query",
+            "description": "链路追踪 ID。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "trace_id_prefix",
+            "in": "query",
+            "description": "是否按 trace_id 前缀匹配。",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "cdc_job_id",
+            "in": "query",
+            "description": "CDC 任务 ID。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cdc_job_id_prefix",
+            "in": "query",
+            "description": "是否按 cdc_job_id 前缀匹配。",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "error_code",
+            "in": "query",
+            "description": "错误码，精确匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error_message",
+            "in": "query",
+            "description": "错误信息，模糊匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "event_name",
+            "in": "query",
+            "description": "事件名，模糊匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "module",
+            "in": "query",
+            "description": "模块名，优先匹配 service，必要时回退到 extra_json 模糊匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": true,
+            "example": "Bearer {{bearerToken}}",
+            "schema": {
+              "type": "string",
+              "default": "Bearer {{bearerToken}}"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiMessageResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/CdcEventListData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/logs/cdc/{id}": {
+      "get": {
+        "summary": "CDC 执行日志详情",
+        "deprecated": false,
+        "description": "管理员按 event_id 查询单条 CDC 执行日志详情。",
+        "tags": [
+          "日志管理"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "主键 ID",
+            "required": true,
+            "example": 0,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": true,
+            "example": "Bearer {{bearerToken}}",
+            "schema": {
+              "type": "string",
+              "default": "Bearer {{bearerToken}}"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiMessageResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/CdcEventRecord"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/logs/replay": {
+      "get": {
+        "summary": "回放日志列表",
+        "deprecated": false,
+        "description": "管理员分页查询 CDC 死信回放及相关补偿日志。支持按 stream、source_table、action、result、cdc_job_id、request_id、trace_id 等字段筛选；模糊搜索字段启用时必须同时传 start_at 和 end_at，且范围不能超过 7 天。",
+        "tags": [
+          "日志管理"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "页码",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "每页条数",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "start_at",
+            "in": "query",
+            "description": "开始时间，格式：2006-01-02 15:04:05",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "end_at",
+            "in": "query",
+            "description": "结束时间，格式：2006-01-02 15:04:05",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "service",
+            "in": "query",
+            "description": "服务名。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "level",
+            "in": "query",
+            "description": "日志级别。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stream",
+            "in": "query",
+            "description": "事件流名称，例如 main、image_ref、es_projection。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source_table",
+            "in": "query",
+            "description": "源表名，例如 blogx.article_models。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "description": "动作类型，例如 insert、update、delete。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "result",
+            "in": "query",
+            "description": "执行结果，例如 success、failed。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "retry_count",
+            "in": "query",
+            "description": "重试次数，精确匹配。",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "request_id",
+            "in": "query",
+            "description": "请求 ID。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "request_id_prefix",
+            "in": "query",
+            "description": "是否按 request_id 前缀匹配。",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "trace_id",
+            "in": "query",
+            "description": "链路追踪 ID。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "trace_id_prefix",
+            "in": "query",
+            "description": "是否按 trace_id 前缀匹配。",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "cdc_job_id",
+            "in": "query",
+            "description": "CDC 任务 ID。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cdc_job_id_prefix",
+            "in": "query",
+            "description": "是否按 cdc_job_id 前缀匹配。",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "error_code",
+            "in": "query",
+            "description": "错误码，精确匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error_message",
+            "in": "query",
+            "description": "错误信息，模糊匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "event_name",
+            "in": "query",
+            "description": "事件名，模糊匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "module",
+            "in": "query",
+            "description": "模块名，优先匹配 service，必要时回退到 extra_json 模糊匹配。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": true,
+            "example": "Bearer {{bearerToken}}",
+            "schema": {
+              "type": "string",
+              "default": "Bearer {{bearerToken}}"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiMessageResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ReplayEventListData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/logs/replay/{id}": {
+      "get": {
+        "summary": "回放日志详情",
+        "deprecated": false,
+        "description": "管理员按 event_id 查询单条回放日志详情。",
+        "tags": [
+          "日志管理"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "主键 ID",
+            "required": true,
+            "example": 0,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": true,
+            "example": "Bearer {{bearerToken}}",
+            "schema": {
+              "type": "string",
+              "default": "Bearer {{bearerToken}}"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiMessageResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ReplayEventRecord"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/logs/chain": {
+      "get": {
+        "summary": "链路聚合查询",
+        "deprecated": false,
+        "description": "管理员按 request_id、trace_id 或 cdc_job_id 聚合同一条链路下的运行日志、登录日志、审计日志、CDC 日志、回放日志和死信记录。至少需要传 request_id、trace_id、cdc_job_id 其中一个。",
+        "tags": [
+          "日志管理"
+        ],
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "query",
+            "description": "请求 ID。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "trace_id",
+            "in": "query",
+            "description": "链路追踪 ID。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cdc_job_id",
+            "in": "query",
+            "description": "CDC 任务 ID。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cdc_job_id_prefix",
+            "in": "query",
+            "description": "是否按 cdc_job_id 前缀匹配。",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "stream",
+            "in": "query",
+            "description": "流名称过滤，同时作用于 CDC、回放和 DLQ 查询。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "DLQ 状态过滤，例如 pending、success、failed。",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_at",
+            "in": "query",
+            "description": "开始时间，格式：2006-01-02 15:04:05",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "end_at",
+            "in": "query",
+            "description": "结束时间，格式：2006-01-02 15:04:05",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "每个子日志集合的最大返回条数，默认 50，最大 200。",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "request_id_prefix",
+            "in": "query",
+            "description": "是否按 request_id 前缀匹配。",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "trace_id_prefix",
+            "in": "query",
+            "description": "是否按 trace_id 前缀匹配。",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": true,
+            "example": "Bearer {{bearerToken}}",
+            "schema": {
+              "type": "string",
+              "default": "Bearer {{bearerToken}}"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiMessageResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ChainQueryData"
                         }
                       },
                       "required": [
@@ -11462,6 +12283,12 @@
           "event_name": {
             "type": "string"
           },
+          "error_code": {
+            "type": "string"
+          },
+          "error_message": {
+            "type": "string"
+          },
           "error_type": {
             "type": "string"
           },
@@ -11492,6 +12319,8 @@
           "status_code",
           "latency_ms",
           "event_name",
+          "error_code",
+          "error_message",
           "error_type",
           "error_stack",
           "extra_json"
@@ -11539,6 +12368,12 @@
           "event_name": {
             "type": "string"
           },
+          "error_code": {
+            "type": "string"
+          },
+          "error_message": {
+            "type": "string"
+          },
           "username": {
             "type": "string"
           },
@@ -11576,6 +12411,8 @@
           "user_id",
           "ip",
           "event_name",
+          "error_code",
+          "error_message",
           "username",
           "login_type",
           "success",
@@ -11633,6 +12470,12 @@
           "status_code": {
             "type": "integer"
           },
+          "error_code": {
+            "type": "string"
+          },
+          "error_message": {
+            "type": "string"
+          },
           "action_name": {
             "type": "string"
           },
@@ -11650,6 +12493,18 @@
             "type": "string"
           },
           "response_body": {
+            "type": "string"
+          },
+          "request_body_raw": {
+            "type": "string"
+          },
+          "response_body_raw": {
+            "type": "string"
+          },
+          "request_header_raw": {
+            "type": "string"
+          },
+          "response_header_raw": {
             "type": "string"
           },
           "extra_json": {
@@ -11672,6 +12527,8 @@
           "method",
           "path",
           "status_code",
+          "error_code",
+          "error_message",
           "action_name",
           "target_type",
           "target_id",
@@ -11733,6 +12590,533 @@
         "required": [
           "list",
           "count"
+        ]
+      },
+      "CdcEventRecord": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "integer"
+          },
+          "ts": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "env": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "instance_id": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "event_name": {
+            "type": "string"
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "error_message": {
+            "type": "string"
+          },
+          "cdc_job_id": {
+            "type": "string"
+          },
+          "stream": {
+            "type": "string"
+          },
+          "source_table": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "target_key": {
+            "type": "string"
+          },
+          "retry_count": {
+            "type": "integer"
+          },
+          "result": {
+            "type": "string"
+          },
+          "extra_json": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "ts",
+          "service",
+          "env",
+          "host",
+          "instance_id",
+          "level",
+          "message",
+          "request_id",
+          "trace_id",
+          "event_name",
+          "error_code",
+          "error_message",
+          "cdc_job_id",
+          "stream",
+          "source_table",
+          "action",
+          "target_key",
+          "retry_count",
+          "result",
+          "extra_json"
+        ]
+      },
+      "ReplayEventRecord": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "integer"
+          },
+          "ts": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "env": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "instance_id": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "event_name": {
+            "type": "string"
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "error_message": {
+            "type": "string"
+          },
+          "cdc_job_id": {
+            "type": "string"
+          },
+          "stream": {
+            "type": "string"
+          },
+          "source_table": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "target_key": {
+            "type": "string"
+          },
+          "retry_count": {
+            "type": "integer"
+          },
+          "result": {
+            "type": "string"
+          },
+          "extra_json": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "ts",
+          "service",
+          "env",
+          "host",
+          "instance_id",
+          "level",
+          "message",
+          "request_id",
+          "trace_id",
+          "event_name",
+          "error_code",
+          "error_message",
+          "cdc_job_id",
+          "stream",
+          "source_table",
+          "action",
+          "target_key",
+          "retry_count",
+          "result",
+          "extra_json"
+        ]
+      },
+      "CdcEventListData": {
+        "type": "object",
+        "properties": {
+          "list": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CdcEventRecord"
+            }
+          },
+          "count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "count"
+        ]
+      },
+      "ReplayEventListData": {
+        "type": "object",
+        "properties": {
+          "list": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReplayEventRecord"
+            }
+          },
+          "count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "count"
+        ]
+      },
+      "ChainDeadLetterRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "stream": {
+            "type": "string"
+          },
+          "cdc_job_id": {
+            "type": "string"
+          },
+          "source_table": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "target_key": {
+            "type": "string"
+          },
+          "retry_count": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "error_msg": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "stream",
+          "cdc_job_id",
+          "source_table",
+          "action",
+          "target_key",
+          "retry_count",
+          "status",
+          "error_code",
+          "error_msg",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "ChainQueryData": {
+        "type": "object",
+        "properties": {
+          "runtime_logs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeLogRecord"
+            }
+          },
+          "login_logs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LoginEventRecord"
+            }
+          },
+          "action_logs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActionAuditRecord"
+            }
+          },
+          "cdc_logs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CdcEventRecord"
+            }
+          },
+          "replay_logs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReplayEventRecord"
+            }
+          },
+          "dlq": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChainDeadLetterRecord"
+            }
+          }
+        },
+        "required": [
+          "runtime_logs",
+          "login_logs",
+          "action_logs",
+          "cdc_logs",
+          "replay_logs",
+          "dlq"
+        ]
+      },
+      "SearchTag": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ]
+      },
+      "SearchCategory": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ]
+      },
+      "SearchAuthor": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "nickname": {
+            "type": "string"
+          },
+          "avatar": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "nickname",
+          "avatar"
+        ]
+      },
+      "SearchTop": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "boolean"
+          },
+          "admin": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "user",
+          "admin"
+        ]
+      },
+      "SearchHighlight": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "abstract": {
+            "type": "string"
+          }
+        }
+      },
+      "SearchArticleItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "title": {
+            "type": "string"
+          },
+          "abstract": {
+            "type": "string"
+          },
+          "cover": {
+            "type": "string"
+          },
+          "view_count": {
+            "type": "integer"
+          },
+          "digg_count": {
+            "type": "integer"
+          },
+          "comment_count": {
+            "type": "integer"
+          },
+          "favor_count": {
+            "type": "integer"
+          },
+          "comments_toggle": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchTag"
+            }
+          },
+          "category": {
+            "$ref": "#/components/schemas/SearchCategory"
+          },
+          "author": {
+            "$ref": "#/components/schemas/SearchAuthor"
+          },
+          "top": {
+            "$ref": "#/components/schemas/SearchTop"
+          },
+          "highlight": {
+            "$ref": "#/components/schemas/SearchHighlight"
+          },
+          "score": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "updated_at",
+          "title",
+          "cover",
+          "view_count",
+          "digg_count",
+          "comment_count",
+          "favor_count",
+          "comments_toggle",
+          "status",
+          "tags",
+          "author"
+        ]
+      },
+      "SearchPagination": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "has_more",
+              "count"
+            ]
+          },
+          "page": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "total_pages": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mode",
+          "page",
+          "limit",
+          "has_more"
+        ]
+      },
+      "ArticleSearchResponseData": {
+        "type": "object",
+        "properties": {
+          "list": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchArticleItem"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/SearchPagination"
+          }
+        },
+        "required": [
+          "list",
+          "pagination"
         ]
       }
     },
