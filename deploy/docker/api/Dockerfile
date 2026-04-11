@@ -1,5 +1,5 @@
-# 阶段 1：基于官方 golang:alpine 镜像创建构建环境
-FROM golang:alpine AS builder
+# 阶段 1：基于固定版本的 Go + Alpine 镜像创建构建环境
+FROM golang:1.25.1-alpine3.22 AS builder
 
 # 禁用 CGO，生成静态可执行文件
 ENV CGO_ENABLED=0
@@ -19,8 +19,8 @@ RUN go mod download
 COPY apps/api ./
 RUN go build -o /build/out/server ./cmd/server
 
-# 阶段 2：基于极简 alpine 镜像创建运行环境
-FROM alpine
+# 阶段 2：基于固定版本的 Alpine 镜像创建运行环境
+FROM alpine:3.22
 
 # 设置运行时工作目录
 WORKDIR /app

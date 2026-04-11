@@ -62,12 +62,22 @@ wait_for_es() {
   done
 }
 
+mysql_client_bin() {
+  if command -v mariadb >/dev/null 2>&1; then
+    printf '%s' "mariadb"
+    return 0
+  fi
+
+  printf '%s' "mysql"
+}
+
 runtime_table_exists() {
-  mysql \
+  "$(mysql_client_bin)" \
     -h"${BLOGX_DB_MASTER_HOST}" \
     -P"${BLOGX_DB_MASTER_PORT}" \
     -u"${BLOGX_DB_USER}" \
     -p"${BLOGX_DB_PASSWORD}" \
+    --skip-ssl \
     -D"${BLOGX_DB_NAME}" \
     -Nse "SHOW TABLES LIKE 'runtime_site_config_models';"
 }
