@@ -3,17 +3,28 @@
 package site_api
 
 import (
-	"myblogx/apideps"
 	"myblogx/common/res"
+	"myblogx/conf"
+	"myblogx/service/site_service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
+	"github.com/sirupsen/logrus"
 )
 
-type SiteApi struct {
-	App apideps.Deps
+type Deps struct {
+	Version     string
+	Logger      *logrus.Logger
+	Redis       *redis.Client
+	QQ          conf.QQ
+	RuntimeSite *site_service.RuntimeConfigService
 }
 
-func New(deps apideps.Deps) SiteApi {
+type SiteApi struct {
+	App Deps
+}
+
+func New(deps Deps) SiteApi {
 	return SiteApi{App: deps}
 }
 

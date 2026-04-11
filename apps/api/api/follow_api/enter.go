@@ -1,13 +1,17 @@
 package follow_api
 
 import (
-	"myblogx/apideps"
+	"gorm.io/gorm"
 )
 
-type FollowApi struct {
-	App apideps.Deps
+type Deps struct {
+	DB *gorm.DB
 }
 
-func New(deps apideps.Deps) FollowApi {
+type FollowApi struct {
+	App Deps
+}
+
+func New(deps Deps) FollowApi {
 	return FollowApi{App: deps}
 }

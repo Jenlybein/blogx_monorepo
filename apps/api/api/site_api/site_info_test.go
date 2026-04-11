@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"myblogx/api/site_api"
-	"myblogx/apideps"
 	"myblogx/conf"
 	confsite "myblogx/conf/site"
 	"myblogx/models"
@@ -75,7 +74,7 @@ func setupSiteApiEnv(t *testing.T) (site_api.SiteApi, *site_service.RuntimeConfi
 		t.Fatalf("初始化运行时站点配置失败: %v", err)
 	}
 
-	api := site_api.New(apideps.Deps{
+	api := site_api.New(site_api.Deps{
 		Version:     testutil.Version(),
 		QQ:          cfg.QQ,
 		RuntimeSite: runtimeSvc,

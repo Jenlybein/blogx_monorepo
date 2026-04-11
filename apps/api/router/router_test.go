@@ -2,7 +2,6 @@ package router_test
 
 import (
 	api2 "myblogx/api"
-	"myblogx/apideps"
 	mw "myblogx/middleware"
 	"myblogx/router"
 	"testing"
@@ -14,7 +13,7 @@ func TestRegisterAllRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	api := r.Group("/api")
-	app := api2.New(apideps.Deps{})
+	app := api2.New(api2.Deps{})
 	runtimeMw := mw.Runtime{}
 
 	router.SiteRouter(api, app, runtimeMw)

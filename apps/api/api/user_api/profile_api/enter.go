@@ -1,13 +1,25 @@
 package profile_api
 
 import (
-	"myblogx/apideps"
+	"myblogx/conf"
+
+	"github.com/go-redis/redis/v8"
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
-type ProfileApi struct {
-	App apideps.Deps
+type Deps struct {
+	DB     *gorm.DB
+	JWT    conf.Jwt
+	Logger *logrus.Logger
+	Redis  *redis.Client
+	System conf.System
 }
 
-func New(deps apideps.Deps) ProfileApi {
+type ProfileApi struct {
+	App Deps
+}
+
+func New(deps Deps) ProfileApi {
 	return ProfileApi{App: deps}
 }

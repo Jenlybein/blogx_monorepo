@@ -1,13 +1,17 @@
 package view_history
 
 import (
-	"myblogx/apideps"
+	"gorm.io/gorm"
 )
 
-type ViewHistoryApi struct {
-	App apideps.Deps
+type Deps struct {
+	DB *gorm.DB
 }
 
-func New(deps apideps.Deps) ViewHistoryApi {
+type ViewHistoryApi struct {
+	App Deps
+}
+
+func New(deps Deps) ViewHistoryApi {
 	return ViewHistoryApi{App: deps}
 }

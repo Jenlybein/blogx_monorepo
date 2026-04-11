@@ -1,13 +1,17 @@
 package sitemsg_api
 
 import (
-	"myblogx/apideps"
+	"gorm.io/gorm"
 )
 
-type SitemsgApi struct {
-	App apideps.Deps
+type Deps struct {
+	DB *gorm.DB
 }
 
-func New(deps apideps.Deps) SitemsgApi {
+type SitemsgApi struct {
+	App Deps
+}
+
+func New(deps Deps) SitemsgApi {
 	return SitemsgApi{App: deps}
 }

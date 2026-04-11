@@ -2,7 +2,6 @@ package banner_api
 
 import (
 	"fmt"
-	"myblogx/apideps"
 	"myblogx/common"
 	"myblogx/common/res"
 	"myblogx/middleware"
@@ -10,13 +9,18 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
-type BannerApi struct {
-	App apideps.Deps
+type Deps struct {
+	DB *gorm.DB
 }
 
-func New(deps apideps.Deps) BannerApi {
+type BannerApi struct {
+	App Deps
+}
+
+func New(deps Deps) BannerApi {
 	return BannerApi{App: deps}
 }
 

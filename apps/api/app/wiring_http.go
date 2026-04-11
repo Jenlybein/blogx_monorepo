@@ -15,7 +15,7 @@ func WireHTTP(infra *Infra) error {
 	}
 
 	cfg := infra.Config
-	deps := apideps.Deps{
+	routerDeps := apideps.Deps{
 		Version:           infra.Version,
 		ConfigFile:        infra.ConfigFile,
 		System:            cfg.System,
@@ -36,6 +36,26 @@ func WireHTTP(infra *Infra) error {
 		ImageCaptchaStore: base64Captcha.DefaultMemStore,
 	}
 
-	router.Run(deps, api.New(deps))
+	httpDeps := api.Deps{
+		Version:           infra.Version,
+		System:            cfg.System,
+		JWT:               cfg.Jwt,
+		Log:               cfg.Log,
+		ClickHouseConfig:  cfg.ClickHouse,
+		ES:                cfg.ES,
+		QQ:                cfg.QQ,
+		Email:             cfg.Email,
+		QiNiu:             cfg.QiNiu,
+		Upload:            cfg.Upload,
+		Logger:            infra.Logger,
+		DB:                infra.DB,
+		Redis:             infra.Redis,
+		ClickHouse:        infra.ClickHouse,
+		ESClient:          infra.ESClient,
+		RuntimeSite:       infra.RuntimeSite,
+		ImageCaptchaStore: base64Captcha.DefaultMemStore,
+	}
+
+	router.Run(routerDeps, api.New(httpDeps))
 	return nil
 }

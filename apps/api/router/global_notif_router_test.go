@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	api2 "myblogx/api"
-	"myblogx/apideps"
 	"myblogx/conf"
 	mw "myblogx/middleware"
 	"myblogx/models"
@@ -63,7 +62,7 @@ func newGlobalNotifRouterEngine() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	apiGroup := r.Group("/api")
-	router.GlobalNotifRouter(apiGroup, api2.New(apideps.Deps{}), mw.Runtime{})
+	router.GlobalNotifRouter(apiGroup, api2.New(api2.Deps{}), mw.Runtime{})
 	return r
 }
 

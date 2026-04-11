@@ -1,13 +1,28 @@
 package ai_api
 
 import (
-	"myblogx/apideps"
+	"myblogx/conf"
+	"myblogx/service/site_service"
+
+	"github.com/elastic/go-elasticsearch/v7"
+	"github.com/go-redis/redis/v8"
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
-type AIApi struct {
-	App apideps.Deps
+type Deps struct {
+	DB          *gorm.DB
+	Logger      *logrus.Logger
+	Redis       *redis.Client
+	ESClient    *elasticsearch.Client
+	ES          conf.ES
+	RuntimeSite *site_service.RuntimeConfigService
 }
 
-func New(deps apideps.Deps) AIApi {
+type AIApi struct {
+	App Deps
+}
+
+func New(deps Deps) AIApi {
 	return AIApi{App: deps}
 }

@@ -1,13 +1,24 @@
 package user_man_api
 
 import (
-	"myblogx/apideps"
+	"database/sql"
+	"myblogx/conf"
+
+	"github.com/sirupsen/logrus"
 )
 
-type UserManApi struct {
-	App apideps.Deps
+type Deps struct {
+	Log              conf.Logrus
+	System           conf.System
+	ClickHouseConfig conf.ClickHouse
+	Logger           *logrus.Logger
+	ClickHouse       *sql.DB
 }
 
-func New(deps apideps.Deps) UserManApi {
+type UserManApi struct {
+	App Deps
+}
+
+func New(deps Deps) UserManApi {
 	return UserManApi{App: deps}
 }

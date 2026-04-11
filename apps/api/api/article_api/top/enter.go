@@ -1,13 +1,21 @@
 package top
 
 import (
-	"myblogx/apideps"
+	"github.com/go-redis/redis/v8"
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
-type TopApi struct {
-	App apideps.Deps
+type Deps struct {
+	DB     *gorm.DB
+	Logger *logrus.Logger
+	Redis  *redis.Client
 }
 
-func New(deps apideps.Deps) TopApi {
+type TopApi struct {
+	App Deps
+}
+
+func New(deps Deps) TopApi {
 	return TopApi{App: deps}
 }

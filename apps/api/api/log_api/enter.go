@@ -3,22 +3,31 @@ package log_api
 import (
 	"database/sql"
 
-	"myblogx/apideps"
 	"myblogx/common"
 	"myblogx/common/res"
+	"myblogx/conf"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/log_service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
-type LogApi struct {
-	App apideps.Deps
+type Deps struct {
+	Log              conf.Logrus
+	System           conf.System
+	ClickHouseConfig conf.ClickHouse
+	Logger           *logrus.Logger
+	ClickHouse       *sql.DB
 }
 
-func New(deps apideps.Deps) LogApi {
+type LogApi struct {
+	App Deps
+}
+
+func New(deps Deps) LogApi {
 	return LogApi{App: deps}
 }
 

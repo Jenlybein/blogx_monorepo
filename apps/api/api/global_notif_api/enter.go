@@ -1,7 +1,6 @@
 package global_notif_api
 
 import (
-	"myblogx/apideps"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/global_notif_enum"
@@ -10,11 +9,15 @@ import (
 	"gorm.io/gorm"
 )
 
-type GlobalNotifApi struct {
-	App apideps.Deps
+type Deps struct {
+	DB *gorm.DB
 }
 
-func New(deps apideps.Deps) GlobalNotifApi {
+type GlobalNotifApi struct {
+	App Deps
+}
+
+func New(deps Deps) GlobalNotifApi {
 	return GlobalNotifApi{App: deps}
 }
 

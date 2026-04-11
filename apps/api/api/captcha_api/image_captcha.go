@@ -2,7 +2,6 @@ package captcha_api
 
 import (
 	"image/color"
-	"myblogx/apideps"
 	"myblogx/common/res"
 
 	"github.com/gin-gonic/gin"
@@ -10,7 +9,7 @@ import (
 )
 
 type ImageCaptchaApi struct {
-	App apideps.Deps
+	App Deps
 }
 
 type ImageCaptchaResponse struct {

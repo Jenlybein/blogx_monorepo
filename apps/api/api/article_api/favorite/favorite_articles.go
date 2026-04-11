@@ -2,7 +2,6 @@ package favorite
 
 import (
 	"errors"
-	"myblogx/apideps"
 	"myblogx/common/res"
 	"myblogx/middleware"
 	"myblogx/models"
@@ -58,7 +57,7 @@ func (h FavoriteApi) FavoriteArticlesView(c *gin.Context) {
 	res.OkWithList(list, count, c)
 }
 
-func getAccessibleFavorite(app apideps.Deps, c *gin.Context, favoriteID ctype.ID, claims *jwts.MyClaims) (*models.FavoriteModel, error) {
+func getAccessibleFavorite(app Deps, c *gin.Context, favoriteID ctype.ID, claims *jwts.MyClaims) (*models.FavoriteModel, error) {
 	var favoriteModel models.FavoriteModel
 	if err := app.DB.Take(&favoriteModel, "id = ?", favoriteID).Error; err != nil {
 		res.FailWithMsg("收藏夹不存在", c)

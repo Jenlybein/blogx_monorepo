@@ -6,11 +6,24 @@ import (
 	"myblogx/api/article_api/tags"
 	"myblogx/api/article_api/top"
 	"myblogx/api/article_api/view_history"
-	"myblogx/apideps"
+	"myblogx/conf"
+	"myblogx/service/site_service"
+
+	"github.com/go-redis/redis/v8"
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
+type Deps struct {
+	DB          *gorm.DB
+	JWT         conf.Jwt
+	Logger      *logrus.Logger
+	Redis       *redis.Client
+	RuntimeSite *site_service.RuntimeConfigService
+}
+
 type ArticleApi struct {
-	App apideps.Deps
+	App Deps
 	category.CategoryApi
 	favorite.FavoriteApi
 	top.TopApi
@@ -18,13 +31,33 @@ type ArticleApi struct {
 	tags.TagsApi
 }
 
-func New(deps apideps.Deps) ArticleApi {
+func New(deps Deps) ArticleApi {
 	return ArticleApi{
-		App:            deps,
-		CategoryApi:    category.New(deps),
-		FavoriteApi:    favorite.New(deps),
-		TopApi:         top.New(deps),
-		ViewHistoryApi: view_history.New(deps),
-		TagsApi:        tags.New(deps),
+		App: deps,
+		CategoryApi: category.New(category.Deps{
+			DB:     deps.DB,
+			JWT:    deps.JWT,
+			Logger: deps.Logger,
+			Redis:  deps.Redis,
+		}),
+		FavoriteApi: favorite.New(favorite.Deps{
+			DB:     deps.DB,
+			JWT:    deps.JWT,
+			Logger: deps.Logger,
+			Redis:  deps.Redis,
+		}),
+		TopApi: top.New(top.Deps{
+			DB:     deps.DB,
+			Logger: deps.Logger,
+			Redis:  deps.Redis,
+		}),
+		ViewHistoryApi: view_history.New(view_history.Deps{
+			DB: deps.DB,
+		}),
+		TagsApi: tags.New(tags.Deps{
+			DB:     deps.DB,
+			Logger: deps.Logger,
+			Redis:  deps.Redis,
+		}),
 	}
 }

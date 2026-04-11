@@ -1,13 +1,28 @@
 package data_api
 
 import (
-	"myblogx/apideps"
+	"database/sql"
+	"myblogx/conf"
+
+	"github.com/go-redis/redis/v8"
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
-type DataApi struct {
-	App apideps.Deps
+type Deps struct {
+	System           conf.System
+	Log              conf.Logrus
+	ClickHouseConfig conf.ClickHouse
+	Logger           *logrus.Logger
+	DB               *gorm.DB
+	Redis            *redis.Client
+	ClickHouse       *sql.DB
 }
 
-func New(deps apideps.Deps) DataApi {
+type DataApi struct {
+	App Deps
+}
+
+func New(deps Deps) DataApi {
 	return DataApi{App: deps}
 }
