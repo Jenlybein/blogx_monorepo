@@ -3,8 +3,11 @@ package river_service
 import (
 	"bytes"
 	"encoding/json"
+	stdErrors "errors"
 	"fmt"
+	"myblogx/service/cdc_dead_letter_service"
 	"myblogx/service/es_service"
+	"myblogx/service/log_service"
 	"myblogx/service/river_service/rule"
 	"reflect"
 	"strings"
@@ -30,6 +33,15 @@ const mysqlDateFormat = "2006-01-02"
 type posSaver struct {
 	pos   mysql.Position // MySQL位置
 	force bool           // 是否强制保存
+}
+
+type cdcTask struct {
+	Request     *es_service.BulkRequest
+	CdcJobID    string
+	Stream      string
+	SourceTable string
+	Action      string
+	TargetKey   string
 }
 
 // eventHandler 事件处理器
@@ -99,11 +111,27 @@ func (h *eventHandler) OnRow(e *canal.RowsEvent) error {
 	}
 
 	if err != nil {
+		pos := h.r.canal.SyncedPosition()
+		log_service.EmitCDCEvent(h.r.logDeps, log_service.CdcEventInput{
+			Level:        "error",
+			Message:      "river 构建批量请求失败",
+			ErrorCode:    "RIVER_BUILD_FAILED",
+			ErrorMessage: err.Error(),
+			ErrorType:    "river_error",
+			CdcJobID:     buildCDCJobID("es_river", e.Table.Schema, e.Table.Name, pos, 0),
+			Stream:       "es_river",
+			SourceTable:  e.Table.Schema + "." + e.Table.Name,
+			Action:       e.Action,
+			RetryCount:   0,
+			Result:       "failed",
+		})
 		h.r.cancel()
 		return errors.Errorf("构建 %s 的 ES 请求失败，停止同步: %v", e.Action, err)
 	}
 
-	h.r.syncCh <- reqs
+	pos := h.r.canal.SyncedPosition()
+	tasks := wrapCDCReqs("es_river", e.Table.Schema, e.Table.Name, e.Action, pos, reqs)
+	h.r.syncCh <- tasks
 
 	return h.r.ctx.Err()
 }
@@ -145,7 +173,7 @@ func (r *River) syncLoop() {
 	defer r.wg.Done()
 
 	lastSavedTime := time.Now()
-	reqs := make([]*es_service.BulkRequest, 0, 1024)
+	reqs := make([]cdcTask, 0, 1024)
 
 	var pos mysql.Position
 
@@ -164,7 +192,7 @@ func (r *River) syncLoop() {
 					needSavePos = true
 					pos = v.pos
 				}
-			case []*es_service.BulkRequest:
+			case []cdcTask:
 				reqs = append(reqs, v...)
 				needFlush = len(reqs) >= bulkSize
 			}
@@ -175,13 +203,10 @@ func (r *River) syncLoop() {
 		}
 
 		if needFlush {
-			// TODO: retry some times?
-			if err := r.doBulk(reqs); err != nil {
+			if err := r.doBulkWithRetry(reqs); err != nil {
 				if r.log != nil {
-					r.log.Errorf("执行 ES 批量同步失败，停止同步: %v", err)
+					r.log.Errorf("执行 ES 批量同步失败，已写入 DLQ: %v", err)
 				}
-				r.cancel()
-				return
 			}
 			reqs = reqs[0:0]
 		}
@@ -500,89 +525,194 @@ func (r *River) getParentID(rule *rule.Rule, row []interface{}, columnName strin
 	return fmt.Sprint(row[index]), nil
 }
 
-// doBulk 执行批量请求
-func (r *River) doBulk(reqs []*es_service.BulkRequest) error {
-	if len(reqs) == 0 {
-		return nil
+// doBulk 执行批量请求，返回失败任务列表。
+func (r *River) doBulk(tasks []cdcTask) ([]cdcTask, string) {
+	if len(tasks) == 0 {
+		return nil, ""
+	}
+
+	reqs := make([]*es_service.BulkRequest, 0, len(tasks))
+	for _, task := range tasks {
+		reqs = append(reqs, task.Request)
 	}
 
 	resp := es_service.Bulk(r.es, reqs)
+	if !resp.Success {
+		message := strings.TrimSpace(resp.Msg)
+		if message == "" {
+			message = "bulk 请求失败"
+		}
+		return tasks, message
+	}
 
-	errorsCount := 0
-	successCount := 0
+	dataBytes, err := json.Marshal(resp.Data)
+	if err != nil {
+		return tasks, "bulk 响应解析失败"
+	}
+	var parsed es_service.BulkResponse
+	if err = json.Unmarshal(dataBytes, &parsed); err != nil {
+		return tasks, "bulk 响应结构解析失败"
+	}
 
-	// 输出响应数据
-	if resp.Data != nil {
-		dataBytes, err := json.Marshal(resp.Data)
-		if err == nil {
-			// 解析响应数据，分析每个操作的状态
-			var bulkResp map[string]interface{}
-			if json.Unmarshal(dataBytes, &bulkResp) == nil {
-				if items, ok := bulkResp["items"].([]interface{}); ok {
-					for _, item := range items {
-						if itemMap, ok := item.(map[string]interface{}); ok {
-							for action, result := range itemMap {
-								if resultMap, ok := result.(map[string]interface{}); ok {
-									status := int(resultMap["status"].(float64))
-									var resultStr string
-									if resultVal, exists := resultMap["result"]; exists && resultVal != nil {
-										resultStr = resultVal.(string)
-									}
-									docID := resultMap["_id"].(string)
+	if !parsed.Errors {
+		return nil, ""
+	}
 
-									// 检查是否有错误信息
-									var errorMsg string
-									if errorVal, exists := resultMap["error"]; exists && errorVal != nil {
-										if errorMap, ok := errorVal.(map[string]interface{}); ok {
-											if reason, exists := errorMap["reason"].(string); exists {
-												errorMsg = reason
-											}
-											if causedBy, exists := errorMap["caused_by"].(map[string]interface{}); exists {
-												if cbReason, exists := causedBy["reason"].(string); exists {
-													errorMsg = errorMsg + " (原因: " + cbReason + ")"
-												}
-											}
-										}
-									}
-
-									// 根据状态和结果分析
-									switch {
-									case status >= 200 && status < 300:
-										successCount++
-									default:
-										errorsCount++
-										if errorMsg != "" {
-											if r.log != nil {
-												r.log.Errorf("同步错误: %s 操作文档 %s 失败，状态: %d, 错误: %s", action, docID, status, errorMsg)
-											}
-										} else {
-											if r.log != nil {
-												r.log.Errorf("同步错误: %s 操作文档 %s 失败，状态: %d, 结果: %s", action, docID, status, resultStr)
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
+	failed := make([]cdcTask, 0)
+	for index, item := range parsed.Items {
+		if index >= len(tasks) {
+			break
+		}
+		for _, result := range item {
+			if result == nil {
+				failed = append(failed, tasks[index])
+				break
+			}
+			if result.Status < 200 || result.Status >= 300 {
+				failed = append(failed, tasks[index])
+				break
 			}
 		}
 	}
+	if len(parsed.Items) < len(tasks) {
+		failed = append(failed, tasks[len(parsed.Items):]...)
+	}
+	if len(failed) == 0 {
+		return nil, ""
+	}
+	return failed, "bulk 响应包含失败项（errors=true）"
+}
 
-	// 输出操作统计信息
-	if r.log != nil {
-		r.log.Infof("同步操作统计: 总计=%d, 成功=%d, 失败=%d, binlog=%s",
-			len(reqs), successCount, errorsCount, r.canal.SyncedPosition())
+func (r *River) doBulkWithRetry(tasks []cdcTask) error {
+	if len(tasks) == 0 {
+		return nil
 	}
 
-	if !resp.Success {
-		if r.log != nil {
-			r.log.Errorf("同步文档失败 %s, binlog=%s", resp.Msg, r.canal.SyncedPosition())
+	maxAttempts := r.cfg.Retry.MaxAttempts
+	if maxAttempts <= 0 {
+		maxAttempts = 2
+	}
+	delay := time.Duration(r.cfg.Retry.DelayMS) * time.Millisecond
+	if delay <= 0 {
+		delay = 200 * time.Millisecond
+	}
+
+	pending := tasks
+	var lastMsg string
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		failed, message := r.doBulk(pending)
+		lastMsg = message
+		if len(failed) == 0 {
+			for _, task := range pending {
+				log_service.EmitCDCEvent(r.logDeps, log_service.CdcEventInput{
+					Level:       "info",
+					Message:     "river 执行成功",
+					CdcJobID:    task.CdcJobID,
+					Stream:      task.Stream,
+					SourceTable: task.SourceTable,
+					Action:      task.Action,
+					TargetKey:   task.TargetKey,
+					RetryCount:  attempt - 1,
+					Result:      "success",
+				})
+			}
+			return nil
 		}
+
+		if attempt < maxAttempts {
+			for _, task := range failed {
+				log_service.EmitCDCEvent(r.logDeps, log_service.CdcEventInput{
+					Level:        "warn",
+					Message:      "river 执行失败，准备重试",
+					ErrorCode:    "RIVER_BULK_RETRY",
+					ErrorMessage: message,
+					ErrorType:    "es_error",
+					CdcJobID:     task.CdcJobID,
+					Stream:       task.Stream,
+					SourceTable:  task.SourceTable,
+					Action:       task.Action,
+					TargetKey:    task.TargetKey,
+					RetryCount:   attempt,
+					Result:       "retry",
+				})
+			}
+			pending = failed
+			time.Sleep(delay)
+			continue
+		}
+
+		dlqItems := make([]cdc_dead_letter_service.Item, 0, len(failed))
+		for _, task := range failed {
+			payload := map[string]any{
+				"index":    task.Request.Index,
+				"type":     task.Request.Type,
+				"id":       task.Request.ID,
+				"parent":   task.Request.Parent,
+				"pipeline": task.Request.Pipeline,
+				"data":     task.Request.Data,
+			}
+			dlqItems = append(dlqItems, cdc_dead_letter_service.Item{
+				Stream:      task.Stream,
+				CdcJobID:    task.CdcJobID,
+				SourceTable: task.SourceTable,
+				Action:      task.Action,
+				TargetKey:   task.TargetKey,
+				Payload:     payload,
+				RetryCount:  attempt - 1,
+				Status:      "pending",
+				ErrorCode:   "RIVER_BULK_FAILED",
+				ErrorMsg:    message,
+			})
+
+			log_service.EmitCDCEvent(r.logDeps, log_service.CdcEventInput{
+				Level:        "error",
+				Message:      "river 执行失败，已转入 DLQ",
+				ErrorCode:    "RIVER_BULK_DLQ",
+				ErrorMessage: message,
+				ErrorType:    "es_error",
+				CdcJobID:     task.CdcJobID,
+				Stream:       task.Stream,
+				SourceTable:  task.SourceTable,
+				Action:       task.Action,
+				TargetKey:    task.TargetKey,
+				RetryCount:   attempt - 1,
+				Result:       "dlq",
+			})
+		}
+		if err := cdc_dead_letter_service.SaveBatch(r.db, dlqItems); err != nil {
+			return err
+		}
+		break
 	}
 
-	return nil
+	if strings.TrimSpace(lastMsg) == "" {
+		lastMsg = "river 批量执行失败，已写入 DLQ"
+	}
+	return stdErrors.New(lastMsg)
+}
+
+func wrapCDCReqs(stream, schema, table, action string, pos mysql.Position, reqs []*es_service.BulkRequest) []cdcTask {
+	sourceTable := schema + "." + table
+	list := make([]cdcTask, 0, len(reqs))
+	for index, req := range reqs {
+		targetKey := ""
+		if req != nil && req.ID != "" {
+			targetKey = "doc_id=" + req.ID
+		}
+		list = append(list, cdcTask{
+			Request:     req,
+			CdcJobID:    buildCDCJobID(stream, schema, table, pos, index),
+			Stream:      stream,
+			SourceTable: sourceTable,
+			Action:      action,
+			TargetKey:   targetKey,
+		})
+	}
+	return list
+}
+
+func buildCDCJobID(stream, schema, table string, pos mysql.Position, rowIndex int) string {
+	return fmt.Sprintf("%s:%s.%s:%s:%d:%d", stream, schema, table, pos.Name, pos.Pos, rowIndex)
 }
 
 // getFieldValue 获取mysql字段值并将其转换为特定的es值

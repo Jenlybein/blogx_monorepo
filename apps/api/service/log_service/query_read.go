@@ -31,6 +31,8 @@ type RuntimeLogRecord struct {
 	StatusCode uint16 `json:"status_code"`
 	LatencyMS  uint32 `json:"latency_ms"`
 	EventName  string `json:"event_name"`
+	ErrorCode  string `json:"error_code"`
+	ErrorMsg   string `json:"error_message"`
 	ErrorType  string `json:"error_type"`
 	ErrorStack string `json:"error_stack"`
 	ExtraJSON  string `json:"extra_json"`
@@ -51,6 +53,8 @@ type LoginEventRecord struct {
 	UserID     uint64 `json:"user_id"`
 	IP         string `json:"ip"`
 	EventName  string `json:"event_name"`
+	ErrorCode  string `json:"error_code"`
+	ErrorMsg   string `json:"error_message"`
 	Username   string `json:"username"`
 	LoginType  string `json:"login_type"`
 	Success    uint8  `json:"success"`
@@ -77,6 +81,8 @@ type ActionAuditRecord struct {
 	Method            string `json:"method"`
 	Path              string `json:"path"`
 	StatusCode        uint16 `json:"status_code"`
+	ErrorCode         string `json:"error_code"`
+	ErrorMsg          string `json:"error_message"`
 	ActionName        string `json:"action_name"`
 	TargetType        string `json:"target_type"`
 	TargetID          string `json:"target_id"`
@@ -100,37 +106,62 @@ type LogTimeRange struct {
 type RuntimeLogQuery struct {
 	common.PageInfo
 	LogTimeRange
-	Service string
-	Level   string
-	Host    string
-	Method  string
-	Path    string
-	UserID  ctype.ID
-	Key     string
+	Service         string
+	Level           string
+	Host            string
+	Method          string
+	Path            string
+	UserID          ctype.ID
+	Key             string
+	RequestID       string
+	RequestIDPrefix bool
+	TraceID         string
+	TraceIDPrefix   bool
+	ErrorCode       string
+	ErrorMessage    string
+	EventName       string
+	Module          string
 }
 
 // LoginEventQuery 定义登录事件日志查询条件。
 type LoginEventQuery struct {
 	common.PageInfo
 	LogTimeRange
-	UserID    ctype.ID
-	IP        string
-	Username  string
-	LoginType string
-	EventName string
-	Success   *bool
+	UserID          ctype.ID
+	IP              string
+	Username        string
+	LoginType       string
+	EventName       string
+	EventNameLike   string
+	Success         *bool
+	RequestID       string
+	RequestIDPrefix bool
+	TraceID         string
+	TraceIDPrefix   bool
+	ErrorCode       string
+	ErrorMessage    string
+	Module          string
 }
 
 // ActionAuditQuery 定义操作审计日志查询条件。
 type ActionAuditQuery struct {
 	common.PageInfo
 	LogTimeRange
-	UserID     ctype.ID
-	IP         string
-	ActionName string
-	TargetType string
-	TargetID   string
-	Success    *bool
+	UserID          ctype.ID
+	IP              string
+	ActionName      string
+	TargetType      string
+	TargetID        string
+	Success         *bool
+	RequestID       string
+	RequestIDPrefix bool
+	TraceID         string
+	TraceIDPrefix   bool
+	ErrorCode       string
+	ErrorMessage    string
+	EventNameLike   string
+	Path            string
+	Module          string
 }
 
 // ListRuntimeLogs 按条件分页查询运行日志列表。
@@ -150,7 +181,7 @@ func ListRuntimeLogs(deps Deps, query RuntimeLogQuery) ([]RuntimeLogRecord, int6
 	}
 
 	sqlText := fmt.Sprintf(`
-SELECT event_id, toString(ts), service, env, host, instance_id, level, message, request_id, trace_id, file, func, user_id, ip, method, path, status_code, latency_ms, event_name, error_type, error_stack, extra_json
+SELECT event_id, toString(ts), service, env, host, instance_id, level, message, request_id, trace_id, file, func, user_id, ip, method, path, status_code, latency_ms, event_name, error_code, error_message, error_type, error_stack, extra_json
 FROM %s %s
 ORDER BY ts DESC, event_id DESC
 LIMIT ? OFFSET ?`, RuntimeLogTableName, whereSQL)
@@ -169,7 +200,7 @@ LIMIT ? OFFSET ?`, RuntimeLogTableName, whereSQL)
 			&item.EventID, &item.TS, &item.Service, &item.Env, &item.Host, &item.InstanceID,
 			&item.Level, &item.Message, &item.RequestID, &item.TraceID, &item.File, &item.Func,
 			&item.UserID, &item.IP, &item.Method, &item.Path, &item.StatusCode, &item.LatencyMS,
-			&item.EventName, &item.ErrorType, &item.ErrorStack, &item.ExtraJSON,
+			&item.EventName, &item.ErrorCode, &item.ErrorMsg, &item.ErrorType, &item.ErrorStack, &item.ExtraJSON,
 		); err != nil {
 			return nil, 0, err
 		}
@@ -184,14 +215,14 @@ func GetRuntimeLog(deps Deps, eventID uint64) (*RuntimeLogRecord, error) {
 	defer cancel()
 
 	row := queryRowExists(deps, ctx, fmt.Sprintf(`
-SELECT event_id, toString(ts), service, env, host, instance_id, level, message, request_id, trace_id, file, func, user_id, ip, method, path, status_code, latency_ms, event_name, error_type, error_stack, extra_json
+SELECT event_id, toString(ts), service, env, host, instance_id, level, message, request_id, trace_id, file, func, user_id, ip, method, path, status_code, latency_ms, event_name, error_code, error_message, error_type, error_stack, extra_json
 FROM %s WHERE event_id = ? LIMIT 1`, RuntimeLogTableName), eventID)
 	var item RuntimeLogRecord
 	if err := row.Scan(
 		&item.EventID, &item.TS, &item.Service, &item.Env, &item.Host, &item.InstanceID,
 		&item.Level, &item.Message, &item.RequestID, &item.TraceID, &item.File, &item.Func,
 		&item.UserID, &item.IP, &item.Method, &item.Path, &item.StatusCode, &item.LatencyMS,
-		&item.EventName, &item.ErrorType, &item.ErrorStack, &item.ExtraJSON,
+		&item.EventName, &item.ErrorCode, &item.ErrorMsg, &item.ErrorType, &item.ErrorStack, &item.ExtraJSON,
 	); err != nil {
 		return nil, err
 	}
@@ -212,7 +243,7 @@ func ListLoginEvents(deps Deps, query LoginEventQuery) ([]LoginEventRecord, int6
 		return nil, 0, err
 	}
 	sqlText := fmt.Sprintf(`
-SELECT event_id, toString(ts), service, env, host, instance_id, level, message, request_id, trace_id, user_id, ip, event_name, username, login_type, success, reason, addr, ua, extra_json
+SELECT event_id, toString(ts), service, env, host, instance_id, level, message, request_id, trace_id, user_id, ip, event_name, error_code, error_message, username, login_type, success, reason, addr, ua, extra_json
 FROM %s %s
 ORDER BY ts DESC, event_id DESC
 LIMIT ? OFFSET ?`, LoginEventLogTableName, whereSQL)
@@ -229,7 +260,7 @@ LIMIT ? OFFSET ?`, LoginEventLogTableName, whereSQL)
 		if err = rows.Scan(
 			&item.EventID, &item.TS, &item.Service, &item.Env, &item.Host, &item.InstanceID,
 			&item.Level, &item.Message, &item.RequestID, &item.TraceID, &item.UserID, &item.IP,
-			&item.EventName, &item.Username, &item.LoginType, &item.Success, &item.Reason,
+			&item.EventName, &item.ErrorCode, &item.ErrorMsg, &item.Username, &item.LoginType, &item.Success, &item.Reason,
 			&item.Addr, &item.UA, &item.ExtraJSON,
 		); err != nil {
 			return nil, 0, err
@@ -244,13 +275,13 @@ func GetLoginEvent(deps Deps, eventID uint64) (*LoginEventRecord, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	row := queryRowExists(deps, ctx, fmt.Sprintf(`
-SELECT event_id, toString(ts), service, env, host, instance_id, level, message, request_id, trace_id, user_id, ip, event_name, username, login_type, success, reason, addr, ua, extra_json
+SELECT event_id, toString(ts), service, env, host, instance_id, level, message, request_id, trace_id, user_id, ip, event_name, error_code, error_message, username, login_type, success, reason, addr, ua, extra_json
 FROM %s WHERE event_id = ? LIMIT 1`, LoginEventLogTableName), eventID)
 	var item LoginEventRecord
 	if err := row.Scan(
 		&item.EventID, &item.TS, &item.Service, &item.Env, &item.Host, &item.InstanceID,
 		&item.Level, &item.Message, &item.RequestID, &item.TraceID, &item.UserID, &item.IP,
-		&item.EventName, &item.Username, &item.LoginType, &item.Success, &item.Reason,
+		&item.EventName, &item.ErrorCode, &item.ErrorMsg, &item.Username, &item.LoginType, &item.Success, &item.Reason,
 		&item.Addr, &item.UA, &item.ExtraJSON,
 	); err != nil {
 		return nil, err
@@ -272,7 +303,7 @@ func ListActionAudits(deps Deps, query ActionAuditQuery) ([]ActionAuditRecord, i
 		return nil, 0, err
 	}
 	sqlText := fmt.Sprintf(`
-SELECT event_id, toString(ts), service, env, host, instance_id, level, message, request_id, trace_id, user_id, ip, method, path, status_code, action_name, target_type, target_id, success, request_body, response_body, extra_json
+SELECT event_id, toString(ts), service, env, host, instance_id, level, message, request_id, trace_id, user_id, ip, method, path, status_code, error_code, error_message, action_name, target_type, target_id, success, request_body, response_body, extra_json
 FROM %s %s
 ORDER BY ts DESC, event_id DESC
 LIMIT ? OFFSET ?`, ActionAuditLogTableName, whereSQL)
@@ -289,7 +320,7 @@ LIMIT ? OFFSET ?`, ActionAuditLogTableName, whereSQL)
 		if err = rows.Scan(
 			&item.EventID, &item.TS, &item.Service, &item.Env, &item.Host, &item.InstanceID,
 			&item.Level, &item.Message, &item.RequestID, &item.TraceID, &item.UserID, &item.IP,
-			&item.Method, &item.Path, &item.StatusCode, &item.ActionName, &item.TargetType,
+			&item.Method, &item.Path, &item.StatusCode, &item.ErrorCode, &item.ErrorMsg, &item.ActionName, &item.TargetType,
 			&item.TargetID, &item.Success, &item.RequestBody, &item.ResponseBody, &item.ExtraJSON,
 		); err != nil {
 			return nil, 0, err
@@ -304,13 +335,13 @@ func GetActionAudit(deps Deps, eventID uint64) (*ActionAuditRecord, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	row := queryRowExists(deps, ctx, fmt.Sprintf(`
-SELECT event_id, toString(ts), service, env, host, instance_id, level, message, request_id, trace_id, user_id, ip, method, path, status_code, action_name, target_type, target_id, success, request_body, response_body, request_body_raw, response_body_raw, request_header_raw, response_header_raw, extra_json
+SELECT event_id, toString(ts), service, env, host, instance_id, level, message, request_id, trace_id, user_id, ip, method, path, status_code, error_code, error_message, action_name, target_type, target_id, success, request_body, response_body, request_body_raw, response_body_raw, request_header_raw, response_header_raw, extra_json
 FROM %s WHERE event_id = ? LIMIT 1`, ActionAuditLogTableName), eventID)
 	var item ActionAuditRecord
 	if err := row.Scan(
 		&item.EventID, &item.TS, &item.Service, &item.Env, &item.Host, &item.InstanceID,
 		&item.Level, &item.Message, &item.RequestID, &item.TraceID, &item.UserID, &item.IP,
-		&item.Method, &item.Path, &item.StatusCode, &item.ActionName, &item.TargetType,
+		&item.Method, &item.Path, &item.StatusCode, &item.ErrorCode, &item.ErrorMsg, &item.ActionName, &item.TargetType,
 		&item.TargetID, &item.Success, &item.RequestBody, &item.ResponseBody, &item.RequestBodyRaw, &item.ResponseBodyRaw, &item.RequestHeaderRaw, &item.ResponseHeaderRaw, &item.ExtraJSON,
 	); err != nil {
 		return nil, err
@@ -413,6 +444,9 @@ func normalizeLogPage(deps Deps, pageInfo common.PageInfo) (limit int, offset in
 func buildRuntimeWhere(query RuntimeLogQuery) (string, []any, error) {
 	where := []string{"WHERE 1 = 1"}
 	args := make([]any, 0)
+	if err := ensureFuzzyTimeRange(query.LogTimeRange, query.Key, query.Path, query.Module, query.ErrorMessage, query.EventName); err != nil {
+		return "", nil, err
+	}
 	if err := appendTimeRange(&where, &args, query.LogTimeRange); err != nil {
 		return "", nil, err
 	}
@@ -420,12 +454,18 @@ func buildRuntimeWhere(query RuntimeLogQuery) (string, []any, error) {
 	appendEqual(&where, &args, "level", query.Level)
 	appendEqual(&where, &args, "host", query.Host)
 	appendEqual(&where, &args, "method", query.Method)
+	appendExactOrPrefix(&where, &args, "request_id", query.RequestID, query.RequestIDPrefix)
+	appendExactOrPrefix(&where, &args, "trace_id", query.TraceID, query.TraceIDPrefix)
+	appendEqual(&where, &args, "error_code", query.ErrorCode)
+	appendLike(&where, &args, "error_message", query.ErrorMessage)
+	appendLike(&where, &args, "event_name", query.EventName)
 	appendLike(&where, &args, "path", query.Path)
+	appendModuleLike(&where, &args, query.Module)
 	if query.UserID > 0 {
 		where = append(where, "AND user_id = ?")
 		args = append(args, uint64(query.UserID))
 	}
-	appendKeyword(&where, &args, query.Key, "message", "path", "request_id")
+	appendKeyword(&where, &args, query.Key, "message", "path", "request_id", "trace_id", "error_message", "event_name")
 	return strings.Join(where, " "), args, nil
 }
 
@@ -433,6 +473,9 @@ func buildRuntimeWhere(query RuntimeLogQuery) (string, []any, error) {
 func buildLoginWhere(query LoginEventQuery) (string, []any, error) {
 	where := []string{"WHERE 1 = 1"}
 	args := make([]any, 0)
+	if err := ensureFuzzyTimeRange(query.LogTimeRange, query.Username, query.EventNameLike, query.ErrorMessage, query.Module); err != nil {
+		return "", nil, err
+	}
 	if err := appendTimeRange(&where, &args, query.LogTimeRange); err != nil {
 		return "", nil, err
 	}
@@ -444,6 +487,12 @@ func buildLoginWhere(query LoginEventQuery) (string, []any, error) {
 	appendLike(&where, &args, "username", query.Username)
 	appendEqual(&where, &args, "login_type", query.LoginType)
 	appendEqual(&where, &args, "event_name", query.EventName)
+	appendLike(&where, &args, "event_name", query.EventNameLike)
+	appendExactOrPrefix(&where, &args, "request_id", query.RequestID, query.RequestIDPrefix)
+	appendExactOrPrefix(&where, &args, "trace_id", query.TraceID, query.TraceIDPrefix)
+	appendEqual(&where, &args, "error_code", query.ErrorCode)
+	appendLike(&where, &args, "error_message", query.ErrorMessage)
+	appendModuleLike(&where, &args, query.Module)
 	if query.Success != nil {
 		where = append(where, "AND success = ?")
 		args = append(args, boolToUInt8(*query.Success))
@@ -455,6 +504,9 @@ func buildLoginWhere(query LoginEventQuery) (string, []any, error) {
 func buildActionWhere(query ActionAuditQuery) (string, []any, error) {
 	where := []string{"WHERE 1 = 1"}
 	args := make([]any, 0)
+	if err := ensureFuzzyTimeRange(query.LogTimeRange, query.TargetID, query.Path, query.EventNameLike, query.ErrorMessage, query.Module); err != nil {
+		return "", nil, err
+	}
 	if err := appendTimeRange(&where, &args, query.LogTimeRange); err != nil {
 		return "", nil, err
 	}
@@ -465,7 +517,14 @@ func buildActionWhere(query ActionAuditQuery) (string, []any, error) {
 	appendEqual(&where, &args, "ip", query.IP)
 	appendEqual(&where, &args, "action_name", query.ActionName)
 	appendEqual(&where, &args, "target_type", query.TargetType)
+	appendLike(&where, &args, "path", query.Path)
+	appendLike(&where, &args, "event_name", query.EventNameLike)
+	appendExactOrPrefix(&where, &args, "request_id", query.RequestID, query.RequestIDPrefix)
+	appendExactOrPrefix(&where, &args, "trace_id", query.TraceID, query.TraceIDPrefix)
+	appendEqual(&where, &args, "error_code", query.ErrorCode)
+	appendLike(&where, &args, "error_message", query.ErrorMessage)
 	appendLike(&where, &args, "target_id", query.TargetID)
+	appendModuleLike(&where, &args, query.Module)
 	if query.Success != nil {
 		where = append(where, "AND success = ?")
 		args = append(args, boolToUInt8(*query.Success))
@@ -518,6 +577,29 @@ func appendLike(where *[]string, args *[]any, column string, value string) {
 	*args = append(*args, value)
 }
 
+// appendExactOrPrefix 追加“精确匹配或前缀匹配”条件。
+func appendExactOrPrefix(where *[]string, args *[]any, column string, value string, prefix bool) {
+	if value == "" {
+		return
+	}
+	if prefix {
+		*where = append(*where, fmt.Sprintf("AND startsWith(%s, ?)", column))
+		*args = append(*args, value)
+		return
+	}
+	*where = append(*where, fmt.Sprintf("AND %s = ?", column))
+	*args = append(*args, value)
+}
+
+// appendModuleLike 兼容 module 未单列的场景，先匹配 service，再回退 extra_json。
+func appendModuleLike(where *[]string, args *[]any, value string) {
+	if value == "" {
+		return
+	}
+	*where = append(*where, "AND (positionCaseInsensitive(service, ?) > 0 OR positionCaseInsensitive(extra_json, ?) > 0)")
+	*args = append(*args, value, value)
+}
+
 // appendKeyword 将同一个关键词同时作用于多个列的模糊搜索。
 func appendKeyword(where *[]string, args *[]any, key string, columns ...string) {
 	if key == "" || len(columns) == 0 {
@@ -529,6 +611,38 @@ func appendKeyword(where *[]string, args *[]any, key string, columns ...string) 
 		*args = append(*args, key)
 	}
 	*where = append(*where, "AND ("+strings.Join(parts, " OR ")+")")
+}
+
+// ensureFuzzyTimeRange 对模糊搜索做重查询保护：必须显式时间范围，且范围不超过 7 天。
+func ensureFuzzyTimeRange(rng LogTimeRange, fuzzyValues ...string) error {
+	hasFuzzy := false
+	for _, value := range fuzzyValues {
+		if strings.TrimSpace(value) != "" {
+			hasFuzzy = true
+			break
+		}
+	}
+	if !hasFuzzy {
+		return nil
+	}
+	if strings.TrimSpace(rng.StartAt) == "" || strings.TrimSpace(rng.EndAt) == "" {
+		return fmt.Errorf("模糊搜索必须同时传 start_at 和 end_at")
+	}
+	startAt, err := parseLogTime(rng.StartAt)
+	if err != nil {
+		return err
+	}
+	endAt, err := parseLogTime(rng.EndAt)
+	if err != nil {
+		return err
+	}
+	if endAt.Before(startAt) {
+		return fmt.Errorf("end_at 不能早于 start_at")
+	}
+	if endAt.Sub(startAt) > 7*24*time.Hour {
+		return fmt.Errorf("模糊搜索时间范围不能超过 7 天")
+	}
+	return nil
 }
 
 // parseLogTime 解析后台日志查询使用的时间字符串。

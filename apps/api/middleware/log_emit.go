@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
 	"myblogx/service/log_service"
@@ -89,6 +90,11 @@ func EmitActionAuditFromGin(c *gin.Context, input GinAuditInput) {
 		Level:             input.Level,
 		Message:           input.Message,
 		RequestID:         requestmeta.GetRequestID(c),
+		TraceID:           requestmeta.GetTraceID(c),
+		SpanID:            requestmeta.GetSpanID(c),
+		ParentSpanID:      requestmeta.GetParentSpanID(c),
+		ErrorCode:         buildAuditErrorCode(statusCode, input.Success),
+		ErrorMessage:      buildAuditErrorMessage(c, input.Success),
 		UserID:            userID,
 		IP:                ip,
 		Method:            method,
@@ -114,18 +120,43 @@ func EmitLoginEventFromGin(c *gin.Context, eventName string, loginType enum.Logi
 	meta := requestmeta.BuildSessionMeta(c)
 
 	log_service.EmitLoginEvent(deps, log_service.LoginEventInput{
-		EventName: eventName,
-		Username:  username,
-		LoginType: loginType,
-		Success:   success,
-		Reason:    reason,
-		UserID:    userID,
-		IP:        meta.IP,
-		Addr:      meta.Addr,
-		UA:        meta.UA,
-		RequestID: requestmeta.GetRequestID(c),
-		Extra:     extra,
+		EventName:    eventName,
+		Username:     username,
+		LoginType:    loginType,
+		Success:      success,
+		Reason:       reason,
+		UserID:       userID,
+		IP:           meta.IP,
+		Addr:         meta.Addr,
+		UA:           meta.UA,
+		RequestID:    requestmeta.GetRequestID(c),
+		TraceID:      requestmeta.GetTraceID(c),
+		SpanID:       requestmeta.GetSpanID(c),
+		ParentSpanID: requestmeta.GetParentSpanID(c),
+		ErrorCode:    buildLoginErrorCode(success),
+		Extra:        extra,
 	})
+}
+
+func buildAuditErrorCode(statusCode int, success bool) string {
+	if success {
+		return ""
+	}
+	return fmt.Sprintf("HTTP_%d", statusCode)
+}
+
+func buildAuditErrorMessage(c *gin.Context, success bool) string {
+	if success || c == nil {
+		return ""
+	}
+	return c.Errors.String()
+}
+
+func buildLoginErrorCode(success bool) string {
+	if success {
+		return ""
+	}
+	return "AUTH_FAILED"
 }
 
 func logDepsFromContext(c *gin.Context) log_service.Deps {

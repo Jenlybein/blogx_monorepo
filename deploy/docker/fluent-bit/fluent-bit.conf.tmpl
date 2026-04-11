@@ -42,12 +42,34 @@
     Mem_Buf_Limit     10MB
     Read_from_Head    On
 
+[INPUT]
+    Name              tail
+    Path              /logs/cdc_event_logs/*/*.log
+    Tag               cdc_event_logs
+    Parser            json
+    DB                /fluent-bit/state/cdc_event_logs.db
+    Refresh_Interval  5
+    Skip_Long_Lines   On
+    Mem_Buf_Limit     10MB
+    Read_from_Head    On
+
+[INPUT]
+    Name              tail
+    Path              /logs/replay_event_logs/*/*.log
+    Tag               replay_event_logs
+    Parser            json
+    DB                /fluent-bit/state/replay_event_logs.db
+    Refresh_Interval  5
+    Skip_Long_Lines   On
+    Mem_Buf_Limit     10MB
+    Read_from_Head    On
+
 [OUTPUT]
     Name          http
     Match         runtime_logs
     Host          clickhouse
     Port          8123
-    URI           /?query=INSERT%20INTO%20__BLOGX_CLICKHOUSE_DB__.runtime_logs%20FORMAT%20JSONEachRow
+    URI           /?query=INSERT%20INTO%20__BLOGX_CLICKHOUSE_DB__.runtime_logs%20FORMAT%20JSONEachRow&input_format_skip_unknown_fields=1&input_format_allow_errors_num=1000&input_format_allow_errors_ratio=0.1&date_time_input_format=best_effort
     Format        json_lines
     Json_Date_Key false
     HTTP_User     __BLOGX_CLICKHOUSE_USERNAME__
@@ -58,7 +80,7 @@
     Match         login_event_logs
     Host          clickhouse
     Port          8123
-    URI           /?query=INSERT%20INTO%20__BLOGX_CLICKHOUSE_DB__.login_event_logs%20FORMAT%20JSONEachRow
+    URI           /?query=INSERT%20INTO%20__BLOGX_CLICKHOUSE_DB__.login_event_logs%20FORMAT%20JSONEachRow&input_format_skip_unknown_fields=1&input_format_allow_errors_num=1000&input_format_allow_errors_ratio=0.1&date_time_input_format=best_effort
     Format        json_lines
     Json_Date_Key false
     HTTP_User     __BLOGX_CLICKHOUSE_USERNAME__
@@ -69,7 +91,29 @@
     Match         action_audit_logs
     Host          clickhouse
     Port          8123
-    URI           /?query=INSERT%20INTO%20__BLOGX_CLICKHOUSE_DB__.action_audit_logs%20FORMAT%20JSONEachRow
+    URI           /?query=INSERT%20INTO%20__BLOGX_CLICKHOUSE_DB__.action_audit_logs%20FORMAT%20JSONEachRow&input_format_skip_unknown_fields=1&input_format_allow_errors_num=1000&input_format_allow_errors_ratio=0.1&date_time_input_format=best_effort
+    Format        json_lines
+    Json_Date_Key false
+    HTTP_User     __BLOGX_CLICKHOUSE_USERNAME__
+    HTTP_Passwd   __BLOGX_CLICKHOUSE_PASSWORD__
+
+[OUTPUT]
+    Name          http
+    Match         cdc_event_logs
+    Host          clickhouse
+    Port          8123
+    URI           /?query=INSERT%20INTO%20__BLOGX_CLICKHOUSE_DB__.cdc_event_logs%20FORMAT%20JSONEachRow&input_format_skip_unknown_fields=1&input_format_allow_errors_num=1000&input_format_allow_errors_ratio=0.1&date_time_input_format=best_effort
+    Format        json_lines
+    Json_Date_Key false
+    HTTP_User     __BLOGX_CLICKHOUSE_USERNAME__
+    HTTP_Passwd   __BLOGX_CLICKHOUSE_PASSWORD__
+
+[OUTPUT]
+    Name          http
+    Match         replay_event_logs
+    Host          clickhouse
+    Port          8123
+    URI           /?query=INSERT%20INTO%20__BLOGX_CLICKHOUSE_DB__.replay_event_logs%20FORMAT%20JSONEachRow&input_format_skip_unknown_fields=1&input_format_allow_errors_num=1000&input_format_allow_errors_ratio=0.1&date_time_input_format=best_effort
     Format        json_lines
     Json_Date_Key false
     HTTP_User     __BLOGX_CLICKHOUSE_USERNAME__

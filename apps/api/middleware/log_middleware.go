@@ -1,9 +1,16 @@
 package middleware
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"runtime/debug"
 	"strconv"
+	"strings"
 	"time"
 
+	"myblogx/conf"
 	"myblogx/service/db_service"
 	"myblogx/service/log_service"
 	"myblogx/utils/jwts"
@@ -20,51 +27,77 @@ func LogMiddleware(c *gin.Context) {
 
 // LogMiddleware 运行日志中间件
 func (h Runtime) LogMiddleware(c *gin.Context) {
-	// 生成全局唯一的请求ID，用于全链路日志追踪
-	requestID := newRequestID()
+	traceID, spanID, parentSpanID := resolveTraceContext(c, h.LogConfig)
+	requestID := resolveRequestID(h.LogConfig, traceID)
+
 	c.Set("_log_deps", h.Log)
 	c.Set("_authenticator", h.Authenticator)
 	c.Set("_jwt_config", h.JWT)
 	c.Set("_redis_deps", h.Redis)
-	// 将请求ID存入 Gin 上下文，方便后续日志/业务使用
+
 	requestmeta.SetRequestID(c, requestID)
-	// 将请求ID写入响应头，前端/网关可用于问题排查
+	requestmeta.SetTraceContext(c, traceID, spanID, parentSpanID)
+
 	c.Writer.Header().Set("X-Request-Id", requestID)
+	if traceID != "" {
+		c.Writer.Header().Set("X-Trace-Id", traceID)
+	}
 
-	// 记录请求开始时间，用于计算接口耗时
 	start := time.Now()
-
-	// 执行后续中间件/接口处理逻辑
 	c.Next()
 
-	// 记录请求结束时间，用于计算接口耗时
 	if !h.LogConfig.RequestLogEnabled {
 		return
 	}
 
-	fields := logrus.Fields{
-		"request_id":  requestID,                        // 请求唯一ID
-		"event_name":  "http_request",                   // 事件类型标识
-		"method":      c.Request.Method,                 // HTTP 请求方法
-		"path":        c.FullPath(),                     // Gin 路由定义路径
-		"status_code": c.Writer.Status(),                // HTTP 响应状态码
-		"latency_ms":  time.Since(start).Milliseconds(), // 请求耗时（毫秒）
-		"ip":          c.ClientIP(),                     // 客户端真实IP
-	}
-	// 兼容处理：路由路径为空时，使用原始请求URL路径
-	if rawPath := c.Request.URL.Path; rawPath != "" && fields["path"] == "" {
-		fields["path"] = rawPath
+	method := ""
+	rawPath := ""
+	if c.Request != nil {
+		method = c.Request.Method
+		if c.Request.URL != nil {
+			rawPath = c.Request.URL.Path
+		}
 	}
 
-	// 尝试解析 JWT Token，存在则记录操作用户ID
+	fields := logrus.Fields{
+		"request_id":  requestID,
+		"event_name":  "http_request",
+		"method":      method,
+		"path":        c.FullPath(),
+		"status_code": c.Writer.Status(),
+		"latency_ms":  time.Since(start).Milliseconds(),
+		"ip":          c.ClientIP(),
+	}
+	if rawPath != "" && fields["path"] == "" {
+		fields["path"] = rawPath
+	}
+	if traceID != "" {
+		fields["trace_id"] = traceID
+		fields["span_id"] = spanID
+		fields["parent_span_id"] = parentSpanID
+	}
+
 	if claims, err := jwts.ParseToken(h.JWT, jwts.GetTokenByGin(c)); err == nil {
 		fields["user_id"] = uint64(claims.UserID)
 	}
 
-	// 获取运行时日志实例并绑定字段
 	entry := log_service.RuntimeEntry(h.Log, fields)
 	switch {
 	case c.Writer.Status() >= 500:
+		fields["error_code"] = fmt.Sprintf("HTTP_%d", c.Writer.Status())
+		errMsg := strings.TrimSpace(c.Errors.String())
+		if errMsg == "" {
+			errMsg = fmt.Sprintf("http_status_%d", c.Writer.Status())
+		}
+		fields["error_message"] = errMsg
+		if log_service.ShouldCaptureStack(h.LogConfig, "error") {
+			stack, truncated := log_service.TruncateByBytes(string(debug.Stack()), log_service.StackMaxBytes(h.LogConfig))
+			fields["error_stack"] = stack
+			if truncated {
+				fields["error_stack_truncated"] = true
+			}
+		}
+		entry = log_service.RuntimeEntry(h.Log, fields)
 		entry.Error("请求执行失败")
 	case c.Writer.Status() >= 400:
 		entry.Warn("请求执行完成")
@@ -75,10 +108,98 @@ func (h Runtime) LogMiddleware(c *gin.Context) {
 
 // newRequestID 生成唯一请求ID
 func newRequestID() string {
-	// 尝试从雪花算法生成唯一ID
 	if id, err := db_service.NextSnowflakeID(); err == nil {
 		return strconv.FormatUint(uint64(id), 10)
 	}
-	// 降级方案：使用当前时间纳秒值作为请求ID
 	return strconv.FormatInt(time.Now().UnixNano(), 10)
+}
+
+func resolveRequestID(cfg conf.Logrus, traceID string) string {
+	if traceID != "" && log_service.RequestIDEqualsTraceID(cfg) {
+		return traceID
+	}
+	return newRequestID()
+}
+
+func resolveTraceContext(c *gin.Context, cfg conf.Logrus) (traceID, spanID, parentSpanID string) {
+	if !log_service.TraceEnabled(cfg) {
+		return "", "", ""
+	}
+
+	if log_service.InheritTraceFromGateway(cfg) && c != nil && c.Request != nil {
+		for _, header := range log_service.GatewayHeaderPriority(cfg) {
+			value := strings.TrimSpace(c.GetHeader(header))
+			if value == "" {
+				continue
+			}
+			if strings.EqualFold(header, "traceparent") {
+				if tid, parent, ok := parseTraceparent(value); ok {
+					traceID = tid
+					parentSpanID = parent
+					break
+				}
+				continue
+			}
+			if tid := normalizeExternalTraceID(value); tid != "" {
+				traceID = tid
+				break
+			}
+		}
+	}
+
+	if traceID == "" {
+		traceID = newRandomHex(16)
+	}
+	spanID = newRandomHex(8)
+	return traceID, spanID, parentSpanID
+}
+
+func parseTraceparent(value string) (traceID, parentSpanID string, ok bool) {
+	parts := strings.Split(strings.TrimSpace(value), "-")
+	if len(parts) != 4 {
+		return "", "", false
+	}
+	if !isHex(parts[1], 32) || !isHex(parts[2], 16) {
+		return "", "", false
+	}
+	return strings.ToLower(parts[1]), strings.ToLower(parts[2]), true
+}
+
+func normalizeExternalTraceID(raw string) string {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	if value == "" {
+		return ""
+	}
+	value = strings.ReplaceAll(value, "-", "")
+	if isHex(value, 32) {
+		return value
+	}
+	if isHex(value, 16) {
+		return strings.Repeat("0", 16) + value
+	}
+	sum := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(sum[:16])
+}
+
+func newRandomHex(size int) string {
+	if size <= 0 {
+		return ""
+	}
+	buffer := make([]byte, size)
+	if _, err := rand.Read(buffer); err != nil {
+		return strconv.FormatInt(time.Now().UnixNano(), 16)
+	}
+	return hex.EncodeToString(buffer)
+}
+
+func isHex(value string, size int) bool {
+	if len(value) != size {
+		return false
+	}
+	for _, ch := range value {
+		if (ch < '0' || ch > '9') && (ch < 'a' || ch > 'f') {
+			return false
+		}
+	}
+	return true
 }

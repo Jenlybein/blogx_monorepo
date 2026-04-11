@@ -45,6 +45,26 @@ log:
   query_default_limit: ${BLOGX_LOG_QUERY_DEFAULT_LIMIT}
   # 后台日志查询接口允许的最大分页条数
   query_max_limit: ${BLOGX_LOG_QUERY_MAX_LIMIT}
+  # 错误日志扩展配置
+  error:
+    # 总开关：false 时任何级别都不记录 error.stack
+    capture_stack: true
+    # 最低记录级别：仅当 level >= 该级别时允许写 error.stack
+    capture_min_level: error
+    # error.stack 最大字节数，超长将截断
+    stack_max_bytes: 8192
+    # error.cause_chain 最大展开层数
+    cause_chain_depth: 5
+  # trace 链路配置
+  trace:
+    # 是否启用 trace_id/span_id/parent_span_id
+    enabled: true
+    # 是否让 request_id 默认等于最终 trace_id
+    request_id_equals_trace_id: true
+    # 是否优先继承网关透传 trace
+    inherit_from_gateway: true
+    # 网关头读取优先级（支持 > 或 , 分隔）
+    gateway_header_priority: traceparent>x-request-id
 
 # 数据库配置。
 # 约定：
@@ -218,6 +238,12 @@ river:
   bulk_size: 128
   # 批量刷新 ES 的时间间隔，单位：毫秒
   flush_bulk_time: 200
+  # 固定间隔重试配置
+  retry:
+    # 最大尝试次数（包含首次）
+    max_attempts: 2
+    # 固定重试间隔（毫秒）
+    delay_ms: 200
 
 # 图片引用关系同步配置。
 # 该模块会监听指定库中与图片引用相关的数据变更，用来维护图片引用关系。
@@ -243,6 +269,17 @@ image_ref_river:
   mysqldump: "mysqldump"
   # 是否跳过 mysqldump 的 master-data 信息
   skip_master_data: true
+  # 固定间隔重试配置
+  retry:
+    # 最大尝试次数（包含首次）
+    max_attempts: 2
+    # 固定重试间隔（毫秒）
+    delay_ms: 200
+
+# DLQ 回放配置
+replay:
+  # 单批回放条数
+  batch_size: 100
 
 # 上传相关的通用配置。
 # 当前代码里实际生效的主要是图片格式白名单；size 和 upload_dir 更偏向预留/兼容字段。

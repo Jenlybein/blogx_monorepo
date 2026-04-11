@@ -103,6 +103,10 @@ var (
 	loginEventSinkValue *jsonLineSink
 	actionAuditSinkOnce sync.Once
 	actionAuditSinkVal  *jsonLineSink
+	cdcEventSinkOnce    sync.Once
+	cdcEventSinkVal     *jsonLineSink
+	replayEventSinkOnce sync.Once
+	replayEventSinkVal  *jsonLineSink
 )
 
 // EnsureDailyLogFiles 提前创建当天日志文件，避免采集器在无文件时持续告警。
@@ -115,6 +119,12 @@ func EnsureDailyLogFiles(deps Deps) error {
 	}
 	// 初始化操作审计日志文件
 	if _, err := actionAuditSink().ensureFile(deps, now); err != nil {
+		return err
+	}
+	if _, err := cdcEventSink().ensureFile(deps, now); err != nil {
+		return err
+	}
+	if _, err := replayEventSink().ensureFile(deps, now); err != nil {
 		return err
 	}
 	return nil
@@ -136,6 +146,20 @@ func actionAuditSink() *jsonLineSink {
 		actionAuditSinkVal = newJSONLineSink(ActionAuditLogDirName, "")
 	})
 	return actionAuditSinkVal
+}
+
+func cdcEventSink() *jsonLineSink {
+	cdcEventSinkOnce.Do(func() {
+		cdcEventSinkVal = newJSONLineSink(CdcEventLogDirName, "")
+	})
+	return cdcEventSinkVal
+}
+
+func replayEventSink() *jsonLineSink {
+	replayEventSinkOnce.Do(func() {
+		replayEventSinkVal = newJSONLineSink(ReplayEventLogDirName, "")
+	})
+	return replayEventSinkVal
 }
 
 // newJSONLineSink 创建一个面向指定日志目录的 JSON 行写入器。

@@ -36,6 +36,7 @@ func FlagDB(db *gorm.DB, logger *logrus.Logger) {
 		&models.ChatSessionModel{},
 		&models.ChatMsgModel{},
 		&models.ChatMsgUserStateModel{},
+		&models.CdcDeadLetterModel{},
 	)
 	if err != nil {
 		if logger != nil {

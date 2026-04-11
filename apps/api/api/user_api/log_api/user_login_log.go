@@ -24,6 +24,10 @@ type UserLoginListRequest struct {
 func (h LogApi) UserLoginLogList(c *gin.Context) {
 	cr := middleware.GetBindQuery[UserLoginListRequest](c)
 	claims := jwts.MustGetClaimsByGin(c)
+	if claims.Role != enum.RoleAdmin {
+		res.FailWithMsg("普通角色不可访问日志接口", c)
+		return
+	}
 
 	if cr.Type == 1 {
 		if cr.UserID == 0 {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"myblogx/conf"
+	"myblogx/service/log_service"
 	"myblogx/service/river_service/rule"
 	"regexp"
 	"strings"
@@ -23,11 +24,12 @@ var ErrRuleNotExist = errors.New("规则不存在")
 type River struct {
 	canal *canal.Canal // MySQL的canal实例
 
-	rules map[string]*rule.Rule // 规则映射
-	cfg   conf.River
-	log   *logrus.Logger
-	db    *gorm.DB
-	es    *elasticsearch.Client
+	rules   map[string]*rule.Rule // 规则映射
+	cfg     conf.River
+	log     *logrus.Logger
+	logDeps log_service.Deps
+	db      *gorm.DB
+	es      *elasticsearch.Client
 
 	ctx    context.Context    // 上下文
 	cancel context.CancelFunc // 取消函数
@@ -37,6 +39,10 @@ type River struct {
 	master *masterInfo // 主库信息
 
 	syncCh chan interface{} // 同步通道
+}
+
+func (r *River) SetLogDeps(deps log_service.Deps) {
+	r.logDeps = deps
 }
 
 // NewRiver 根据配置创建 River 实例

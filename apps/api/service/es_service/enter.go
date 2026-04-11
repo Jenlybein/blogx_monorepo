@@ -345,6 +345,9 @@ func Bulk(client *elasticsearch.Client, items []*BulkRequest) ESResponse {
 	}
 
 	result, _ := decodeResponse(res.Body)
+	if errorsValue, ok := result["errors"].(bool); ok && errorsValue {
+		return ESResponse{Success: false, Msg: "bulk 响应包含失败项（errors=true）", Data: result}
+	}
 	return ESResponse{Success: true, Msg: "批量操作成功", Data: result}
 }
 

@@ -9,7 +9,8 @@ type ImageRefRiver struct {
 
 	Mysql RiverMysql `yaml:"mysql"`
 
-	Charset        string `yaml:"charset"`
-	DumpExec       string `yaml:"mysqldump"`
-	SkipMasterData bool   `yaml:"skip_master_data"`
+	Charset        string      `yaml:"charset"`
+	DumpExec       string      `yaml:"mysqldump"`
+	SkipMasterData bool        `yaml:"skip_master_data"`
+	Retry          RetryPolicy `yaml:"retry"`
 }

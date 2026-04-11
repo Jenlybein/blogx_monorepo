@@ -41,12 +41,12 @@
 1. 单条日志可读，跨模块可串，跨系统可检索。
 2. API、Worker、River、回放共用一套字段标准。
 3. 错误可聚合（按 `error_code`），链路可定位（trace/span/cdc_job_id）。
-4. 不破坏现有日志查询接口能力。
+4. 提供统一查询入口能力（`request_id/trace_id/cdc_job_id/error_code`）。
 
 ### 3.2 非目标
 
 1. 不在一期强制引入完整 OpenTelemetry 平台。
-2. 不在一期改造所有历史日志回填。
+2. 不做历史日志迁移与回填（按“清库重建”实施）。
 3. 不引入 Outbox 作为主日志机制。
 
 ## 4. 目标架构
@@ -157,11 +157,11 @@ flowchart LR
 
 ### 7.1 ClickHouse 表策略
 
-保持兼容、渐进演进：
+按“清库重建”一次性落地：
 
-1. 现有三表继续保留：`runtime_logs`、`login_event_logs`、`action_audit_logs`。
-2. 新增两表：`cdc_event_logs`、`replay_event_logs`（或先落 `runtime_logs` + `event_name` 兼容过渡）。
-3. 新增 `cdc_dead_letter`（MySQL）用于可回放状态管理，不直接替代日志表。
+1. 一次性创建 5 张日志表：`runtime_logs`、`login_event_logs`、`action_audit_logs`、`cdc_event_logs`、`replay_event_logs`。
+2. 5 张日志表统一遵循“核心 12 列 + `extra_json`”约束，不保留兼容过渡结构。
+3. 新增 `cdc_dead_letter`（MySQL）用于可回放状态管理，不替代日志表。
 
 ### 7.2 查询能力
 
@@ -238,55 +238,117 @@ flowchart LR
 ## 11. 风险与决策点
 
 1. `trace_id` 采用“继承优先”策略：优先使用网关透传值；网关未透传时由服务本地生成。`request_id` 默认等于最终 `trace_id`（展示别名）。
-2. `error.stack` 全量记录会增大日志体积，生产建议按错误级别与采样开关控制。
+2. `error.stack` 全量记录会增大日志体积，生产按“总开关 + 最低级别 + 最大长度”三道闸门控制。
 3. 如果后续 River 拆成独立项目，必须保留同一字段规范和 `cdc_job_id` 规则，否则链路会断。
 
-## 12. 分阶段实施（全系统）
+## 12. 分阶段实施（全系统，完整覆盖）
 
-### 阶段 L1：字段规范落地（先统一口径）
+### 阶段 L0：基线冻结与实施准备
 
-1. 在 log_service 增加通用字段组装器（含 trace/span/error）。
-2. API runtime/login/audit 接入统一字段。
-3. River/回放日志接入 `cdc_job_id + stream + result`。
-4. 加入 `error.stack` 三道闸门：`capture_stack`、`capture_min_level`、`stack_max_bytes`。
-5. 接入 `error.cause_chain_depth`，保证 `error.cause_chain` 可控展开。
-
-DoD：
-
-1. 任意一类日志都能查到核心 12 字段中的关键列（至少 `event_id/trace_id/service/event_name`）。
-2. 请求链路可用 `request_id（trace_id 别名）` 串起来。
-3. `warn/info` 默认不写 `error.stack`；`error` 级别写栈且 obey `stack_max_bytes`。
-4. 网关透传 `traceparent` 或 `x-request-id` 时，`trace_id` 采用继承值；无透传时本地生成。
-5. `error.cause_chain` 输出层数 obey `cause_chain_depth`。
-
-### 阶段 L2：River 可靠性与死信闭环
-
-1. 修复 ES bulk `errors=true` 语义。
-2. 双 River 都实现“固定间隔重试：`max_attempts=2`、`delay_ms=200`，仍失败入 DLQ”。
-3. 增加 `cdc_dead_letter` repository/service。
+1. 冻结日志字段字典（核心 12 列 + `extra_json` + CDC 扩展字段）。
+2. 冻结事件命名规范（`<domain>_<action>_<result>`）与 `cdc_job_id` 生成规则。
+3. 冻结第一批 13 项配置的默认值、取值范围、热更新策略。
+4. 输出端到端验收清单（字段完整性、链路贯通、重试与 DLQ、回放、权限、脱敏、告警）。
 
 DoD：
 
-1. 注入故障后，第二次失败能稳定写入 `cdc_dead_letter`。
-2. 日志有 `error_code/error_message/result=dlq`。
-3. 双 River 重试行为与配置一致（不出现指数退避）。
+1. 字段字典、事件命名、配置字典、验收清单四份文档评审通过。
+2. 所有实现与测试任务都可映射到验收清单条目。
+3. 冻结文档落盘：
+   - `docs/api/tasks/log-field-dictionary-v1.md`
+   - `docs/api/tasks/log-event-naming-v1.md`
+   - `docs/api/tasks/log-config-dictionary-v1.md`
+   - `docs/api/tasks/log-e2e-acceptance-checklist-v1.md`
 
-### 阶段 L3：回放与告警
+### 阶段 L1：存储与采集层落地（清库重建）
 
-1. 增加 replay worker（按 stream 分流），并按 `replay.batch_size` 分批回放。
-2. 告警规则：`cdc_dlq_pending_count`、连续失败、回放失败率。
+1. 清库后一次性创建 5 张日志表：`runtime_logs`、`login_event_logs`、`action_audit_logs`、`cdc_event_logs`、`replay_event_logs`。
+2. 建立 `cdc_dead_letter`（MySQL）及必要索引（`stream`、`status`、`cdc_job_id`、`created_at`）。
+3. Fluent Bit 增加 CDC/回放采集路由，确保核心列与 `extra_json` 原样入库。
+4. 完成采集健壮性校验（字段缺失、JSON 非法、时间格式异常的处理策略）。
 
 DoD：
 
-1. 可以从死信到回放形成闭环。
-2. 看板可见每条 stream 的积压与恢复时间。
-3. 调整 `replay.batch_size` 后回放吞吐和失败率可观测、可回归。
+1. 五类日志都可稳定入库，且字段映射与字典一致。
+2. `cdc_dead_letter` 可写、可查、可按 `stream/status/cdc_job_id` 精准检索。
+3. 采集异常不会导致整批日志丢失，并有明确错误日志。
 
-### 阶段 L4：查询与权限
+### 阶段 L2：应用写入链路统一（字段、命名、trace、error、配置）
 
-1. 查询 API 支持 `trace_id/cdc_job_id/error_code`。
-2. 对 `extra_json` 中的 `error.stack`、审计原文做权限隔离。
+1. 在 `log_service` 实现统一日志构建器，覆盖 API、Worker、River、回放写入路径。
+2. 全链路写入核心 12 列，扩展字段统一写入 `extra_json`，事件名按统一规则产出。
+3. 落地 trace 继承优先策略：按 `traceparent > x-request-id` 读取网关头，未命中则本地生成。
+4. `request_id` 作为最终 `trace_id` 展示别名，统一对外返回逻辑。
+5. 落地 `error.stack` 三道闸门与 `log.error.cause_chain_depth` 控制。
+6. 第一批 13 项配置全部接入运行时读取与生效。
+
+DoD：
+
+1. 任意日志都能查到 `event_id/trace_id/service/event_name`。
+2. 网关透传存在时 `trace_id` 继承；不存在时本地生成。
+3. `warn/info` 不写 `error.stack`，`error` 场景受 `stack_max_bytes` 限制。
+4. `error.cause_chain` 输出层数受 `cause_chain_depth` 控制。
+5. 第一批 13 项配置都可通过配置文件生效并可观测验证。
+
+### 阶段 L3：双 River 主链路可靠性与死信闭环
+
+1. 修复 ES bulk `errors=true` 判定语义，保证部分失败可识别。
+2. `river_service` 与 `image_ref_river_service` 落地固定间隔重试（`max_attempts=2`、`delay_ms=200`）。
+3. 第二次失败统一写入 `cdc_dead_letter`，并记录 `result=dlq` 日志。
+4. 补齐 `cdc_job_id/stream/source_table/target_key/retry_count/result` 写入。
+5. 保证同一 `cdc_job_id` 在执行日志与死信记录中可关联追踪。
+
+DoD：
+
+1. 故障注入后，双 River 都按“失败后重试一次，再失败入 DLQ”执行。
+2. `cdc_dead_letter` 与日志中的 `cdc_job_id` 一一对应。
+3. 不出现指数退避行为（全部固定间隔）。
+
+### 阶段 L4：回放、告警与看板
+
+1. 增加 replay worker（按 `stream` 分流）并接入 `replay.batch_size`。
+2. 回放结果写入 `replay_event_logs`，并回写 `cdc_dead_letter.status`。
+3. 建立告警规则：`cdc_dlq_pending_count`、连续失败、回放失败率、回放耗时。
+4. 建立最小可用看板：积压、吞吐、成功率、恢复时间（按 `stream` 下钻）。
+
+DoD：
+
+1. 完成“死信入库 -> 回放执行 -> 状态闭环”全流程。
+2. 修改 `replay.batch_size` 后吞吐变化可观测且可回归验证。
+3. 告警可在故障场景 5 分钟内触发并附带链路定位信息。
+
+### 阶段 L5：查询、权限与脱敏合规
+
+1. 查询 API 支持 `request_id/trace_id/cdc_job_id/error_code` 四入口检索。
+2. 完成权限隔离：普通角色默认不可见 `error.stack`、审计原文敏感字段。
+3. 落地脱敏规则：`Authorization/Cookie/token/password` 默认脱敏。
+4. 落地保留策略：热数据 30-90 天，冷归档按需导出。
+5. 验证 `error.cause_chain`、`request_body`、`response_body` 的对外可见性边界。
 
 DoD：
 
 1. 管理台可完成“一键追链路”（API -> River -> 回放）。
+2. 越权用户无法读取受限字段（含 `error.stack` 与敏感 body）。
+3. 脱敏字段抽样检查通过率 100%。
+
+### 阶段 L6：运维交付与持续治理
+
+1. 交付运行手册：常见故障、排障路径、回放操作、应急处置流程。
+2. 建立变更门禁：新增日志字段必须同步更新字段字典与查询文档。
+3. 建立定期巡检：字段完整率、trace 贯通率、DLQ 清理率、回放成功率。
+4. 输出 River 独立部署约束：字段规范、`cdc_job_id` 规则、配置项、日志协议保持一致。
+
+DoD：
+
+1. 新成员可按手册独立完成一次“故障 -> 回放 -> 验证”演练。
+2. 门禁上线后，日志字段变更无“文档缺失”发布。
+3. 连续两周巡检指标达标（字段完整率、贯通率、DLQ 清理率、回放成功率）。
+4. River 拆分到独立项目后仍可保持同链路可观测性。
+
+### 总体验收（Full DoD）
+
+1. 五类日志全量入库并可检索（runtime/login/audit/cdc/replay）。
+2. 核心 12 列与 CDC 关键字段在生产链路稳定输出。
+3. `trace_id` 继承优先策略全链路生效，`request_id` 展示别名一致。
+4. 双 River 固定重试（2 次尝试、200ms 间隔）与 DLQ 闭环生效。
+5. 回放、告警、看板、权限、脱敏、保留策略全部上线并通过验收。

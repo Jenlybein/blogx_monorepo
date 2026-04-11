@@ -82,6 +82,7 @@ func New(deps Deps) Api {
 			ClickHouseConfig: deps.ClickHouseConfig,
 			Logger:           deps.Logger,
 			ClickHouse:       deps.ClickHouse,
+			DB:               deps.DB,
 		}),
 		ImageApi: image_api.New(image_api.Deps{
 			DB:     deps.DB,

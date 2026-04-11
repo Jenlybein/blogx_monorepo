@@ -2,6 +2,7 @@ package core
 
 import (
 	"myblogx/conf"
+	"myblogx/service/log_service"
 	"myblogx/service/river_service"
 
 	"github.com/elastic/go-elasticsearch/v7"
@@ -10,10 +11,13 @@ import (
 )
 
 type MySQLESDeps struct {
-	RiverConfig conf.River
-	Logger      *logrus.Logger
-	DB          *gorm.DB
-	ESClient    *elasticsearch.Client
+	RiverConfig       conf.River
+	LogConfig         conf.Logrus
+	System            conf.System
+	ClickHouseEnabled bool
+	Logger            *logrus.Logger
+	DB                *gorm.DB
+	ESClient          *elasticsearch.Client
 }
 
 func InitMySQLES(deps MySQLESDeps) {
@@ -26,6 +30,7 @@ func InitMySQLES(deps MySQLESDeps) {
 	if err != nil {
 		deps.Logger.Fatal(err)
 	}
+	r.SetLogDeps(log_service.NewDeps(deps.LogConfig, deps.System, deps.ClickHouseEnabled, deps.Logger, nil))
 
 	go r.Run()
 }

@@ -23,4 +23,12 @@ func LogRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtime) {
 
 	group.GET("action", mw.BindQuery[log_api.ActionAuditListRequest], app.ActionAuditListView)
 	group.GET("action/:id", mw.BindUri[models.IDRequest], app.ActionAuditDetailView)
+
+	group.GET("cdc", mw.BindQuery[log_api.CdcEventListRequest], app.CdcEventListView)
+	group.GET("cdc/:id", mw.BindUri[models.IDRequest], app.CdcEventDetailView)
+
+	group.GET("replay", mw.BindQuery[log_api.ReplayEventListRequest], app.ReplayEventListView)
+	group.GET("replay/:id", mw.BindUri[models.IDRequest], app.ReplayEventDetailView)
+
+	group.GET("chain", mw.BindQuery[log_api.ChainQueryRequest], app.ChainQueryView)
 }

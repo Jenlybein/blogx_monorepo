@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"myblogx/service/cron_service"
 	"myblogx/service/image_ref_river_service"
+	"myblogx/service/log_service"
 	"myblogx/service/river_service"
 )
 
@@ -22,6 +23,7 @@ func WireRiver(infra *Infra) error {
 	if err != nil {
 		return fmt.Errorf("创建 River 失败: %w", err)
 	}
+	r.SetLogDeps(log_service.NewDeps(infra.Config.Log, infra.Config.System, infra.Config.ClickHouse.Enabled, infra.Logger, infra.ClickHouse))
 
 	go func() {
 		if runErr := r.Run(); runErr != nil && infra.Logger != nil {
@@ -46,6 +48,7 @@ func WireImageRef(infra *Infra) error {
 	if err != nil {
 		return fmt.Errorf("创建 ImageRef River 失败: %w", err)
 	}
+	r.SetLogDeps(log_service.NewDeps(infra.Config.Log, infra.Config.System, infra.Config.ClickHouse.Enabled, infra.Logger, infra.ClickHouse))
 
 	go func() {
 		if runErr := r.Run(); runErr != nil && infra.Logger != nil {

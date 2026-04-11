@@ -1,11 +1,15 @@
 package image_ref_river_service
 
 import (
+	"fmt"
 	"strings"
+	"time"
 
 	"myblogx/conf"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/image_ref_enum"
+	"myblogx/service/cdc_dead_letter_service"
+	"myblogx/service/log_service"
 
 	"github.com/go-mysql-org/go-mysql/canal"
 	"github.com/go-mysql-org/go-mysql/mysql"
@@ -17,11 +21,12 @@ import (
 // River 基于 MySQL Binlog 的图片引用关系监听服务
 // 作用：监听文章/用户/横幅/收藏表的数据变化，自动维护图片引用关系
 type River struct {
-	canal *canal.Canal
-	cfg   conf.ImageRefRiver
-	qiNiu conf.QiNiu
-	log   *logrus.Logger
-	db    *gorm.DB
+	canal   *canal.Canal
+	cfg     conf.ImageRefRiver
+	qiNiu   conf.QiNiu
+	log     *logrus.Logger
+	logDeps log_service.Deps
+	db      *gorm.DB
 }
 
 // NewRiver 初始化图片引用关系监听服务
@@ -39,6 +44,10 @@ func NewRiver(config conf.ImageRefRiver, qiNiuConfig conf.QiNiu, logger *logrus.
 	// 设置 binlog 事件处理器
 	r.canal.SetEventHandler(&eventHandler{river: r})
 	return r, nil
+}
+
+func (r *River) SetLogDeps(deps log_service.Deps) {
+	r.logDeps = deps
 }
 
 // newCanal 配置并创建 MySQL Binlog 监听客户端
@@ -84,6 +93,14 @@ func (r *River) Run() error {
 // eventHandler 实现 canal.EventHandler 接口，处理数据库行事件
 type eventHandler struct{ river *River }
 
+type imageRefTask struct {
+	CdcJobID    string
+	Stream      string
+	SourceTable string
+	Action      string
+	TargetKey   string
+}
+
 // OnRow 处理数据表行变化（增/删/改）
 func (h *eventHandler) OnRow(e *canal.RowsEvent) error {
 	// 根据表名获取对应的引用类型和重建函数
@@ -104,15 +121,29 @@ func (h *eventHandler) OnRow(e *canal.RowsEvent) error {
 	switch e.Action {
 	case canal.DeleteAction:
 		// 删除操作：删除该业务对象关联的所有图片引用
-		for _, ownerID := range extractRowIDs(e) {
-			if err := DeleteOwnerRefs(h.river.db, refType, ownerID); err != nil {
+		for index, ownerID := range extractRowIDs(e) {
+			task := newImageRefTask(h.river, e, index, fmt.Sprintf("owner_id=%d", ownerID))
+			if err := h.river.runTaskWithRetry(task, map[string]any{
+				"owner_id": ownerID,
+				"ref_type": refType.String(),
+			}, func() error {
+				return DeleteOwnerRefs(h.river.db, refType, ownerID)
+			}); err != nil {
 				return err
 			}
 		}
 	case canal.InsertAction:
 		// 新增操作：重建该条数据的图片引用关系
-		for _, row := range e.Rows {
-			if err := rebuildByRow(h.river.db, h.river.qiNiu, newRowSnapshot(layout, row)); err != nil {
+		for index, row := range e.Rows {
+			rowSnapshot := newRowSnapshot(layout, row)
+			targetKey := fmt.Sprintf("owner_id=%s", snapshotIDString(rowSnapshot))
+			task := newImageRefTask(h.river, e, index, targetKey)
+			if err := h.river.runTaskWithRetry(task, map[string]any{
+				"table": e.Table.Name,
+				"row":   row,
+			}, func() error {
+				return rebuildByRow(h.river.db, h.river.qiNiu, rowSnapshot)
+			}); err != nil {
 				return err
 			}
 		}
@@ -124,7 +155,16 @@ func (h *eventHandler) OnRow(e *canal.RowsEvent) error {
 			if !shouldRebuildOnUpdate(e.Table.Name, before, after) {
 				continue
 			}
-			if err := rebuildByRow(h.river.db, h.river.qiNiu, after); err != nil {
+			rowIndex := i / 2
+			targetKey := fmt.Sprintf("owner_id=%s", snapshotIDString(after))
+			task := newImageRefTask(h.river, e, rowIndex, targetKey)
+			if err := h.river.runTaskWithRetry(task, map[string]any{
+				"table":  e.Table.Name,
+				"before": e.Rows[i-1],
+				"after":  e.Rows[i],
+			}, func() error {
+				return rebuildByRow(h.river.db, h.river.qiNiu, after)
+			}); err != nil {
 				return err
 			}
 		}
@@ -238,4 +278,111 @@ func rowValueToID(value any) (ctype.ID, bool) {
 		return 0, false
 	}
 	return id, true
+}
+
+func buildImageRefCDCJobID(e *canal.RowsEvent, pos mysql.Position, rowIndex int) string {
+	return fmt.Sprintf("%s:%s.%s:%s:%d:%d", "image_ref_river", e.Table.Schema, e.Table.Name, pos.Name, pos.Pos, rowIndex)
+}
+
+func newImageRefTask(river *River, e *canal.RowsEvent, rowIndex int, targetKey string) imageRefTask {
+	pos := mysql.Position{}
+	if river != nil && river.canal != nil {
+		pos = river.canal.SyncedPosition()
+	}
+	if e != nil && e.Header != nil && e.Header.LogPos > 0 {
+		pos.Pos = uint32(e.Header.LogPos)
+	}
+	return imageRefTask{
+		CdcJobID:    buildImageRefCDCJobID(e, pos, rowIndex),
+		Stream:      "image_ref_river",
+		SourceTable: e.Table.Schema + "." + e.Table.Name,
+		Action:      e.Action,
+		TargetKey:   targetKey,
+	}
+}
+
+func snapshotIDString(snapshot rowSnapshot) string {
+	id, err := snapshot.ID()
+	if err != nil {
+		return "0"
+	}
+	return fmt.Sprintf("%d", id)
+}
+
+func (r *River) runTaskWithRetry(task imageRefTask, payload map[string]any, runner func() error) error {
+	maxAttempts := r.cfg.Retry.MaxAttempts
+	if maxAttempts <= 0 {
+		maxAttempts = 2
+	}
+	delay := time.Duration(r.cfg.Retry.DelayMS) * time.Millisecond
+	if delay <= 0 {
+		delay = 200 * time.Millisecond
+	}
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		lastErr = runner()
+		if lastErr == nil {
+			log_service.EmitCDCEvent(r.logDeps, log_service.CdcEventInput{
+				Level:       "info",
+				Message:     "image_ref_river 同步成功",
+				CdcJobID:    task.CdcJobID,
+				Stream:      task.Stream,
+				SourceTable: task.SourceTable,
+				Action:      task.Action,
+				TargetKey:   task.TargetKey,
+				RetryCount:  attempt - 1,
+				Result:      "success",
+			})
+			return nil
+		}
+		if attempt >= maxAttempts {
+			break
+		}
+		log_service.EmitCDCEvent(r.logDeps, log_service.CdcEventInput{
+			Level:        "warn",
+			Message:      "image_ref_river 同步失败，准备重试",
+			ErrorCode:    "IMAGE_REF_RIVER_RETRY",
+			ErrorMessage: lastErr.Error(),
+			ErrorType:    "db_error",
+			CdcJobID:     task.CdcJobID,
+			Stream:       task.Stream,
+			SourceTable:  task.SourceTable,
+			Action:       task.Action,
+			TargetKey:    task.TargetKey,
+			RetryCount:   attempt,
+			Result:       "retry",
+		})
+		time.Sleep(delay)
+	}
+
+	if err := cdc_dead_letter_service.SaveBatch(r.db, []cdc_dead_letter_service.Item{{
+		Stream:      task.Stream,
+		CdcJobID:    task.CdcJobID,
+		SourceTable: task.SourceTable,
+		Action:      task.Action,
+		TargetKey:   task.TargetKey,
+		Payload:     payload,
+		RetryCount:  maxAttempts - 1,
+		Status:      "pending",
+		ErrorCode:   "IMAGE_REF_RIVER_FAILED",
+		ErrorMsg:    lastErr.Error(),
+	}}); err != nil {
+		return err
+	}
+
+	log_service.EmitCDCEvent(r.logDeps, log_service.CdcEventInput{
+		Level:        "error",
+		Message:      "image_ref_river 同步失败，已转入 DLQ",
+		ErrorCode:    "IMAGE_REF_RIVER_DLQ",
+		ErrorMessage: lastErr.Error(),
+		ErrorType:    "db_error",
+		CdcJobID:     task.CdcJobID,
+		Stream:       task.Stream,
+		SourceTable:  task.SourceTable,
+		Action:       task.Action,
+		TargetKey:    task.TargetKey,
+		RetryCount:   maxAttempts - 1,
+		Result:       "dlq",
+	})
+	return nil
 }

@@ -37,6 +37,7 @@ func Bootstrap(cfg *conf.Config, configFile string, version string) (*Infra, err
 	if cfg == nil {
 		return nil, fmt.Errorf("bootstrap 失败: 配置不能为空")
 	}
+	normalizeConfig(cfg)
 
 	if err := core.InitSnowflake(cfg); err != nil {
 		return nil, fmt.Errorf("bootstrap 失败: %w", err)

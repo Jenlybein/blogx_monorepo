@@ -11,6 +11,17 @@ func EmitLoginEvent(deps Deps, input LoginEventInput) {
 	base.UserID = uint64(input.UserID)
 	base.IP = input.IP
 	base.RequestID = input.RequestID
+	base.TraceID = defaultIfEmptyString(input.TraceID, input.RequestID)
+	base.SpanID = input.SpanID
+	base.ParentSpanID = input.ParentSpanID
+	base.EventName = input.EventName
+	base.ErrorCode = input.ErrorCode
+	if !input.Success && base.ErrorCode == "" {
+		base.ErrorCode = "AUTH_FAILED"
+	}
+	if !input.Success {
+		base.ErrorMessage = input.Reason
+	}
 	if len(input.Extra) > 0 {
 		if byteData, err := json.Marshal(input.Extra); err == nil {
 			base.ExtraJSON = string(byteData)
@@ -19,7 +30,6 @@ func EmitLoginEvent(deps Deps, input LoginEventInput) {
 
 	event := LoginEvent{
 		baseEvent: base,
-		EventName: input.EventName,
 		Username:  input.Username,
 		LoginType: input.LoginType.String(),
 		Success:   boolToUInt8(input.Success),

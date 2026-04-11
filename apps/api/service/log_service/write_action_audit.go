@@ -2,6 +2,7 @@ package log_service
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"myblogx/models/ctype"
 )
@@ -28,9 +29,14 @@ type ActionAuditEvent struct {
 // ActionAuditInput 描述业务侧写入操作审计日志时可传入的上下文。
 // 业务层传入的审计日志参数，用于组装最终审计事件
 type ActionAuditInput struct {
-	Level             string         // 日志级别 info/warn/error
-	Message           string         // 日志描述信息
-	RequestID         string         // 全链路追踪ID
+	Level             string // 日志级别 info/warn/error
+	Message           string // 日志描述信息
+	RequestID         string // 全链路追踪ID
+	TraceID           string
+	SpanID            string
+	ParentSpanID      string
+	ErrorCode         string
+	ErrorMessage      string
 	UserID            ctype.ID       // 操作用户ID
 	IP                string         // 操作IP地址
 	Method            string         // HTTP请求方法
@@ -73,8 +79,23 @@ func EmitActionAudit(deps Deps, input ActionAuditInput) {
 	base := newBaseEvent(deps, "action_audit", level, message)
 	// 填充公共审计字段
 	base.RequestID = input.RequestID
+	base.TraceID = defaultIfEmptyString(input.TraceID, input.RequestID)
+	base.SpanID = input.SpanID
+	base.ParentSpanID = input.ParentSpanID
+	base.EventName = "audit_action_success"
+	if !input.Success {
+		base.EventName = "audit_action_failed"
+	}
+	base.ErrorCode = input.ErrorCode
+	base.ErrorMessage = input.ErrorMessage
 	base.UserID = uint64(input.UserID)
 	base.IP = input.IP
+	if !input.Success && base.ErrorCode == "" {
+		base.ErrorCode = fmt.Sprintf("HTTP_%d", input.StatusCode)
+	}
+	if !input.Success && base.ErrorMessage == "" {
+		base.ErrorMessage = message
+	}
 	// 扩展字段：序列化为JSON字符串存入base.ExtraJSON
 	if len(input.Extra) > 0 {
 		if byteData, err := json.Marshal(input.Extra); err == nil {

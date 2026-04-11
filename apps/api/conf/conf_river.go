@@ -20,8 +20,9 @@ type River struct {
 	DumpExec       string `yaml:"mysqldump"`
 	SkipMasterData bool   `yaml:"skip_master_data"`
 
-	BulkSize      int `yaml:"bulk_size"`
-	FlushBulkTime int `yaml:"flush_bulk_time"`
+	BulkSize      int         `yaml:"bulk_size"`
+	FlushBulkTime int         `yaml:"flush_bulk_time"`
+	Retry         RetryPolicy `yaml:"retry"`
 }
 
 type RiverSource struct {
@@ -33,4 +34,9 @@ type RiverMysql struct {
 	Addr     string `yaml:"addr"`
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
+}
+
+type RetryPolicy struct {
+	MaxAttempts int `yaml:"max_attempts"`
+	DelayMS     int `yaml:"delay_ms"`
 }
