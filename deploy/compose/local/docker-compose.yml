@@ -460,7 +460,7 @@
         condition: service_healthy
       blogx_server:
         condition: service_started
-    command: ["/bin/sh", "/fluent-bit/etc/render-config.sh"]
+    entrypoint: ["/bin/sh", "/fluent-bit/etc/render-config.sh"]
     volumes:
       - ../../docker/fluent-bit/fluent-bit.conf.tmpl:/fluent-bit/etc/fluent-bit.conf.tmpl:ro
       - ../../docker/fluent-bit/render-config.sh:/fluent-bit/etc/render-config.sh:ro
