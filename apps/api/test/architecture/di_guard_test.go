@@ -55,6 +55,19 @@ func TestServiceLayerNoGinImport(t *testing.T) {
 	}
 }
 
+func TestRepositoryNoServiceImport(t *testing.T) {
+	root := projectRoot(t)
+	target := filepath.Join(root, "repository")
+	pattern := regexp.MustCompile(`"myblogx/service/`)
+
+	violations := collectViolations(t, []string{target}, func(path string, content string) bool {
+		return pattern.MatchString(content)
+	})
+	if len(violations) > 0 {
+		t.Fatalf("检测到 repository 反向依赖 service: %v", violations)
+	}
+}
+
 func TestNoRuntimeSingletonCall(t *testing.T) {
 	root := projectRoot(t)
 	targets := []string{

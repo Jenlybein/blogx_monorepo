@@ -1,4 +1,4 @@
-package read_service
+package read_repo
 
 import (
 	"sort"

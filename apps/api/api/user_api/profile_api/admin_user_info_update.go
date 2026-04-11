@@ -6,7 +6,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
-	"myblogx/service/read_service"
+	"myblogx/repository/read_repo"
 	"myblogx/service/user_service"
 	"myblogx/utils/maps"
 	"strconv"
@@ -45,7 +45,7 @@ func (h ProfileApi) AdminUserInfoUpdateView(c *gin.Context) {
 		return
 	}
 	if cr.Nickname != nil || cr.Avatar != nil || cr.Abstract != nil {
-		if err = read_service.SyncUserDisplaySnapshots(app.DB, cr.UserID); err != nil {
+		if err = read_repo.SyncUserDisplaySnapshots(app.DB, cr.UserID); err != nil {
 			app.Logger.Errorf("同步用户展示快照失败: 用户ID=%d 错误=%v", cr.UserID, err)
 		}
 	}

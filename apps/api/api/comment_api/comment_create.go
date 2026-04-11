@@ -7,8 +7,8 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
+	"myblogx/repository/read_repo"
 	"myblogx/service/message_service"
-	"myblogx/service/read_service"
 	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_article"
 	"myblogx/service/redis_service/redis_comment"
@@ -46,7 +46,7 @@ func (h CommentApi) CommentCreateView(c *gin.Context) {
 	claims := jwts.MustGetClaimsByGin(c)
 
 	status := enum.CommentStatusExamining
-	userMap, err := read_service.LoadUserDisplayMap(db, []ctype.ID{claims.UserID})
+	userMap, err := read_repo.LoadUserDisplayMap(db, []ctype.ID{claims.UserID})
 	if err != nil {
 		res.FailWithMsg("查询用户信息失败", c)
 		return
@@ -78,7 +78,7 @@ func (h CommentApi) CommentCreateView(c *gin.Context) {
 		model.ReplyUserID = replyComment.UserID
 		model.ReplyUserNickname = replyComment.UserNickname
 		if model.ReplyUserNickname == "" {
-			replyUserMap, err := read_service.LoadUserDisplayMap(db, []ctype.ID{replyComment.UserID})
+			replyUserMap, err := read_repo.LoadUserDisplayMap(db, []ctype.ID{replyComment.UserID})
 			if err != nil {
 				res.FailWithMsg("查询回复用户失败", c)
 				return

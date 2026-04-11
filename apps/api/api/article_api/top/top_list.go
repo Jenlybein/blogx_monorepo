@@ -3,7 +3,7 @@ package top
 import (
 	"myblogx/common/res"
 	"myblogx/middleware"
-	"myblogx/service/redis_service"
+	"myblogx/platform/cachex"
 	"myblogx/service/top_service"
 
 	"github.com/gin-gonic/gin"
@@ -17,7 +17,7 @@ func (h TopApi) ArticleTopListView(c *gin.Context) {
 		return
 	}
 
-	queryService := top_service.NewQueryService(h.App.DB, redis_service.NewDeps(h.App.Redis, h.App.Logger))
+	queryService := top_service.NewQueryService(h.App.DB, cachex.NewDeps(h.App.Redis, h.App.Logger))
 	list, err := queryService.ListArticles(cr.Type, cr.UserID)
 	if err != nil {
 		res.FailWithMsg("查询置顶文章失败", c)

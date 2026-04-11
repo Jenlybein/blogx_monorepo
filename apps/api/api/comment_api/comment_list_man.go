@@ -7,8 +7,8 @@ import (
 	"myblogx/middleware"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
+	"myblogx/platform/cachex"
 	"myblogx/service/comment_service"
-	"myblogx/service/redis_service"
 	"myblogx/utils/jwts"
 
 	"github.com/gin-gonic/gin"
@@ -42,7 +42,7 @@ func (h CommentApi) CommentManListView(c *gin.Context) {
 			return
 		}
 	}
-	queryService := comment_service.NewQueryService(h.App.DB, redis_service.NewDeps(h.App.Redis, h.App.Logger))
+	queryService := comment_service.NewQueryService(h.App.DB, cachex.NewDeps(h.App.Redis, h.App.Logger))
 	commentList, count, err := queryService.ListManagedComments(comment_service.ManageCommentQuery{
 		Type:      cr.Type,
 		Status:    cr.Status,

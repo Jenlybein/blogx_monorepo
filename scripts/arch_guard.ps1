@@ -77,6 +77,11 @@ function Assert-ServiceNoGinImport {
     Assert-NoMatch -RuleName "service 禁止 import gin" -Root $Root -Pattern '"github\.com/gin-gonic/gin"'
 }
 
+function Assert-RepositoryNoServiceImport {
+    param([string]$Root)
+    Assert-NoMatch -RuleName "repository 禁止 import service" -Root $Root -Pattern '"myblogx/service/'
+}
+
 Assert-NoImportAppctx -Root (Join-Path $apiRoot "api")
 Assert-NoImportAppctx -Root (Join-Path $apiRoot "service")
 Assert-NoImportAppctx -Root (Join-Path $apiRoot "repository")
@@ -86,5 +91,6 @@ Assert-NoServiceLocator -Root (Join-Path $apiRoot "repository")
 Assert-NoGlobalToken -Root $apiRoot
 Assert-NoRuntimeSingletonCall -Root $apiRoot
 Assert-ServiceNoGinImport -Root (Join-Path $apiRoot "service")
+Assert-RepositoryNoServiceImport -Root (Join-Path $apiRoot "repository")
 
 Write-Host "架构守卫检查通过。" -ForegroundColor Green

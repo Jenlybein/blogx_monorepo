@@ -7,7 +7,7 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
-	"myblogx/service/read_service"
+	"myblogx/repository/read_repo"
 	"myblogx/utils/jwts"
 
 	"github.com/gin-gonic/gin"
@@ -21,7 +21,7 @@ func (h FavoriteApi) FavoriteCreateUpdateView(c *gin.Context) {
 
 	// 创建
 	if cr.ID == 0 {
-		userMap, err := read_service.LoadUserDisplayMap(h.App.DB, []ctype.ID{claims.UserID})
+		userMap, err := read_repo.LoadUserDisplayMap(h.App.DB, []ctype.ID{claims.UserID})
 		if err != nil {
 			res.FailWithMsg("查询用户信息失败", c)
 			return

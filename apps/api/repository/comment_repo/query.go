@@ -8,9 +8,9 @@ import (
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
 	"myblogx/models/enum/relationship_enum"
+	"myblogx/platform/cachex"
 	"myblogx/repository/follow_repo"
-	"myblogx/service/read_service"
-	"myblogx/service/redis_service"
+	"myblogx/repository/read_repo"
 
 	"gorm.io/gorm"
 )
@@ -73,13 +73,13 @@ type ManageCommentItem struct {
 
 type QueryService struct {
 	DB            *gorm.DB
-	CounterReader read_service.CommentCounterReader
+	CounterReader read_repo.CommentCounterReader
 }
 
-func NewQueryService(db *gorm.DB, redisDeps redis_service.Deps) *QueryService {
+func NewQueryService(db *gorm.DB, cacheDeps cachex.Deps) *QueryService {
 	return &QueryService{
 		DB:            db,
-		CounterReader: read_service.NewCommentCounterReader(redisDeps),
+		CounterReader: read_repo.NewCommentCounterReader(cacheDeps),
 	}
 }
 
@@ -231,7 +231,7 @@ func (s *QueryService) ListManagedComments(query ManageCommentQuery) ([]ManageCo
 	if query.Type == 1 {
 		relationMap = follow_repo.CalUserRelationshipBatch(s.DB, query.ViewerID, userIDs)
 	}
-	articleMap, err := read_service.LoadArticleBaseMap(s.DB, articleIDs)
+	articleMap, err := read_repo.LoadArticleBaseMap(s.DB, articleIDs)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -356,7 +356,7 @@ func (s *QueryService) hydrateCommentSnapshots(rows []models.CommentModel) error
 	if len(replyCommentIDs) > 0 {
 		var replyRows []models.CommentModel
 		if err := s.DB.Select("id", "user_id", "user_nickname").
-			Where("id IN ?", read_service.NormalizeIDs(replyCommentIDs)).
+			Where("id IN ?", read_repo.NormalizeIDs(replyCommentIDs)).
 			Find(&replyRows).Error; err != nil {
 			return err
 		}
@@ -368,7 +368,7 @@ func (s *QueryService) hydrateCommentSnapshots(rows []models.CommentModel) error
 		}
 	}
 
-	userMap, err := read_service.LoadUserDisplayMap(s.DB, append(userIDs, replyUserIDs...))
+	userMap, err := read_repo.LoadUserDisplayMap(s.DB, append(userIDs, replyUserIDs...))
 	if err != nil {
 		return err
 	}

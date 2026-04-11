@@ -7,7 +7,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/relationship_enum"
-	"myblogx/service/read_service"
+	"myblogx/repository/read_repo"
 
 	"gorm.io/gorm"
 )
@@ -151,7 +151,7 @@ func hydrateFollowedSnapshots(db *gorm.DB, rows []models.UserFollowModel) error 
 			userIDs = append(userIDs, row.FollowedUserID)
 		}
 	}
-	userMap, err := read_service.LoadUserDisplayMap(db, userIDs)
+	userMap, err := read_repo.LoadUserDisplayMap(db, userIDs)
 	if err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func hydrateFansSnapshots(db *gorm.DB, rows []models.UserFollowModel) error {
 			userIDs = append(userIDs, row.FansUserID)
 		}
 	}
-	userMap, err := read_service.LoadUserDisplayMap(db, userIDs)
+	userMap, err := read_repo.LoadUserDisplayMap(db, userIDs)
 	if err != nil {
 		return err
 	}

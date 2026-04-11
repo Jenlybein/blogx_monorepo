@@ -7,8 +7,8 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
+	"myblogx/platform/cachex"
 	"myblogx/service/comment_service"
-	"myblogx/service/redis_service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -25,7 +25,7 @@ type CommentReplyListResponse struct {
 
 func (h CommentApi) CommentReplyListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[CommentReplyListRequest](c)
-	queryService := comment_service.NewQueryService(h.App.DB, redis_service.NewDeps(h.App.Redis, h.App.Logger))
+	queryService := comment_service.NewQueryService(h.App.DB, cachex.NewDeps(h.App.Redis, h.App.Logger))
 
 	// 查询一级评论
 	var root models.CommentModel

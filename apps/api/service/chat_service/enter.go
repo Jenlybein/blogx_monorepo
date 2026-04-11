@@ -7,6 +7,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum/chat_msg_enum"
+	"myblogx/repository/chat_repo"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
@@ -55,7 +56,7 @@ func ToChat(db *gorm.DB, logger *logrus.Logger, req ToChatRequest) (*models.Chat
 			MsgType:    req.MsgType,
 		}
 
-		if err := tx.Create(msg).Error; err != nil {
+		if err := chat_repo.CreateMessage(tx, msg); err != nil {
 			if logger != nil {
 				logger.Errorf("创建聊天消息失败: %v", err)
 			}

@@ -8,6 +8,9 @@ import (
 	"myblogx/buildinfo"
 	"myblogx/core"
 	"myblogx/flags"
+	"myblogx/platform/cachex"
+	"myblogx/platform/dbx"
+	"myblogx/platform/searchx"
 	"myblogx/router"
 	"myblogx/service/cron_service"
 	"myblogx/service/log_service"
@@ -25,10 +28,10 @@ func main() {
 	}
 
 	logger := core.InitLogrus(&config.Log, &config.System)
-	redisClient := core.InitRedis(&config.Redis, logger)
-	db := core.InitDB(config.DB, config.GORM, config.Log, logger, redisClient)
+	redisClient := cachex.Init(&config.Redis, logger)
+	db := dbx.Init(config.DB, config.GORM, config.Log, logger, redisClient)
 	clickHouse := core.InitClickHouse(&config.ClickHouse)
-	esClient := core.EsConnect(&config.ES, logger)
+	esClient := searchx.Init(&config.ES, logger)
 
 	if err := log_service.EnsureDailyLogFiles(log_service.Deps{
 		LogConfig:        config.Log,

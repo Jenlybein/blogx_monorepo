@@ -6,8 +6,8 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
-	"myblogx/service/read_service"
-	"myblogx/service/redis_service"
+	"myblogx/platform/cachex"
+	"myblogx/repository/read_repo"
 
 	"gorm.io/gorm"
 )
@@ -35,13 +35,13 @@ type ArticleTopListItem struct {
 
 type QueryService struct {
 	DB            *gorm.DB
-	ArticleReader read_service.ArticleCounterReader
+	ArticleReader read_repo.ArticleCounterReader
 }
 
-func NewQueryService(db *gorm.DB, redisDeps redis_service.Deps) *QueryService {
+func NewQueryService(db *gorm.DB, cacheDeps cachex.Deps) *QueryService {
 	return &QueryService{
 		DB:            db,
-		ArticleReader: read_service.NewArticleCounterReader(redisDeps),
+		ArticleReader: read_repo.NewArticleCounterReader(cacheDeps),
 	}
 }
 
@@ -60,8 +60,8 @@ func (s *QueryService) ListArticles(topType int, userID ctype.ID) ([]ArticleTopL
 		articleIDs = append(articleIDs, row.ArticleID)
 		topUserIDs = append(topUserIDs, row.UserID)
 	}
-	articleIDs = read_service.NormalizeIDs(articleIDs)
-	articleBaseMap, err := read_service.LoadArticleBaseMap(s.DB, articleIDs)
+	articleIDs = read_repo.NormalizeIDs(articleIDs)
+	articleBaseMap, err := read_repo.LoadArticleBaseMap(s.DB, articleIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (s *QueryService) ListArticles(topType int, userID ctype.ID) ([]ArticleTopL
 	for _, row := range allTopRows {
 		topUserIDs = append(topUserIDs, row.UserID)
 	}
-	userMap, err := read_service.LoadUserDisplayMap(s.DB, topUserIDs)
+	userMap, err := read_repo.LoadUserDisplayMap(s.DB, topUserIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -86,15 +86,15 @@ func (s *QueryService) ListArticles(topType int, userID ctype.ID) ([]ArticleTopL
 		}
 		authorIDs = append(authorIDs, article.AuthorID)
 	}
-	authorMap, err := read_service.LoadUserDisplayMap(s.DB, authorIDs)
+	authorMap, err := read_repo.LoadUserDisplayMap(s.DB, authorIDs)
 	if err != nil {
 		return nil, err
 	}
-	categoryMap, err := read_service.LoadCategoryTitleMap(s.DB, categoryIDs)
+	categoryMap, err := read_repo.LoadCategoryTitleMap(s.DB, categoryIDs)
 	if err != nil {
 		return nil, err
 	}
-	tagMap, err := read_service.LoadArticleTagTitlesMap(s.DB, articleIDs)
+	tagMap, err := read_repo.LoadArticleTagTitlesMap(s.DB, articleIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +198,7 @@ type topState struct {
 	AdminTop bool
 }
 
-func buildTopStateMap(rows []models.UserTopArticleModel, articleMap map[ctype.ID]read_service.ArticleBase, userMap map[ctype.ID]read_service.UserDisplay) map[ctype.ID]topState {
+func buildTopStateMap(rows []models.UserTopArticleModel, articleMap map[ctype.ID]read_repo.ArticleBase, userMap map[ctype.ID]read_repo.UserDisplay) map[ctype.ID]topState {
 	result := make(map[ctype.ID]topState, len(articleMap))
 	for _, row := range rows {
 		article, ok := articleMap[row.ArticleID]

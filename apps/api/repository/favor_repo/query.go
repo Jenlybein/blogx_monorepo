@@ -7,8 +7,8 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
-	"myblogx/service/read_service"
-	"myblogx/service/redis_service"
+	"myblogx/platform/cachex"
+	"myblogx/repository/read_repo"
 
 	"gorm.io/gorm"
 )
@@ -58,13 +58,13 @@ type FavoriteArticleItem struct {
 
 type QueryService struct {
 	DB            *gorm.DB
-	ArticleReader read_service.ArticleCounterReader
+	ArticleReader read_repo.ArticleCounterReader
 }
 
-func NewQueryService(db *gorm.DB, redisDeps redis_service.Deps) *QueryService {
+func NewQueryService(db *gorm.DB, cacheDeps cachex.Deps) *QueryService {
 	return &QueryService{
 		DB:            db,
-		ArticleReader: read_service.NewArticleCounterReader(redisDeps),
+		ArticleReader: read_repo.NewArticleCounterReader(cacheDeps),
 	}
 }
 
@@ -194,7 +194,7 @@ func (s *QueryService) ListFavoriteArticles(query FavoriteArticlesQuery, orderMa
 	for _, row := range rows {
 		articleIDs = append(articleIDs, row.ArticleID)
 	}
-	articleBaseMap, err := read_service.LoadArticleBaseMap(s.DB, articleIDs)
+	articleBaseMap, err := read_repo.LoadArticleBaseMap(s.DB, articleIDs)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -208,7 +208,7 @@ func (s *QueryService) ListFavoriteArticles(query FavoriteArticlesQuery, orderMa
 			authorIDs = append(authorIDs, articleBase.AuthorID)
 		}
 	}
-	authorMap, err := read_service.LoadUserDisplayMap(s.DB, authorIDs)
+	authorMap, err := read_repo.LoadUserDisplayMap(s.DB, authorIDs)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -270,7 +270,7 @@ func hydrateFavoriteOwners(db *gorm.DB, rows []models.FavoriteModel) error {
 			userIDs = append(userIDs, row.UserID)
 		}
 	}
-	userMap, err := read_service.LoadUserDisplayMap(db, userIDs)
+	userMap, err := read_repo.LoadUserDisplayMap(db, userIDs)
 	if err != nil {
 		return err
 	}
@@ -334,14 +334,14 @@ func hydrateFavoriteArticleSnapshots(db *gorm.DB, rows []models.UserArticleFavor
 		}
 	}
 
-	articleMap, err := read_service.LoadArticleBaseMap(db, articleIDs)
+	articleMap, err := read_repo.LoadArticleBaseMap(db, articleIDs)
 	if err != nil {
 		return err
 	}
 	for _, article := range articleMap {
 		authorIDs = append(authorIDs, article.AuthorID)
 	}
-	userMap, err := read_service.LoadUserDisplayMap(db, authorIDs)
+	userMap, err := read_repo.LoadUserDisplayMap(db, authorIDs)
 	if err != nil {
 		return err
 	}

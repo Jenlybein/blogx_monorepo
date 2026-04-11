@@ -6,7 +6,7 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
-	"myblogx/service/read_service"
+	"myblogx/repository/read_repo"
 	"myblogx/service/redis_service"
 	"myblogx/utils/jwts"
 	"strconv"
@@ -38,7 +38,7 @@ func (h ArticleApi) ArticleUpdateView(c *gin.Context) {
 	if result.TagChanged {
 		applyTagArticleCountDelta(redis_service.NewDeps(h.App.Redis, h.App.Logger), buildTagArticleCountDelta(result.OldTagIDs, result.NewTagIDs))
 	}
-	if err := read_service.SyncArticleFavorSnapshots(h.App.DB, []ctype.ID{article.ID}); err != nil {
+	if err := read_repo.SyncArticleFavorSnapshots(h.App.DB, []ctype.ID{article.ID}); err != nil {
 		h.App.Logger.Errorf("同步文章收藏快照失败: 文章ID=%d 错误=%v", article.ID, err)
 	}
 	res.OkWithMsg("更新文章成功", c)

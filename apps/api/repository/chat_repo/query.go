@@ -7,7 +7,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/repository/follow_repo"
-	"myblogx/service/read_service"
+	"myblogx/repository/read_repo"
 
 	"gorm.io/gorm"
 )
@@ -110,7 +110,7 @@ func hydrateChatReceiverSnapshots(db *gorm.DB, rows []models.ChatSessionModel) e
 			userIDs = append(userIDs, row.ReceiverID)
 		}
 	}
-	userMap, err := read_service.LoadUserDisplayMap(db, userIDs)
+	userMap, err := read_repo.LoadUserDisplayMap(db, userIDs)
 	if err != nil {
 		return err
 	}

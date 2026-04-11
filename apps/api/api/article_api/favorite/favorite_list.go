@@ -5,6 +5,7 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
+	"myblogx/platform/cachex"
 	"myblogx/service/favorite_service"
 	"myblogx/service/redis_service"
 	"myblogx/service/user_service"
@@ -69,7 +70,7 @@ func (h FavoriteApi) FavoriteListView(c *gin.Context) {
 	if claim != nil {
 		viewerUserID = claim.UserID
 	}
-	queryService := favorite_service.NewQueryService(h.App.DB, redis_service.NewDeps(h.App.Redis, h.App.Logger))
+	queryService := favorite_service.NewQueryService(h.App.DB, cachex.NewDeps(h.App.Redis, h.App.Logger))
 	list, count, err := queryService.ListFavorites(favorite_service.FavoriteListQuery{
 		PageInfo:  cr.PageInfo,
 		UserID:    cr.UserID,
