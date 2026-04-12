@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -236,17 +235,17 @@ func TestBuildArticleESDocument(t *testing.T) {
 		t.Fatalf("tags 同步结果不正确: %#v", doc["tags"])
 	}
 	category, ok := doc["category"].(map[string]any)
-	if !ok || category["id"] != &categoryID || category["title"] != "后端" {
+	if !ok || category["id"] != uint64(categoryID) || category["title"] != "后端" {
 		t.Fatalf("分类字段同步结果不正确: %#v", doc["category"])
 	}
 	author, ok := doc["author"].(map[string]any)
-	if !ok || author["id"] != article.AuthorID || author["nickname"] != "作者A" || author["avatar"] != "/avatar.png" {
+	if !ok || author["id"] != uint64(article.AuthorID) || author["nickname"] != "作者A" || author["avatar"] != "/avatar.png" {
 		t.Fatalf("作者字段同步结果不正确: %#v", doc["author"])
 	}
 	if doc["admin_top"] != true || doc["author_top"] != false {
 		t.Fatalf("置顶字段同步结果不正确: admin=%#v author=%#v", doc["admin_top"], doc["author_top"])
 	}
-	const expectedFieldCount = 21
+	const expectedFieldCount = 22
 	if len(doc) != expectedFieldCount {
 		t.Fatalf("ES 文档字段数不正确, got=%d want=%d", len(doc), expectedFieldCount)
 	}
@@ -389,7 +388,7 @@ func TestSyncArticleDocuments(t *testing.T) {
 		t.Fatalf("tags 应以数组写入 ES, got=%#v", first["tags"])
 	}
 	author, ok := first["author"].(map[string]any)
-	if !ok || author["id"] != strconv.FormatUint(uint64(author1.ID), 10) {
+	if !ok || author["id"] != float64(author1.ID) {
 		t.Fatalf("作者字段应正确写入 ES, got=%#v", first["author"])
 	}
 	if first["admin_top"] != true || first["author_top"] != true {

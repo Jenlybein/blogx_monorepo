@@ -8,6 +8,7 @@ import (
 	"myblogx/models/ctype"
 	"myblogx/models/enum/relationship_enum"
 	"myblogx/test/testutil"
+	"myblogx/utils/jwts"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -32,9 +33,15 @@ type fansListPayload struct {
 	Count int                `json:"count"`
 }
 
+func newFollowAPI() FollowApi {
+	return New(Deps{
+		DB: testutil.DB(),
+	})
+}
+
 func TestFollowAndUnfollowUserView(t *testing.T) {
 	users := setupFollowEnv(t)
-	api := FollowApi{}
+	api := newFollowAPI()
 
 	t.Run("不能关注自己", func(t *testing.T) {
 		c, w := newFollowCtx(t, http.MethodPost, users.owner, models.IDRequest{ID: users.owner.ID}, nil)
@@ -102,7 +109,7 @@ func TestFollowAndUnfollowUserView(t *testing.T) {
 
 func TestFollowListView(t *testing.T) {
 	users := setupFollowEnv(t)
-	api := FollowApi{}
+	api := newFollowAPI()
 
 	createFollowAt(t, users.owner.ID, users.followedA.ID, time.Now().Add(-2*time.Hour))
 	createFollowAt(t, users.owner.ID, users.followedB.ID, time.Now().Add(-1*time.Hour))
@@ -169,7 +176,7 @@ func TestFollowListView(t *testing.T) {
 
 func TestFansListView(t *testing.T) {
 	users := setupFollowEnv(t)
-	api := FollowApi{}
+	api := newFollowAPI()
 
 	createFollowAt(t, users.fansA.ID, users.owner.ID, time.Now().Add(-2*time.Hour))
 	createFollowAt(t, users.fansB.ID, users.owner.ID, time.Now().Add(-1*time.Hour))
@@ -366,6 +373,13 @@ func newFollowCtx(t *testing.T, method string, user models.UserModel, uri models
 	if query != nil {
 		c.Set("requestQuery", query)
 	}
+	c.Set("claims", &jwts.MyClaims{
+		Claims: jwts.Claims{
+			UserID:   user.ID,
+			Role:     user.Role,
+			Username: user.Username,
+		},
+	})
 	return c, w
 }
 

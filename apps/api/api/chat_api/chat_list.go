@@ -82,6 +82,7 @@ func (h *ChatApi) ChatMsgListView(c *gin.Context) {
 	list, count, err := common.ListQuery(models.ChatMsgModel{
 		SessionID: cr.SessionID,
 	}, common.Options{
+		DB:           h.App.DB,
 		PageInfo:     cr.PageInfo,
 		DefaultOrder: "send_time desc",
 		Unscoped:     allowUnscoped,

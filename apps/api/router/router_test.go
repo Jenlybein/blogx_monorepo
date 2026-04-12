@@ -51,6 +51,7 @@ func TestRegisterAllRoutes(t *testing.T) {
 		"POST /api/images/qiniu/callback",
 		"GET /api/banners",
 		"POST /api/users/login",
+		"POST /api/users/admin",
 		"GET /api/search/articles",
 		"GET /api/sitemsg",
 		"GET /api/global_notif",

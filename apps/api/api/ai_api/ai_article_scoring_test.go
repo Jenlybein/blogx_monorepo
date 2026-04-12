@@ -64,7 +64,7 @@ func TestAIArticleScoringView(t *testing.T) {
 		},
 	})
 
-	api := ai_api.AIApi{}
+	api := newAIApi(t)
 	c, w := newAICtx()
 	c.Set("claims", &jwts.MyClaims{
 		Claims: jwts.Claims{

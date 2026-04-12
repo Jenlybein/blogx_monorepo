@@ -211,7 +211,7 @@ func TestAIArticleSearchView(t *testing.T) {
 		},
 	})
 
-	api := ai_api.AIApi{}
+	api := newAIApi(t)
 	c, w := newAICtx()
 	c.Set("claims", &jwts.MyClaims{
 		Claims: jwts.Claims{
@@ -282,7 +282,7 @@ func TestAIArticleSearchLLMViewForOtherIntent(t *testing.T) {
 		},
 	})
 
-	api := ai_api.AIApi{}
+	api := newAIApi(t)
 	c, w := newAICtx()
 	c.Set("requestJson", ai_api.AIBaseRequest{
 		Content: "你好呀",
@@ -441,7 +441,7 @@ func TestAIArticleSearchLLMViewForSearchIntent(t *testing.T) {
 		},
 	})
 
-	api := ai_api.AIApi{}
+	api := newAIApi(t)
 	c, w := newAICtx()
 	c.Set("requestJson", ai_api.AIBaseRequest{
 		Content: "帮我找 Gin 中间件相关文章",

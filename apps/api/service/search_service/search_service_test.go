@@ -524,6 +524,15 @@ func TestExtractArticleSearchResults(t *testing.T) {
 					"comment_count":   40,
 					"comments_toggle": true,
 					"status":          int(enum.ArticleStatusPublished),
+					"category": map[string]any{
+						"id":    "9",
+						"title": "Go 分类",
+					},
+					"author": map[string]any{
+						"id":       "8",
+						"nickname": "作者昵称",
+						"avatar":   "/avatar.png",
+					},
 					"tags": []any{
 						map[string]any{"id": 1, "title": "Go"},
 						map[string]any{"id": 2, "title": "ES"},

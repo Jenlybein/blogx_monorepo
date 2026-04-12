@@ -5,9 +5,11 @@ import (
 	"myblogx/conf"
 
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 type Deps struct {
+	DB               *gorm.DB
 	Log              conf.Logrus
 	System           conf.System
 	ClickHouseConfig conf.ClickHouse

@@ -13,6 +13,7 @@ func (h ImageApi) ImageListView(c *gin.Context) {
 	cr := middleware.GetBindQuery[common.PageInfo](c)
 
 	list, count, err := common.ListQuery(models.ImageModel{}, common.Options{
+		DB:       h.App.DB,
 		PageInfo: cr,
 		Likes:    []string{"file_name", "object_key"},
 	})

@@ -62,6 +62,7 @@ func New(deps Deps) UserApi {
 			ClickHouse:       deps.ClickHouse,
 		}),
 		UserManApi: user_man_api.New(user_man_api.Deps{
+			DB:               deps.DB,
 			Log:              deps.Log,
 			System:           deps.System,
 			ClickHouseConfig: deps.ClickHouseConfig,

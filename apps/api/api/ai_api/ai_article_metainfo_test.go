@@ -7,6 +7,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/enum"
 	"myblogx/service/ai_service"
+	"myblogx/service/site_service"
 	"myblogx/test/testutil"
 	"myblogx/utils/jwts"
 	"net/http"
@@ -31,6 +32,34 @@ func readAICode(t *testing.T, w *httptest.ResponseRecorder) int {
 		t.Fatalf("解析响应失败: %v body=%s", err, w.Body.String())
 	}
 	return int(body["code"].(float64))
+}
+
+func newAIApi(t *testing.T) ai_api.AIApi {
+	t.Helper()
+	db := testutil.DB()
+	if db == nil {
+		db = testutil.SetupSQLite(t, &models.RuntimeSiteConfigModel{})
+	} else if err := db.AutoMigrate(&models.RuntimeSiteConfigModel{}); err != nil {
+		t.Fatalf("迁移运行时配置表失败: %v", err)
+	}
+	runtimeSvc := site_service.NewRuntimeConfigService(testutil.Config().Site, testutil.Config().AI, testutil.Logger(), db, "")
+	if err := runtimeSvc.InitRuntimeConfig(); err != nil {
+		t.Fatalf("初始化 AI 运行时配置失败: %v", err)
+	}
+	if err := runtimeSvc.UpdateRuntimeSite(testutil.Config().Site); err != nil {
+		t.Fatalf("更新运行时站点配置失败: %v", err)
+	}
+	if err := runtimeSvc.UpdateRuntimeAI(testutil.Config().AI); err != nil {
+		t.Fatalf("更新运行时 AI 配置失败: %v", err)
+	}
+	return ai_api.New(ai_api.Deps{
+		DB:          db,
+		Logger:      testutil.Logger(),
+		Redis:       testutil.Redis(),
+		ESClient:    testutil.ESClient(),
+		ES:          testutil.Config().ES,
+		RuntimeSite: runtimeSvc,
+	})
 }
 
 func TestAIArticleMetaInfoView(t *testing.T) {
@@ -111,7 +140,7 @@ func TestAIArticleMetaInfoView(t *testing.T) {
 		},
 	})
 
-	api := ai_api.AIApi{}
+	api := newAIApi(t)
 	c, w := newAICtx()
 	c.Set("claims", &jwts.MyClaims{
 		Claims: jwts.Claims{

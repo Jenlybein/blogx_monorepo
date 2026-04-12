@@ -30,6 +30,7 @@ func (h *SitemsgApi) SitemsgListView(c *gin.Context) {
 	list, count, err := common.ListQuery(models.ArticleMessageModel{
 		ReceiverID: claims.UserID,
 	}, common.Options{
+		DB:       app.DB,
 		PageInfo: cr.PageInfo,
 		Where:    app.DB.Where("type in ?", typeList),
 	})

@@ -2,6 +2,7 @@ package middleware_test
 
 import (
 	"encoding/json"
+	"myblogx/apideps"
 	"myblogx/conf"
 	confsite "myblogx/conf/site"
 	"myblogx/middleware"
@@ -10,6 +11,7 @@ import (
 	"myblogx/service/redis_service"
 	redis_email "myblogx/service/redis_service/redis_email"
 	redis_jwt "myblogx/service/redis_service/redis_jwt"
+	"myblogx/service/site_service"
 	"myblogx/test/testutil"
 	"myblogx/utils/jwts"
 	"net/http"
@@ -71,7 +73,7 @@ func TestBindMiddlewares(t *testing.T) {
 func setupAuthEnv(t *testing.T) {
 	t.Helper()
 	_ = testutil.SetupMiniRedis(t)
-	_ = testutil.SetupSQLite(t, &models.UserModel{})
+	_ = testutil.SetupSQLite(t, &models.UserModel{}, &models.RuntimeSiteConfigModel{})
 	testutil.SetConfig(&conf.Config{
 		Jwt: conf.Jwt{
 			Expire: 1,
@@ -88,10 +90,50 @@ func testRedisDeps() redis_service.Deps {
 	return redis_service.Deps{Client: testutil.Redis(), Logger: testutil.Logger()}
 }
 
-func TestAuthAndAdminMiddleware(t *testing.T) {
-	setupAuthEnv(t)
+func newMiddlewareRuntime(t *testing.T) middleware.Runtime {
+	t.Helper()
+	runtimeSvc := site_service.NewRuntimeConfigService(testutil.Config().Site, testutil.Config().AI, testutil.Logger(), testutil.DB(), "")
+	if err := runtimeSvc.InitRuntimeConfig(); err != nil {
+		t.Fatalf("初始化中间件运行时配置失败: %v", err)
+	}
+	return middleware.NewRuntime(apideps.Deps{
+		DB:                testutil.DB(),
+		Redis:             testutil.Redis(),
+		JWT:               testutil.Config().Jwt,
+		Log:               testutil.Config().Log,
+		Logger:            testutil.Logger(),
+		RuntimeSite:       runtimeSvc,
+		ImageCaptchaStore: testutil.ImageCaptchaStore(),
+		System:            testutil.Config().System,
+		ClickHouseConfig:  testutil.Config().ClickHouse,
+	})
+}
+
+func newMiddlewareEngine(t *testing.T) *gin.Engine {
+	t.Helper()
+	runtimeMw := newMiddlewareRuntime(t)
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("_middleware_runtime", runtimeMw)
+		c.Next()
+	})
+	return r
+}
+
+func registerCaptchaEmailRoutes(r *gin.Engine) {
+	r.POST("/captcha", middleware.CaptchaMiddleware, func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+	r.POST("/email", middleware.EmailVerifyMiddleware, func(c *gin.Context) {
+		email, _ := c.Get("email")
+		c.JSON(http.StatusOK, gin.H{"email": email})
+	})
+}
+
+func TestAuthAndAdminMiddleware(t *testing.T) {
+	setupAuthEnv(t)
+	r := newMiddlewareEngine(t)
 
 	r.GET("/auth", middleware.AuthMiddleware, func(c *gin.Context) {
 		claims := jwts.MustGetClaimsByGin(c)
@@ -156,16 +198,8 @@ func TestAuthAndAdminMiddleware(t *testing.T) {
 
 func TestCaptchaAndEmailVerifyMiddleware(t *testing.T) {
 	setupAuthEnv(t)
-	gin.SetMode(gin.TestMode)
-
-	r := gin.New()
-	r.POST("/captcha", middleware.CaptchaMiddleware, func(c *gin.Context) {
-		c.Status(http.StatusOK)
-	})
-	r.POST("/email", middleware.EmailVerifyMiddleware, func(c *gin.Context) {
-		email, _ := c.Get("email")
-		c.JSON(http.StatusOK, gin.H{"email": email})
-	})
+	r := newMiddlewareEngine(t)
+	registerCaptchaEmailRoutes(r)
 
 	// 关闭验证码时直接通过
 	testutil.Config().Site.Login.Captcha = false
@@ -181,6 +215,8 @@ func TestCaptchaAndEmailVerifyMiddleware(t *testing.T) {
 
 	// 开启验证码 + 正确验证码
 	testutil.Config().Site.Login.Captcha = true
+	r = newMiddlewareEngine(t)
+	registerCaptchaEmailRoutes(r)
 	_ = testutil.ImageCaptchaStore().Set("cid", "1234")
 	{
 		w := httptest.NewRecorder()

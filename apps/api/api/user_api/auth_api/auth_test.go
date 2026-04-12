@@ -7,6 +7,7 @@ import (
 	confsite "myblogx/conf/site"
 	"myblogx/models"
 	"myblogx/models/enum"
+	"myblogx/service/site_service"
 	"myblogx/test/testutil"
 	"myblogx/utils/jwts"
 	"myblogx/utils/pwd"
@@ -24,6 +25,7 @@ func newCtx() (*gin.Context, *httptest.ResponseRecorder) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
+	c.Set("_jwt_config", testutil.Config().Jwt)
 	return c, w
 }
 
@@ -39,11 +41,13 @@ func readCode(t *testing.T, w *httptest.ResponseRecorder) int {
 func setupAuthEnv(t *testing.T) {
 	t.Helper()
 	testutil.InitGlobals()
+	_ = testutil.SetupMiniRedis(t)
 	testutil.SetConfig(&conf.Config{
 		Jwt: conf.Jwt{
-			Expire: 1,
-			Secret: "test-secret",
-			Issuer: "test",
+			Expire:        1,
+			RefreshExpire: 24,
+			Secret:        "test-secret",
+			Issuer:        "test",
 		},
 		Site: conf.Site{
 			Login: confsite.Login{
@@ -62,10 +66,28 @@ func setupAuthEnv(t *testing.T) {
 	})
 }
 
+func newAuthAPI(t *testing.T) auth_api.AuthApi {
+	t.Helper()
+	runtimeSvc := site_service.NewRuntimeConfigService(testutil.Config().Site, testutil.Config().AI, testutil.Logger(), testutil.DB(), "")
+	if err := runtimeSvc.InitRuntimeConfig(); err != nil {
+		t.Fatalf("初始化运行时配置失败: %v", err)
+	}
+	return auth_api.New(auth_api.Deps{
+		DB:          testutil.DB(),
+		Email:       testutil.Config().Email,
+		JWT:         testutil.Config().Jwt,
+		Logger:      testutil.Logger(),
+		QQ:          testutil.Config().QQ,
+		Redis:       testutil.Redis(),
+		RuntimeSite: runtimeSvc,
+		System:      testutil.Config().System,
+	})
+}
+
 func TestAuthFeatureDisabledBranches(t *testing.T) {
-	_ = testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{})
+	_ = testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{}, &models.RuntimeSiteConfigModel{})
 	setupAuthEnv(t)
-	api := auth_api.AuthApi{}
+	api := newAuthAPI(t)
 
 	{
 		c, w := newCtx()
@@ -115,9 +137,9 @@ func TestAuthFeatureDisabledBranches(t *testing.T) {
 }
 
 func TestResetUpdateBindEmail(t *testing.T) {
-	db := testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{})
+	db := testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{}, &models.RuntimeSiteConfigModel{})
 	setupAuthEnv(t)
-	api := auth_api.AuthApi{}
+	api := newAuthAPI(t)
 
 	hashPwd, _ := pwd.GenerateFromPassword("oldpwd")
 	user := models.UserModel{

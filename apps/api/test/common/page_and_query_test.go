@@ -40,6 +40,7 @@ func TestListQueryBasic(t *testing.T) {
 	list, count, err := common.ListQuery(
 		models.BannerModel{},
 		common.Options{
+			DB:       db,
 			PageInfo: common.PageInfo{Page: 1, Limit: 2, Key: "cover"},
 			Likes:    []string{"cover"},
 		},
@@ -56,11 +57,12 @@ func TestListQueryBasic(t *testing.T) {
 }
 
 func TestListQueryInvalidOrder(t *testing.T) {
-	_ = testutil.SetupSQLite(t, &models.BannerModel{})
+	db := testutil.SetupSQLite(t, &models.BannerModel{})
 
 	_, _, err := common.ListQuery(
 		models.BannerModel{},
 		common.Options{
+			DB:       db,
 			PageInfo: common.PageInfo{Order: "created_at desc"},
 			OrderMap: map[string]bool{
 				"id desc": true,
@@ -82,6 +84,7 @@ func TestListQuerySelect(t *testing.T) {
 	list, count, err := common.ListQuery(
 		models.BannerModel{},
 		common.Options{
+			DB:       db,
 			PageInfo: common.PageInfo{Page: 1, Limit: 10},
 			Select:   []string{"id", "cover"},
 		},
@@ -114,6 +117,7 @@ func TestListQueryLikesAndWhere(t *testing.T) {
 	list, count, err := common.ListQuery(
 		models.BannerModel{},
 		common.Options{
+			DB:       db,
 			PageInfo: common.PageInfo{Page: 1, Limit: 10, Key: "alpha"},
 			Likes:    []string{"cover"},
 			Where:    db.Where("show = ?", true),
@@ -139,6 +143,7 @@ func TestListQueryCountError(t *testing.T) {
 	_, _, err := common.ListQuery(
 		models.BannerModel{},
 		common.Options{
+			DB:    db,
 			Where: db.Where("not a valid sql fragment"),
 		},
 	)
@@ -161,6 +166,7 @@ func TestListQueryUnscoped(t *testing.T) {
 	list, count, err := common.ListQuery(
 		models.BannerModel{},
 		common.Options{
+			DB:       db,
 			PageInfo: common.PageInfo{Page: 1, Limit: 10},
 		},
 	)
@@ -174,6 +180,7 @@ func TestListQueryUnscoped(t *testing.T) {
 	list, count, err = common.ListQuery(
 		models.BannerModel{},
 		common.Options{
+			DB:       db,
 			PageInfo: common.PageInfo{Page: 1, Limit: 10},
 			Unscoped: true,
 		},

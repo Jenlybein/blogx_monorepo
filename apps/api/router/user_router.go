@@ -40,5 +40,6 @@ func UserRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtime) 
 	adminGroup.GET("login/log", mw.BindQuery[log_api.UserLoginListRequest], log.UserLoginLogList)
 
 	man := appContainer.UserApi.UserManApi
+	adminGroup.POST("admin", mw.CaptureLog(mw.ReqHeader), mw.BindJson[user_man_api.AdminUserCreateRequest], man.AdminUserCreateView)
 	adminGroup.GET("admin/list", mw.BindQuery[user_man_api.UserListRequest], man.UserListView)
 }

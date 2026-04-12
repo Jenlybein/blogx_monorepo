@@ -39,10 +39,19 @@ type chatMsgListPayload struct {
 	Count int               `json:"count"`
 }
 
+func newChatAPI() ChatApi {
+	return New(Deps{
+		DB:     testutil.DB(),
+		Logger: testutil.Logger(),
+		JWT:    testutil.Config().Jwt,
+		Redis:  testutil.Redis(),
+	})
+}
+
 // 会话删除与会话列表测试。
 func TestChatSessionDeleteUserView(t *testing.T) {
-	api := ChatApi{}
 	users := setupChatListEnv(t)
+	api := newChatAPI()
 
 	msgs := []models.ChatMsgModel{
 		{SessionID: "chat:1:2", SenderID: users.owner.ID, ReceiverID: users.friendA.ID, Content: "a"},
@@ -117,8 +126,8 @@ func TestChatSessionDeleteUserView(t *testing.T) {
 }
 
 func TestChatSessionDeleteUserViewRequiresList(t *testing.T) {
-	api := ChatApi{}
 	users := setupChatListEnv(t)
+	api := newChatAPI()
 
 	c, w := newChatDeleteCtx(t, users.owner, ChatSessionDeleteUserRequest{})
 	api.ChatSessionDeleteUserView(c)
@@ -130,8 +139,8 @@ func TestChatSessionDeleteUserViewRequiresList(t *testing.T) {
 }
 
 func TestChatSessionListView(t *testing.T) {
-	api := ChatApi{}
 	users := setupChatListEnv(t)
+	api := newChatAPI()
 
 	now := time.Date(2026, 3, 12, 9, 0, 0, 0, time.Local)
 	rows := []models.ChatSessionModel{
@@ -213,8 +222,8 @@ func TestChatSessionListView(t *testing.T) {
 
 // 消息列表、消息删除、消息已读测试。
 func TestChatMsgListView(t *testing.T) {
-	api := ChatApi{}
 	users := setupChatListEnv(t)
+	api := newChatAPI()
 	sessionID := "chat:1:2"
 	sendTimeA := time.Date(2026, 3, 12, 8, 0, 0, 0, time.Local)
 	sendTimeB := time.Date(2026, 3, 12, 9, 0, 0, 0, time.Local)
@@ -297,8 +306,8 @@ func TestChatMsgListView(t *testing.T) {
 }
 
 func TestChatMsgListViewFiltersDeletedByUserState(t *testing.T) {
-	api := ChatApi{}
 	users := setupChatListEnv(t)
+	api := newChatAPI()
 	sessionID := "chat:1:2"
 	sendTimeA := time.Date(2026, 3, 12, 8, 0, 0, 0, time.Local)
 	sendTimeB := time.Date(2026, 3, 12, 9, 0, 0, 0, time.Local)
@@ -365,8 +374,8 @@ func TestChatMsgListViewFiltersDeletedByUserState(t *testing.T) {
 }
 
 func TestChatMsgDeleteUserView(t *testing.T) {
-	api := ChatApi{}
 	users := setupChatListEnv(t)
+	api := newChatAPI()
 	sessionID := "chat:1:2"
 
 	msgs := []models.ChatMsgModel{
@@ -398,8 +407,8 @@ func TestChatMsgDeleteUserView(t *testing.T) {
 }
 
 func TestChatMsgReadUserView(t *testing.T) {
-	api := ChatApi{}
 	users := setupChatListEnv(t)
+	api := newChatAPI()
 
 	sessions := []models.ChatSessionModel{
 		{SessionID: "chat:1:2", UserID: users.owner.ID, ReceiverID: users.friendA.ID, UnreadCount: 2},
@@ -466,8 +475,8 @@ func TestChatMsgReadUserView(t *testing.T) {
 }
 
 func TestChatMsgReadUserViewPushesReadReceiptToSender(t *testing.T) {
-	api := ChatApi{}
 	users := setupChatListEnv(t)
+	api := newChatAPI()
 
 	serverConn, clientConn := mustNewChatAPITestWebSocketPair(t)
 	defer clientConn.Close()
@@ -551,8 +560,8 @@ func TestChatMsgReadUserViewPushesReadReceiptToSender(t *testing.T) {
 }
 
 func TestChatMsgReadUserViewDecreasesUnreadCountByMatchedMessages(t *testing.T) {
-	api := ChatApi{}
 	users := setupChatListEnv(t)
+	api := newChatAPI()
 	sessionID := "chat:1:2"
 
 	msgs := []models.ChatMsgModel{
@@ -605,8 +614,8 @@ func TestChatMsgReadUserViewDecreasesUnreadCountByMatchedMessages(t *testing.T) 
 }
 
 func TestChatMsgListViewFiltersByClearBeforeMsgID(t *testing.T) {
-	api := ChatApi{}
 	users := setupChatListEnv(t)
+	api := newChatAPI()
 	sessionID := "chat:1:2"
 	sendTimeA := time.Date(2026, 3, 12, 8, 0, 0, 0, time.Local)
 	sendTimeB := time.Date(2026, 3, 12, 9, 0, 0, 0, time.Local)
@@ -663,8 +672,8 @@ func TestChatMsgListViewFiltersByClearBeforeMsgID(t *testing.T) {
 }
 
 func TestChatMsgDeleteUserViewRequiresList(t *testing.T) {
-	api := ChatApi{}
 	users := setupChatListEnv(t)
+	api := newChatAPI()
 
 	c, w := newChatMsgDeleteCtx(t, users.owner, ChatMsgDeleteUserRequest{})
 	api.ChatMsgDeleteUserView(c)
@@ -676,8 +685,8 @@ func TestChatMsgDeleteUserViewRequiresList(t *testing.T) {
 }
 
 func TestChatMsgReadUserViewRequiresList(t *testing.T) {
-	api := ChatApi{}
 	users := setupChatListEnv(t)
+	api := newChatAPI()
 
 	c, w := newChatMsgReadCtx(t, users.owner, ChatMsgReadUserRequest{})
 	api.ChatMsgReadUserView(c)
@@ -690,8 +699,8 @@ func TestChatMsgReadUserViewRequiresList(t *testing.T) {
 
 // 管理员视角的会话与消息列表测试。
 func TestChatSessionListViewAdmin(t *testing.T) {
-	api := ChatApi{}
 	users := setupChatListEnv(t)
+	api := newChatAPI()
 
 	now := time.Date(2026, 3, 12, 10, 0, 0, 0, time.Local)
 	rows := []models.ChatSessionModel{
@@ -744,8 +753,8 @@ func TestChatSessionListViewAdmin(t *testing.T) {
 }
 
 func TestChatSessionListViewAdminRequiresUserID(t *testing.T) {
-	api := ChatApi{}
 	users := setupChatListEnv(t)
+	api := newChatAPI()
 
 	c, w := newChatListCtxWithRole(t, users.owner, enum.RoleAdmin, ChatSessionListRequest{
 		PageInfo: common.PageInfo{Page: 1, Limit: 10},
@@ -760,8 +769,8 @@ func TestChatSessionListViewAdminRequiresUserID(t *testing.T) {
 }
 
 func TestChatMsgListViewAdmin(t *testing.T) {
-	api := ChatApi{}
 	users := setupChatListEnv(t)
+	api := newChatAPI()
 	sessionID := "chat:1:2"
 	sendTimeA := time.Date(2026, 3, 12, 8, 0, 0, 0, time.Local)
 	sendTimeB := time.Date(2026, 3, 12, 9, 0, 0, 0, time.Local)
@@ -842,8 +851,8 @@ func TestChatMsgListViewAdmin(t *testing.T) {
 }
 
 func TestChatMsgListViewAdminRequiresUserID(t *testing.T) {
-	api := ChatApi{}
 	users := setupChatListEnv(t)
+	api := newChatAPI()
 
 	c, w := newChatMsgListCtxWithRole(t, users.owner, enum.RoleAdmin, ChatMsgListRequest{
 		PageInfo:  common.PageInfo{Page: 1, Limit: 10},

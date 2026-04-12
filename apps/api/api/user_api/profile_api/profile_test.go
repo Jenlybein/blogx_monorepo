@@ -19,6 +19,7 @@ func newCtx() (*gin.Context, *httptest.ResponseRecorder) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
+	c.Set("_jwt_config", testutil.Config().Jwt)
 	return c, w
 }
 
@@ -31,8 +32,18 @@ func readCode(t *testing.T, w *httptest.ResponseRecorder) int {
 	return int(body["code"].(float64))
 }
 
+func newProfileAPI() profile_api.ProfileApi {
+	return profile_api.New(profile_api.Deps{
+		DB:     testutil.DB(),
+		JWT:    testutil.Config().Jwt,
+		Logger: testutil.Logger(),
+		Redis:  testutil.Redis(),
+		System: testutil.Config().System,
+	})
+}
+
 func TestProfileHandlers(t *testing.T) {
-	db := testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{}, &models.UserViewDailyModel{}, &models.UserFollowModel{}, &models.TagModel{})
+	db := testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{}, &models.UserViewDailyModel{}, &models.UserFollowModel{}, &models.TagModel{}, &models.UserSessionModel{})
 	_ = testutil.SetupMiniRedis(t)
 	email := "u1@example.com"
 	user := models.UserModel{
@@ -73,7 +84,7 @@ func TestProfileHandlers(t *testing.T) {
 		t.Fatalf("更新停用标签状态失败: %v", err)
 	}
 
-	api := profile_api.ProfileApi{}
+	api := newProfileAPI()
 
 	{
 		c, w := newCtx()

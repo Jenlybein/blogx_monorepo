@@ -5,6 +5,8 @@ import (
 	"myblogx/api/captcha_api"
 	"myblogx/conf"
 	confsite "myblogx/conf/site"
+	"myblogx/models"
+	"myblogx/service/site_service"
 	"myblogx/test/testutil"
 	"net/http/httptest"
 	"testing"
@@ -34,8 +36,10 @@ func readCaptchaResp(t *testing.T, w *httptest.ResponseRecorder) captchaResp {
 	return resp
 }
 
-func setupCaptchaConfig(enable bool) {
+func setupCaptchaConfig(t *testing.T, enable bool) {
+	t.Helper()
 	testutil.InitGlobals()
+	_ = testutil.SetupSQLite(t, &models.RuntimeSiteConfigModel{})
 	testutil.SetConfig(&conf.Config{
 		Site: conf.Site{
 			Login: confsite.Login{Captcha: enable},
@@ -43,9 +47,21 @@ func setupCaptchaConfig(enable bool) {
 	})
 }
 
+func newCaptchaAPI(t *testing.T) captcha_api.ImageCaptchaApi {
+	t.Helper()
+	runtimeSvc := site_service.NewRuntimeConfigService(testutil.Config().Site, testutil.Config().AI, testutil.Logger(), testutil.DB(), "")
+	if err := runtimeSvc.InitRuntimeConfig(); err != nil {
+		t.Fatalf("初始化运行时配置失败: %v", err)
+	}
+	return captcha_api.New(captcha_api.Deps{
+		RuntimeSite:       runtimeSvc,
+		ImageCaptchaStore: testutil.ImageCaptchaStore(),
+	})
+}
+
 func TestCaptchaViewDisabled(t *testing.T) {
-	setupCaptchaConfig(false)
-	api := captcha_api.ImageCaptchaApi{}
+	setupCaptchaConfig(t, false)
+	api := newCaptchaAPI(t)
 
 	c, w := newCaptchaCtx()
 	api.CaptchaView(c)
@@ -57,8 +73,8 @@ func TestCaptchaViewDisabled(t *testing.T) {
 }
 
 func TestCaptchaViewSuccess(t *testing.T) {
-	setupCaptchaConfig(true)
-	api := captcha_api.ImageCaptchaApi{}
+	setupCaptchaConfig(t, true)
+	api := newCaptchaAPI(t)
 
 	c, w := newCaptchaCtx()
 	api.CaptchaView(c)

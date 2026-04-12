@@ -47,6 +47,16 @@ func issueClaims(userID ctype.ID) *jwts.MyClaims {
 	}
 }
 
+func newImageAPI() image_api.ImageApi {
+	return image_api.New(image_api.Deps{
+		DB:     testutil.DB(),
+		Logger: testutil.Logger(),
+		QiNiu:  testutil.Config().QiNiu,
+		Upload: testutil.Config().Upload,
+		Redis:  testutil.Redis(),
+	})
+}
+
 func TestImageListView(t *testing.T) {
 	db := testutil.SetupSQLite(t, &models.ImageModel{}, &models.ImageRefModel{})
 
@@ -66,7 +76,7 @@ func TestImageListView(t *testing.T) {
 		t.Fatalf("创建图片记录失败: %v", err)
 	}
 
-	api := image_api.ImageApi{}
+	api := newImageAPI()
 	c, w := newCtx()
 	c.Set("requestQuery", common.PageInfo{Page: 1, Limit: 10})
 	api.ImageListView(c)
@@ -88,7 +98,7 @@ func TestCreateUploadTaskViewInvalidConfig(t *testing.T) {
 		},
 	})
 
-	api := image_api.ImageApi{}
+	api := newImageAPI()
 	c, w := newCtx()
 	c.Set("requestJson", image_api.CreateImageUploadTaskRequest{
 		FileName: "avatar.png",
@@ -106,7 +116,7 @@ func TestCreateUploadTaskViewInvalidConfig(t *testing.T) {
 
 func TestUploadTaskStatusViewNotFound(t *testing.T) {
 	testutil.SetupMiniRedis(t)
-	api := image_api.ImageApi{}
+	api := newImageAPI()
 	c, w := newCtx()
 	c.Set("requestUri", models.IDRequest{ID: 999})
 	c.Set("claims", issueClaims(1))

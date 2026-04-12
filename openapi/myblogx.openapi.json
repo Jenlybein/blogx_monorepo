@@ -8881,6 +8881,72 @@
           }
         ]
       }
+    },
+    "/api/users/admin": {
+      "post": {
+        "summary": "管理员创建用户",
+        "deprecated": false,
+        "description": "需要管理员权限。仅允许创建普通 user 账号，成功后返回新用户资源摘要。",
+        "tags": [
+          "用户管理/后台"
+        ],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": true,
+            "example": "Bearer {{bearerToken}}",
+            "schema": {
+              "type": "string",
+              "default": "Bearer {{bearerToken}}"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiMessageResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/AdminUserCreateResponseData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -13470,6 +13536,104 @@
             "example": "这篇文章对 river 链路解释得很清楚。"
           }
         }
+      },
+      "AdminUserCreateRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 32,
+            "description": "新用户用户名。",
+            "example": "seed_user_001"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 72,
+            "description": "新用户登录密码。仅在创建请求中提交，响应和审计摘要中不会回显。",
+            "example": "secret123"
+          },
+          "nickname": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 32,
+            "description": "新用户昵称。为空时默认使用用户名。",
+            "nullable": true,
+            "example": "测试用户 001"
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 256,
+            "format": "email",
+            "description": "可选邮箱，若传入则必须唯一。",
+            "nullable": true,
+            "example": "seed_user_001@example.com"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ]
+      },
+      "AdminUserCreateResponseData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "主键 ID。",
+            "example": "301768758504984576"
+          },
+          "username": {
+            "type": "string",
+            "description": "用户名。",
+            "example": "seed_user_001"
+          },
+          "nickname": {
+            "type": "string",
+            "description": "昵称。",
+            "example": "测试用户 001"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "nullable": true,
+            "description": "邮箱。",
+            "example": "seed_user_001@example.com"
+          },
+          "role": {
+            "type": "integer",
+            "enum": [
+              2
+            ],
+            "description": "角色值。该接口固定创建普通用户。",
+            "example": 2
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              1
+            ],
+            "description": "用户状态值。新建用户默认启用。",
+            "example": 1
+          },
+          "register_source": {
+            "type": "integer",
+            "enum": [
+              4
+            ],
+            "description": "注册来源。4 表示管理员创建。",
+            "example": 4
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "nickname",
+          "role",
+          "status",
+          "register_source"
+        ]
       }
     },
     "responses": {
