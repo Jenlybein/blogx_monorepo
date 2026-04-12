@@ -9,6 +9,7 @@ import (
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
 	"myblogx/models/enum/message_enum"
+	"myblogx/service/site_service"
 	"myblogx/test/testutil"
 	"myblogx/utils/jwts"
 	"myblogx/utils/markdown"
@@ -56,6 +57,7 @@ func setupArticleEnv(t *testing.T) *models.UserModel {
 		t,
 		&models.UserModel{},
 		&models.UserConfModel{},
+		&models.RuntimeSiteConfigModel{},
 		&models.CategoryModel{},
 		&models.ArticleModel{},
 		&models.TagModel{},
@@ -90,6 +92,24 @@ func setupArticleEnv(t *testing.T) *models.UserModel {
 		t.Fatalf("创建用户失败: %v", err)
 	}
 	return user
+}
+
+func setupArticleAPI(t *testing.T) ArticleApi {
+	t.Helper()
+
+	cfg := testutil.Config()
+	runtimeSvc := site_service.NewRuntimeConfigService(cfg.Site, cfg.AI, testutil.Logger(), testutil.DB(), "")
+	if err := runtimeSvc.InitRuntimeConfig(); err != nil {
+		t.Fatalf("初始化运行时配置失败: %v", err)
+	}
+
+	return New(Deps{
+		DB:          testutil.DB(),
+		JWT:         cfg.Jwt,
+		Logger:      testutil.Logger(),
+		Redis:       testutil.Redis(),
+		RuntimeSite: runtimeSvc,
+	})
 }
 
 func waitArticleMessageCount(t *testing.T, want int) []models.ArticleMessageModel {
@@ -128,7 +148,7 @@ func TestArticleCreateUpdateExamineAndRemove(t *testing.T) {
 		t.Fatalf("创建标签失败: %v", err)
 	}
 
-	api := ArticleApi{}
+	api := setupArticleAPI(t)
 	claims := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: enum.RoleUser, Username: user.Username}}
 
 	{
@@ -253,7 +273,7 @@ func TestArticleUpdateViewOnlyUpdatesProvidedFields(t *testing.T) {
 		t.Fatalf("创建文章标签关系失败: %v", err)
 	}
 
-	api := ArticleApi{}
+	api := setupArticleAPI(t)
 	claims := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: enum.RoleUser, Username: user.Username}}
 
 	{
@@ -325,7 +345,7 @@ func TestArticleUpdateViewCategoryIDZeroClearsCategory(t *testing.T) {
 		t.Fatalf("创建文章失败: %v", err)
 	}
 
-	api := ArticleApi{}
+	api := setupArticleAPI(t)
 	claims := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: enum.RoleUser, Username: user.Username}}
 	clearID := ctype.ID(0)
 
@@ -354,7 +374,7 @@ func TestArticleUpdateViewCategoryIDZeroClearsCategory(t *testing.T) {
 func TestArticleDiggFavoriteVisitDetailRemoveUser(t *testing.T) {
 	user := setupArticleEnv(t)
 	db := testutil.DB()
-	api := ArticleApi{}
+	api := setupArticleAPI(t)
 
 	tag := models.TagModel{Title: "Backend", IsEnabled: true}
 	if err := db.Create(&tag).Error; err != nil {
@@ -464,6 +484,7 @@ func TestArticleDiggFavoriteVisitDetailRemoveUser(t *testing.T) {
 		req := httptest.NewRequest(http.MethodDelete, "/", nil)
 		req.Header.Set("token", token)
 		c.Request = req
+		c.Set("claims", claims)
 		c.Set("requestUri", models.IDRequest{ID: article.ID})
 		api.ArticleRemoveUserView(c)
 		if code := readCode(t, w); code != 0 {

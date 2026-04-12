@@ -23,6 +23,7 @@ func (h ViewHistoryApi) ArticleViewHistoryView(c *gin.Context) {
 	_list, count, err := common.ListQuery(models.UserArticleViewHistoryModel{
 		UserID: cr.UserID,
 	}, common.Options{
+		DB:       h.App.DB,
 		PageInfo: cr.PageInfo,
 		Preloads: []string{"UserModel", "ArticleModel"},
 	})

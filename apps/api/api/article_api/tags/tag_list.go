@@ -22,6 +22,7 @@ func (h TagsApi) TagListView(c *gin.Context) {
 	}
 
 	list, count, err := common.ListQuery(models.TagModel{}, common.Options{
+		DB:           h.App.DB,
 		Select:       []string{"id", "title", "description", "is_enabled", "sort", "article_count"},
 		PageInfo:     cr.PageInfo,
 		Likes:        []string{"title"},

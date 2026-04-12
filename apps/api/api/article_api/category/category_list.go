@@ -56,6 +56,7 @@ func (h CategoryApi) CategoryListView(c *gin.Context) {
 	_list, count, err := common.ListQuery(models.CategoryModel{
 		UserID: cr.UserID,
 	}, common.Options{
+		DB:       h.App.DB,
 		PageInfo: cr.PageInfo,
 		Likes:    []string{"title"},
 		Preloads: preloads,

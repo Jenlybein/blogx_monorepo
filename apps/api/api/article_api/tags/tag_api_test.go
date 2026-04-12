@@ -66,9 +66,17 @@ func tokenForUser(t *testing.T, user *models.UserModel) string {
 	return testutil.IssueAccessToken(t, user)
 }
 
+func setupTagsAPI() TagsApi {
+	return New(Deps{
+		DB:     testutil.DB(),
+		Logger: testutil.Logger(),
+		Redis:  testutil.Redis(),
+	})
+}
+
 func TestTagCRUDAndOptions(t *testing.T) {
 	admin := setupTagEnv(t)
-	api := TagsApi{}
+	api := setupTagsAPI()
 	claims := &jwts.MyClaims{Claims: jwts.Claims{UserID: admin.ID, Role: enum.RoleAdmin, Username: admin.Username}}
 
 	{
@@ -173,7 +181,7 @@ func TestTagCRUDAndOptions(t *testing.T) {
 
 func TestTagUpdateKeepsArticleTagRelation(t *testing.T) {
 	admin := setupTagEnv(t)
-	api := TagsApi{}
+	api := setupTagsAPI()
 	claims := &jwts.MyClaims{Claims: jwts.Claims{UserID: admin.ID, Role: enum.RoleAdmin, Username: admin.Username}}
 
 	tag := models.TagModel{Title: "Golang", IsEnabled: true}

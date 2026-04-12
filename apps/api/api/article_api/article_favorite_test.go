@@ -41,7 +41,7 @@ func TestGetOrCreateFavoriteIDBranches(t *testing.T) {
 func TestFavoriteCreateUpdateListDelete(t *testing.T) {
 	user := setupArticleEnv(t)
 	db := testutil.DB()
-	api := ArticleApi{}
+	api := setupArticleAPI(t)
 	claims := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: enum.RoleUser, Username: user.Username}}
 
 	{
@@ -110,6 +110,7 @@ func TestFavoriteCreateUpdateListDelete(t *testing.T) {
 
 	{
 		c, w := newCtx()
+		c.Set("claims", claims)
 		c.Set("requestJson", models.IDListRequest{IDList: []ctype.ID{}})
 		req := httptest.NewRequest(http.MethodDelete, "/favorites", nil)
 		token := testutil.IssueAccessToken(t, user)
@@ -140,6 +141,7 @@ func TestFavoriteCreateUpdateListDelete(t *testing.T) {
 
 	{
 		c, w := newCtx()
+		c.Set("claims", claims)
 		c.Set("requestJson", models.IDListRequest{IDList: []ctype.ID{fav.ID}})
 		req := httptest.NewRequest(http.MethodDelete, "/favorites", nil)
 		token := testutil.IssueAccessToken(t, user)

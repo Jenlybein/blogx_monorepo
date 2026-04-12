@@ -65,9 +65,18 @@ func tokenForUser(t *testing.T, user *models.UserModel) string {
 	return testutil.IssueAccessToken(t, user)
 }
 
+func setupCategoryAPI() CategoryApi {
+	return New(Deps{
+		DB:     testutil.DB(),
+		JWT:    testutil.Config().Jwt,
+		Logger: testutil.Logger(),
+		Redis:  testutil.Redis(),
+	})
+}
+
 func TestCategoryCRUD(t *testing.T) {
 	user := setupCategoryEnv(t)
-	api := CategoryApi{}
+	api := setupCategoryAPI()
 	claims := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: enum.RoleUser, Username: user.Username}}
 
 	{
@@ -123,6 +132,7 @@ func TestCategoryCRUD(t *testing.T) {
 
 	{
 		c, w := newCtx()
+		c.Set("claims", claims)
 		c.Set("requestJson", models.IDListRequest{IDList: []ctype.ID{}})
 		req := httptest.NewRequest(http.MethodDelete, "/articles/category", nil)
 		req.Header.Set("token", token)
@@ -135,6 +145,7 @@ func TestCategoryCRUD(t *testing.T) {
 
 	{
 		c, w := newCtx()
+		c.Set("claims", claims)
 		c.Set("requestJson", models.IDListRequest{IDList: []ctype.ID{cat.ID}})
 		req := httptest.NewRequest(http.MethodDelete, "/articles/category", nil)
 		req.Header.Set("token", token)

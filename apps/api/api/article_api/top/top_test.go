@@ -70,9 +70,17 @@ func createTopArticle(t *testing.T, authorID ctype.ID, title string, status enum
 	return article
 }
 
+func setupTopAPI() TopApi {
+	return New(Deps{
+		DB:     testutil.DB(),
+		Logger: testutil.Logger(),
+		Redis:  testutil.Redis(),
+	})
+}
+
 func TestArticleTopSetViewUserLimitAndAdminUnlimited(t *testing.T) {
 	user, admin := setupTopEnv(t)
-	api := TopApi{}
+	api := setupTopAPI()
 
 	userClaims := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: user.Role, Username: user.Username}}
 	adminClaims := &jwts.MyClaims{Claims: jwts.Claims{UserID: admin.ID, Role: admin.Role, Username: admin.Username}}
@@ -140,7 +148,7 @@ func TestArticleTopSetViewUserLimitAndAdminUnlimited(t *testing.T) {
 
 func TestArticleTopRemoveViewRemovesOnlyCurrentUsersTop(t *testing.T) {
 	user, admin := setupTopEnv(t)
-	api := TopApi{}
+	api := setupTopAPI()
 
 	userClaims := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: user.Role, Username: user.Username}}
 	adminClaims := &jwts.MyClaims{Claims: jwts.Claims{UserID: admin.ID, Role: admin.Role, Username: admin.Username}}
@@ -208,7 +216,7 @@ func TestArticleTopRemoveViewRemovesOnlyCurrentUsersTop(t *testing.T) {
 
 func TestArticleTopListViewByAuthor(t *testing.T) {
 	user, admin := setupTopEnv(t)
-	api := TopApi{}
+	api := setupTopAPI()
 
 	article1 := createTopArticle(t, user.ID, "top-1", enum.ArticleStatusPublished)
 	article2 := createTopArticle(t, user.ID, "top-2", enum.ArticleStatusPublished)
@@ -271,7 +279,7 @@ func TestArticleTopListViewByAuthor(t *testing.T) {
 
 func TestArticleTopListViewByAdminDeduplicatesArticles(t *testing.T) {
 	user, admin1 := setupTopEnv(t)
-	api := TopApi{}
+	api := setupTopAPI()
 
 	admin2 := models.UserModel{Username: "admin_top_2", Password: "x", Role: enum.RoleAdmin}
 	if err := testutil.DB().Create(&admin2).Error; err != nil {

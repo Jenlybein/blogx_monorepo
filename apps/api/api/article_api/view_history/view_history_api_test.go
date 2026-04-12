@@ -8,6 +8,7 @@ import (
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
 	"myblogx/test/testutil"
+	"myblogx/utils/jwts"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -65,9 +66,16 @@ func tokenForUser(t *testing.T, user *models.UserModel) string {
 	return testutil.IssueAccessToken(t, user)
 }
 
+func setupViewHistoryAPI() ViewHistoryApi {
+	return New(Deps{
+		DB: testutil.DB(),
+	})
+}
+
 func TestViewHistoryListAndDelete(t *testing.T) {
 	user := setupViewHistoryEnv(t)
-	api := ViewHistoryApi{}
+	api := setupViewHistoryAPI()
+	claims := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: enum.RoleUser, Username: user.Username}}
 
 	article := models.ArticleModel{
 		Title:    "history article",
@@ -90,6 +98,7 @@ func TestViewHistoryListAndDelete(t *testing.T) {
 
 	{
 		c, w := newCtx()
+		c.Set("claims", claims)
 		c.Set("requestQuery", ArticleViewHistoryRequest{
 			PageInfo: common.PageInfo{Page: 1, Limit: 10},
 			Type:     1,
@@ -105,6 +114,7 @@ func TestViewHistoryListAndDelete(t *testing.T) {
 
 	{
 		c, w := newCtx()
+		c.Set("claims", claims)
 		c.Set("requestJson", models.IDListRequest{IDList: []ctype.ID{article.ID}})
 		req := httptest.NewRequest(http.MethodDelete, "/articles/history", nil)
 		req.Header.Set("token", token)

@@ -68,6 +68,15 @@ func tokenForUser(t *testing.T, user *models.UserModel) string {
 	return testutil.IssueAccessToken(t, user)
 }
 
+func setupFavoriteAPI() FavoriteApi {
+	return New(Deps{
+		DB:     testutil.DB(),
+		JWT:    testutil.Config().Jwt,
+		Logger: testutil.Logger(),
+		Redis:  testutil.Redis(),
+	})
+}
+
 func readData(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
 	t.Helper()
 	var body map[string]any
@@ -80,7 +89,7 @@ func readData(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
 
 func TestFavoriteCRUD(t *testing.T) {
 	user := setupFavoriteEnv(t)
-	api := FavoriteApi{}
+	api := setupFavoriteAPI()
 	claims := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: enum.RoleUser, Username: user.Username}}
 
 	{
@@ -148,6 +157,7 @@ func TestFavoriteCRUD(t *testing.T) {
 
 	{
 		c, w := newCtx()
+		c.Set("claims", claims)
 		c.Set("requestJson", models.IDListRequest{IDList: []ctype.ID{}})
 		req := httptest.NewRequest(http.MethodDelete, "/articles/favorite", nil)
 		req.Header.Set("token", token)
@@ -198,6 +208,7 @@ func TestFavoriteCRUD(t *testing.T) {
 
 	{
 		c, w := newCtx()
+		c.Set("claims", claims)
 		c.Set("requestJson", models.IDListRequest{IDList: []ctype.ID{fav.ID}})
 		req := httptest.NewRequest(http.MethodDelete, "/articles/favorite", nil)
 		req.Header.Set("token", token)
@@ -212,7 +223,7 @@ func TestFavoriteCRUD(t *testing.T) {
 func TestFavoriteArticlesView(t *testing.T) {
 	owner := setupFavoriteEnv(t)
 	db := testutil.DB()
-	api := FavoriteApi{}
+	api := setupFavoriteAPI()
 
 	visitor := &models.UserModel{
 		Username: "visitor_user",
@@ -338,7 +349,7 @@ func TestFavoriteArticlesView(t *testing.T) {
 func TestFavoriteListViewType2Visibility(t *testing.T) {
 	owner := setupFavoriteEnv(t)
 	db := testutil.DB()
-	api := FavoriteApi{}
+	api := setupFavoriteAPI()
 
 	favoriteModel := models.FavoriteModel{
 		UserID:   owner.ID,
@@ -405,7 +416,7 @@ func TestFavoriteListViewType2Visibility(t *testing.T) {
 func TestFavoriteRemovePatchView(t *testing.T) {
 	user := setupFavoriteEnv(t)
 	db := testutil.DB()
-	api := FavoriteApi{}
+	api := setupFavoriteAPI()
 
 	otherUser := &models.UserModel{
 		Username: "favorite_other_user",
