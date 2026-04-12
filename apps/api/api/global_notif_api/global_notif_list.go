@@ -38,6 +38,7 @@ func (h GlobalNotifApi) GlobalNotifListView(c *gin.Context) {
 	}
 
 	_list, count, err := common.ListQuery(models.GlobalNotifModel{}, common.Options{
+		DB:           h.App.DB,
 		PageInfo:     cr.PageInfo,
 		Likes:        []string{"title", "content"},
 		Where:        whereQuery,

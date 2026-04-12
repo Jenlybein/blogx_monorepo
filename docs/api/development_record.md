@@ -1572,6 +1572,8 @@ flowchart TD
 sudo bash scripts/apply-cert.sh --domain 你的域名 --email 你的邮箱
 ```
 
+## 启动本地环境
+
 读取环境变量并启动项目（请参考模板 `.envrc.example`)：
 
 ```bash
@@ -1905,5 +1907,4 @@ Worker 收到一条消息：
   - 平时只有主 Nginx 提供服务
   - 主挂了，Keepalived 自动把 VIP 飘到备机
   - 用户无感知
-
 

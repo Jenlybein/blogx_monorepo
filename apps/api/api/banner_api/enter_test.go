@@ -28,10 +28,20 @@ func readCode(t *testing.T, w *httptest.ResponseRecorder) int {
 	return int(body["code"].(float64))
 }
 
+func readData(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
+	t.Helper()
+	var body map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("解析响应失败: %v", err)
+	}
+	data, _ := body["data"].(map[string]any)
+	return data
+}
+
 func TestBannerCreateListUpdateRemove(t *testing.T) {
 	db := testutil.SetupSQLite(t, &models.BannerModel{}, &models.ImageRefModel{})
 
-	api := banner_api.BannerApi{}
+	api := banner_api.New(banner_api.Deps{DB: testutil.DB()})
 
 	{
 		c, w := newCtx()
@@ -43,6 +53,9 @@ func TestBannerCreateListUpdateRemove(t *testing.T) {
 		api.BannerCreateView(c)
 		if code := readCode(t, w); code != 0 {
 			t.Fatalf("创建失败, code=%d body=%s", code, w.Body.String())
+		}
+		if got := readData(t, w)["id"]; got == nil || got == "" {
+			t.Fatalf("创建响应应返回字符串 id, body=%s", w.Body.String())
 		}
 	}
 

@@ -53,11 +53,11 @@ func ArticleRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtim
 	group.GET("category", mw.BindQuery[category.CategoryListRequest], app.CategoryListView)
 	authGroup.POST("category", mw.CaptureLog(mw.ReqBody), mw.BindJson[category.CategoryRequest], app.CategoryCreateUpdateView)
 	authGroup.DELETE("category", mw.CaptureLog(mw.ReqBody|mw.ReqHeader), mw.BindJson[models.IDListRequest], app.CategoryDeleteView)
-	authGroup.GET("category/options", app.CategoryOptionsView)
+	group.GET("category/options", app.CategoryOptionsView)
 
 	// 标签
 	group.GET("tags", mw.BindQuery[tags.TagListRequest], app.TagListView)
-	authGroup.GET("tags/options", app.ArticleTagOptionsView)
+	group.GET("tags/options", app.ArticleTagOptionsView)
 	adminGroup.PUT("tags", mw.CaptureLog(mw.ReqBody), mw.BindJson[tags.TagRequest], app.TagCreateUpdateView)
 	adminGroup.DELETE("tags", mw.CaptureLog(mw.ReqBody|mw.ReqHeader), mw.BindJson[models.IDListRequest], app.TagDeleteView)
 }

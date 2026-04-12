@@ -11,6 +11,11 @@ type CategoryRequest struct {
 	Title string   `json:"title" binding:"required,min=2,max=20"`
 }
 
+type CategoryCreateResponse struct {
+	ID    ctype.ID `json:"id"`
+	Title string   `json:"title"`
+}
+
 type CategoryListRequest struct {
 	common.PageInfo
 	UserID ctype.ID `form:"user_id"`

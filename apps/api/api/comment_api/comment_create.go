@@ -24,6 +24,15 @@ type CommentCreateRequest struct {
 	ReplyId   *ctype.ID `json:"reply_id"`
 }
 
+type CommentCreateResponse struct {
+	ID        ctype.ID           `json:"id"`
+	ArticleID ctype.ID           `json:"article_id"`
+	ReplyID   ctype.ID           `json:"reply_id"`
+	RootID    ctype.ID           `json:"root_id"`
+	Status    enum.CommentStatus `json:"status"`
+	Content   string             `json:"content"`
+}
+
 func (h CommentApi) CommentCreateView(c *gin.Context) {
 	cr := middleware.GetBindJson[CommentCreateRequest](c)
 	if h.App.RuntimeSite == nil {
@@ -137,11 +146,25 @@ func (h CommentApi) CommentCreateView(c *gin.Context) {
 				logger.Errorf("写入回复数缓存失败: 根评论ID=%d 错误=%v", rootCommentID, err)
 			}
 		}
-		res.OkWithMsg("评论成功", c)
+		res.OkWithData(CommentCreateResponse{
+			ID:        model.ID,
+			ArticleID: model.ArticleID,
+			ReplyID:   model.ReplyId,
+			RootID:    model.RootID,
+			Status:    status,
+			Content:   model.Content,
+		}, c)
 		return
 	} else {
 		// 进入审核
 	}
 
-	res.OkWithMsg("评论已提交，等待审核", c)
+	res.OkWithData(CommentCreateResponse{
+		ID:        model.ID,
+		ArticleID: model.ArticleID,
+		ReplyID:   model.ReplyId,
+		RootID:    model.RootID,
+		Status:    status,
+		Content:   model.Content,
+	}, c)
 }

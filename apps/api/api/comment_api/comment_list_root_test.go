@@ -15,7 +15,7 @@ import (
 
 func TestCommentRootListView(t *testing.T) {
 	user := setupCommentEnv(t)
-	api := CommentApi{}
+	api := setupCommentAPI(t)
 	if err := testutil.DB().Model(user).Updates(map[string]any{
 		"nickname": "user1",
 		"avatar":   "/a1.png",

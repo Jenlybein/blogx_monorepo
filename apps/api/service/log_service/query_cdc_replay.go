@@ -7,56 +7,57 @@ import (
 	"time"
 
 	"myblogx/common"
+	"myblogx/models/ctype"
 )
 
 // CdcEventRecord 对应 CDC 执行日志列表与详情接口返回的单条记录。
 type CdcEventRecord struct {
-	EventID      uint64 `json:"event_id"`
-	TS           string `json:"ts"`
-	Service      string `json:"service"`
-	Env          string `json:"env"`
-	Host         string `json:"host"`
-	InstanceID   string `json:"instance_id"`
-	Level        string `json:"level"`
-	Message      string `json:"message"`
-	RequestID    string `json:"request_id"`
-	TraceID      string `json:"trace_id"`
-	EventName    string `json:"event_name"`
-	ErrorCode    string `json:"error_code"`
-	ErrorMessage string `json:"error_message"`
-	CdcJobID     string `json:"cdc_job_id"`
-	Stream       string `json:"stream"`
-	SourceTable  string `json:"source_table"`
-	Action       string `json:"action"`
-	TargetKey    string `json:"target_key"`
-	RetryCount   uint8  `json:"retry_count"`
-	Result       string `json:"result"`
-	ExtraJSON    string `json:"extra_json"`
+	EventID      ctype.ID `json:"event_id"`
+	TS           string   `json:"ts"`
+	Service      string   `json:"service"`
+	Env          string   `json:"env"`
+	Host         string   `json:"host"`
+	InstanceID   string   `json:"instance_id"`
+	Level        string   `json:"level"`
+	Message      string   `json:"message"`
+	RequestID    string   `json:"request_id"`
+	TraceID      string   `json:"trace_id"`
+	EventName    string   `json:"event_name"`
+	ErrorCode    string   `json:"error_code"`
+	ErrorMessage string   `json:"error_message"`
+	CdcJobID     string   `json:"cdc_job_id"`
+	Stream       string   `json:"stream"`
+	SourceTable  string   `json:"source_table"`
+	Action       string   `json:"action"`
+	TargetKey    string   `json:"target_key"`
+	RetryCount   uint8    `json:"retry_count"`
+	Result       string   `json:"result"`
+	ExtraJSON    string   `json:"extra_json"`
 }
 
 // ReplayEventRecord 对应回放日志列表与详情接口返回的单条记录。
 type ReplayEventRecord struct {
-	EventID      uint64 `json:"event_id"`
-	TS           string `json:"ts"`
-	Service      string `json:"service"`
-	Env          string `json:"env"`
-	Host         string `json:"host"`
-	InstanceID   string `json:"instance_id"`
-	Level        string `json:"level"`
-	Message      string `json:"message"`
-	RequestID    string `json:"request_id"`
-	TraceID      string `json:"trace_id"`
-	EventName    string `json:"event_name"`
-	ErrorCode    string `json:"error_code"`
-	ErrorMessage string `json:"error_message"`
-	CdcJobID     string `json:"cdc_job_id"`
-	Stream       string `json:"stream"`
-	SourceTable  string `json:"source_table"`
-	Action       string `json:"action"`
-	TargetKey    string `json:"target_key"`
-	RetryCount   uint8  `json:"retry_count"`
-	Result       string `json:"result"`
-	ExtraJSON    string `json:"extra_json"`
+	EventID      ctype.ID `json:"event_id"`
+	TS           string   `json:"ts"`
+	Service      string   `json:"service"`
+	Env          string   `json:"env"`
+	Host         string   `json:"host"`
+	InstanceID   string   `json:"instance_id"`
+	Level        string   `json:"level"`
+	Message      string   `json:"message"`
+	RequestID    string   `json:"request_id"`
+	TraceID      string   `json:"trace_id"`
+	EventName    string   `json:"event_name"`
+	ErrorCode    string   `json:"error_code"`
+	ErrorMessage string   `json:"error_message"`
+	CdcJobID     string   `json:"cdc_job_id"`
+	Stream       string   `json:"stream"`
+	SourceTable  string   `json:"source_table"`
+	Action       string   `json:"action"`
+	TargetKey    string   `json:"target_key"`
+	RetryCount   uint8    `json:"retry_count"`
+	Result       string   `json:"result"`
+	ExtraJSON    string   `json:"extra_json"`
 }
 
 // CdcEventQuery 定义 CDC 执行日志查询条件。

@@ -14,7 +14,7 @@ import (
 
 func TestCommentReplyListView(t *testing.T) {
 	user := setupCommentEnv(t)
-	api := CommentApi{}
+	api := setupCommentAPI(t)
 
 	if err := testutil.DB().Model(user).Updates(map[string]any{
 		"nickname": "u1",

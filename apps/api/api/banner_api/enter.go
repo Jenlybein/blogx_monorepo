@@ -6,6 +6,7 @@ import (
 	"myblogx/common/res"
 	"myblogx/middleware"
 	"myblogx/models"
+	"myblogx/models/ctype"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -30,6 +31,13 @@ type BannerCreateRequest struct {
 	Show  bool   `json:"show"`
 }
 
+type BannerCreateResponse struct {
+	ID    ctype.ID `json:"id"`
+	Cover string   `json:"cover"`
+	Href  string   `json:"href"`
+	Show  bool     `json:"show"`
+}
+
 func (h BannerApi) BannerCreateView(c *gin.Context) {
 	cr := middleware.GetBindJson[BannerCreateRequest](c)
 
@@ -42,7 +50,12 @@ func (h BannerApi) BannerCreateView(c *gin.Context) {
 		res.FailWithError(err, c)
 		return
 	}
-	res.OkWithMsg("创建轮播图成功", c)
+	res.OkWithData(BannerCreateResponse{
+		ID:    model.ID,
+		Cover: model.Cover,
+		Href:  model.Href,
+		Show:  model.Show,
+	}, c)
 	middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{
 		ActionName:        "banner_create",
 		TargetType:        "banner",

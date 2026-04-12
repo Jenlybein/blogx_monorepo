@@ -31,14 +31,15 @@ func (h TagsApi) TagCreateUpdateView(c *gin.Context) {
 	}
 
 	if cr.ID == 0 {
-		// 标签创建改为直接创建新记录，不再恢复同名软删数据。
-		if err := h.App.DB.Create(&models.TagModel{
+		tag := models.TagModel{
 			Title:       title,
 			Sort:        cr.Sort,
 			Description: cr.Description,
 			IsEnabled:   isEnabled,
 			CreatedBy:   claims.UserID,
-		}).Error; err != nil {
+		}
+		// 标签创建改为直接创建新记录，不再恢复同名软删数据。
+		if err := h.App.DB.Create(&tag).Error; err != nil {
 			if errors.Is(err, gorm.ErrDuplicatedKey) {
 				res.FailWithMsg("标签名称重复", c)
 				return
@@ -46,10 +47,17 @@ func (h TagsApi) TagCreateUpdateView(c *gin.Context) {
 			res.FailWithMsg(fmt.Sprintf("创建标签失败: %v", err), c)
 			return
 		}
-		res.OkWithMsg("创建标签成功", c)
+		res.OkWithData(TagCreateResponse{
+			ID:          tag.ID,
+			Title:       tag.Title,
+			Sort:        tag.Sort,
+			Description: tag.Description,
+			IsEnabled:   tag.IsEnabled,
+		}, c)
 		middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{
 			ActionName:        "tag_create",
 			TargetType:        "tag",
+			TargetID:          strconv.FormatUint(uint64(tag.ID), 10),
 			Success:           true,
 			Message:           "创建标签成功",
 			RequestBody:       cr,

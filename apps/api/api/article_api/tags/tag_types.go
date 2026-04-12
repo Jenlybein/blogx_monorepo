@@ -14,6 +14,14 @@ type TagRequest struct {
 	IsEnabled   *bool    `json:"is_enabled"`
 }
 
+type TagCreateResponse struct {
+	ID          ctype.ID `json:"id"`
+	Title       string   `json:"title"`
+	Sort        int      `json:"sort"`
+	Description string   `json:"description"`
+	IsEnabled   bool     `json:"is_enabled"`
+}
+
 type TagListRequest struct {
 	common.PageInfo
 	IsEnabled *bool `form:"is_enabled"`

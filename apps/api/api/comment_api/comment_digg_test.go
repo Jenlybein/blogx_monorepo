@@ -11,7 +11,7 @@ import (
 
 func TestCommentDiggView(t *testing.T) {
 	user := setupCommentEnv(t)
-	api := CommentApi{}
+	api := setupCommentAPI(t)
 
 	article := models.ArticleModel{
 		Title:          "digg-article",

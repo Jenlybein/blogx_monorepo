@@ -13,7 +13,7 @@ import (
 
 func TestCommentRemoveView(t *testing.T) {
 	owner := setupCommentEnv(t)
-	api := CommentApi{}
+	api := setupCommentAPI(t)
 
 	commenter := &models.UserModel{Username: "commenter", Password: "x", Role: enum.RoleUser}
 	if err := testutil.DB().Create(commenter).Error; err != nil {

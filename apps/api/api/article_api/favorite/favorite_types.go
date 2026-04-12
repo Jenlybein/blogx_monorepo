@@ -15,6 +15,16 @@ type FavoriteRequest struct {
 	Abstract string   `json:"abstract" binding:"required,max=256"`
 }
 
+type FavoriteCreateResponse struct {
+	ID           ctype.ID `json:"id"`
+	UserID       ctype.ID `json:"user_id"`
+	Title        string   `json:"title"`
+	Cover        string   `json:"cover"`
+	Abstract     string   `json:"abstract"`
+	IsDefault    bool     `json:"is_default"`
+	ArticleCount int      `json:"article_count"`
+}
+
 type FavoriteListRequest struct {
 	common.PageInfo
 	UserID    ctype.ID `form:"user_id"`

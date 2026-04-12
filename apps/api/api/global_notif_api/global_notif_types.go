@@ -16,6 +16,16 @@ type GlobalNotifCreateRequest struct {
 	Href            string                 `json:"href"`
 }
 
+type GlobalNotifCreateResponse struct {
+	ID              ctype.ID               `json:"id"`
+	ExpireTime      time.Time              `json:"expire_time"`
+	UserVisibleRule global_notif_enum.Type `json:"user_visible_rule"`
+	Title           string                 `json:"title"`
+	Content         string                 `json:"content"`
+	Icon            string                 `json:"icon"`
+	Href            string                 `json:"href"`
+}
+
 type GlobalNotifListRequest struct {
 	common.PageInfo
 	Type int8 `form:"type" binding:"required,oneof=1 2"`

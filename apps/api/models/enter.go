@@ -37,6 +37,8 @@ type IDListRequest struct {
 }
 
 type OptionsResponse[T any] struct {
+	ID    T      `json:"id"`
+	Title string `json:"title"`
 	Label string `json:"label"`
 	Value T      `json:"value"`
 }

@@ -13,7 +13,7 @@ func (h TagsApi) ArticleTagOptionsView(c *gin.Context) {
 	if err := h.App.DB.Model(&models.TagModel{}).
 		Where("is_enabled = ?", true).
 		Order("sort desc, id asc").
-		Select("id as value", "title as label").
+		Select("id as id", "title as title", "title as label", "id as value").
 		Scan(&list).Error; err != nil {
 		res.FailWithError(err, c)
 		return

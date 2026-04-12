@@ -2,12 +2,14 @@ package comment_api
 
 import (
 	"encoding/json"
+	"myblogx/conf"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
 	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_article"
 	"myblogx/service/redis_service/redis_comment"
+	"myblogx/service/site_service"
 	"myblogx/test/testutil"
 	"myblogx/utils/jwts"
 	"net/http/httptest"
@@ -20,6 +22,7 @@ func newCommentCtx() (*gin.Context, *httptest.ResponseRecorder) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
+	c.Set("_jwt_config", testutil.Config().Jwt)
 	return c, w
 }
 
@@ -42,9 +45,29 @@ func testRedisDeps() redis_service.Deps {
 	return redis_service.Deps{Client: testutil.Redis(), Logger: testutil.Logger()}
 }
 
+func setupCommentAPI(t *testing.T) CommentApi {
+	t.Helper()
+	runtimeSvc := site_service.NewRuntimeConfigService(testutil.Config().Site, testutil.Config().AI, testutil.Logger(), testutil.DB(), "")
+	if err := runtimeSvc.InitRuntimeConfig(); err != nil {
+		t.Fatalf("初始化运行时配置失败: %v", err)
+	}
+	return New(Deps{
+		DB:          testutil.DB(),
+		Logger:      testutil.Logger(),
+		Redis:       testutil.Redis(),
+		RuntimeSite: runtimeSvc,
+	})
+}
+
 func setupCommentEnv(t *testing.T) *models.UserModel {
 	t.Helper()
 	_ = testutil.SetupMiniRedis(t)
+	cfg := testutil.Config()
+	cfg.Jwt = conf.Jwt{
+		Expire: 1,
+		Secret: "comment-secret",
+		Issuer: "comment-test",
+	}
 	db := testutil.SetupSQLite(t,
 		&models.UserModel{},
 		&models.UserConfModel{},
@@ -53,6 +76,7 @@ func setupCommentEnv(t *testing.T) *models.UserModel {
 		&models.CommentModel{},
 		&models.CommentDiggModel{},
 		&models.ArticleMessageModel{},
+		&models.RuntimeSiteConfigModel{},
 	)
 	testutil.Config().Site.Comment.SkipExamining = true
 
@@ -69,7 +93,7 @@ func setupCommentEnv(t *testing.T) *models.UserModel {
 
 func TestCommentCreateView(t *testing.T) {
 	user := setupCommentEnv(t)
-	api := CommentApi{}
+	api := setupCommentAPI(t)
 	claims := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Username: user.Username, Role: enum.RoleUser}}
 
 	t.Run("文章不存在", func(t *testing.T) {
@@ -123,6 +147,9 @@ func TestCommentCreateView(t *testing.T) {
 		api.CommentCreateView(c)
 		if code := readBizCode(t, w); code != 0 {
 			t.Fatalf("一级评论应成功, body=%s", w.Body.String())
+		}
+		if got := readBizBody(t, w)["data"].(map[string]any)["id"]; got == nil || got == "" {
+			t.Fatalf("一级评论应返回字符串 id, body=%s", w.Body.String())
 		}
 
 		if err := testutil.DB().Last(&first).Error; err != nil {
@@ -223,7 +250,11 @@ func TestCommentCreateView(t *testing.T) {
 		testutil.Config().Site.Comment.SkipExamining = false
 		t.Cleanup(func() {
 			testutil.Config().Site.Comment.SkipExamining = true
+			_ = api.App.RuntimeSite.UpdateRuntimeSite(testutil.Config().Site)
 		})
+		if err := api.App.RuntimeSite.UpdateRuntimeSite(testutil.Config().Site); err != nil {
+			t.Fatalf("更新运行时评论配置失败: %v", err)
+		}
 
 		beforeCommentCount := redis_article.GetCacheComment(testRedisDeps(), openArticle.ID)
 		beforeReplyCount := redis_comment.GetCacheReply(testRedisDeps(), first.ID)
@@ -257,6 +288,9 @@ func TestCommentCreateView(t *testing.T) {
 
 	t.Run("管理员评论直接发布并计数与消息", func(t *testing.T) {
 		testutil.Config().Site.Comment.SkipExamining = false
+		if err := api.App.RuntimeSite.UpdateRuntimeSite(testutil.Config().Site); err != nil {
+			t.Fatalf("更新运行时评论配置失败: %v", err)
+		}
 		adminClaims := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Username: user.Username, Role: enum.RoleAdmin}}
 
 		beforeCommentCount := redis_article.GetCacheComment(testRedisDeps(), openArticle.ID)

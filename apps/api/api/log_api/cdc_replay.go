@@ -8,6 +8,7 @@ import (
 	"myblogx/common/res"
 	"myblogx/middleware"
 	"myblogx/models"
+	"myblogx/models/ctype"
 	"myblogx/service/cdc_dead_letter_service"
 	"myblogx/service/log_service"
 
@@ -75,18 +76,18 @@ type ChainQueryRequest struct {
 }
 
 type ChainDeadLetterRecord struct {
-	ID          uint64 `json:"id"`
-	Stream      string `json:"stream"`
-	CdcJobID    string `json:"cdc_job_id"`
-	SourceTable string `json:"source_table"`
-	Action      string `json:"action"`
-	TargetKey   string `json:"target_key"`
-	RetryCount  int    `json:"retry_count"`
-	Status      string `json:"status"`
-	ErrorCode   string `json:"error_code"`
-	ErrorMsg    string `json:"error_msg"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
+	ID          ctype.ID `json:"id"`
+	Stream      string   `json:"stream"`
+	CdcJobID    string   `json:"cdc_job_id"`
+	SourceTable string   `json:"source_table"`
+	Action      string   `json:"action"`
+	TargetKey   string   `json:"target_key"`
+	RetryCount  int      `json:"retry_count"`
+	Status      string   `json:"status"`
+	ErrorCode   string   `json:"error_code"`
+	ErrorMsg    string   `json:"error_msg"`
+	CreatedAt   string   `json:"created_at"`
+	UpdatedAt   string   `json:"updated_at"`
 }
 
 type ChainQueryResponse struct {
@@ -323,7 +324,7 @@ func (h *LogApi) ChainQueryView(c *gin.Context) {
 	dlq := make([]ChainDeadLetterRecord, 0, len(dlqList))
 	for _, item := range dlqList {
 		dlq = append(dlq, ChainDeadLetterRecord{
-			ID:          uint64(item.ID),
+			ID:          item.ID,
 			Stream:      item.Stream,
 			CdcJobID:    item.CdcJobID,
 			SourceTable: item.SourceTable,

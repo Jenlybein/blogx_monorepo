@@ -166,6 +166,11 @@ func TestArticleCreateUpdateExamineAndRemove(t *testing.T) {
 		if code := readCode(t, w); code != 0 {
 			t.Fatalf("创建文章失败, code=%d body=%s", code, w.Body.String())
 		}
+		body := readBody(t, w)
+		data := body["data"].(map[string]any)
+		if _, ok := data["id"].(string); !ok {
+			t.Fatalf("创建文章返回的 id 应为字符串, body=%s", w.Body.String())
+		}
 	}
 
 	var created models.ArticleModel

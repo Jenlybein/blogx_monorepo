@@ -66,6 +66,12 @@ func setupGlobalNotifEnv(t *testing.T) (*models.UserModel, *models.UserModel) {
 	return admin, user
 }
 
+func setupGlobalNotifAPI() global_notif_api.GlobalNotifApi {
+	return global_notif_api.New(global_notif_api.Deps{
+		DB: testutil.DB(),
+	})
+}
+
 func setClaims(c *gin.Context, user *models.UserModel) {
 	c.Set("claims", &jwts.MyClaims{
 		Claims: jwts.Claims{
@@ -78,7 +84,7 @@ func setClaims(c *gin.Context, user *models.UserModel) {
 
 func TestGlobalNotifCreateViewDefaultsAndPermission(t *testing.T) {
 	admin, user := setupGlobalNotifEnv(t)
-	api := global_notif_api.GlobalNotifApi{}
+	api := setupGlobalNotifAPI()
 
 	{
 		c, w := newGlobalNotifCtx()
@@ -104,6 +110,10 @@ func TestGlobalNotifCreateViewDefaultsAndPermission(t *testing.T) {
 		if code := readGlobalNotifCode(t, w); code != 0 {
 			t.Fatalf("管理员创建通知失败, body=%s", w.Body.String())
 		}
+		data := readGlobalNotifBody(t, w)["data"].(map[string]any)
+		if _, ok := data["id"].(string); !ok {
+			t.Fatalf("创建通知返回的 id 应为字符串, body=%s", w.Body.String())
+		}
 	}
 
 	var notif models.GlobalNotifModel
@@ -123,7 +133,7 @@ func TestGlobalNotifCreateViewDefaultsAndPermission(t *testing.T) {
 
 func TestGlobalNotifListViewAndUserRemove(t *testing.T) {
 	_, user := setupGlobalNotifEnv(t)
-	api := global_notif_api.GlobalNotifApi{}
+	api := setupGlobalNotifAPI()
 	db := testutil.DB()
 
 	registerAt := time.Now().Add(-24 * time.Hour).Round(time.Second)
@@ -234,7 +244,7 @@ func TestGlobalNotifListViewAndUserRemove(t *testing.T) {
 
 func TestGlobalNotifReadView(t *testing.T) {
 	_, user := setupGlobalNotifEnv(t)
-	api := global_notif_api.GlobalNotifApi{}
+	api := setupGlobalNotifAPI()
 	db := testutil.DB()
 
 	registerAt := time.Now().Add(-24 * time.Hour).Round(time.Second)

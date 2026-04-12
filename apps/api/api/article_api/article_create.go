@@ -4,6 +4,7 @@ import (
 	"errors"
 	"myblogx/common/res"
 	"myblogx/middleware"
+	"myblogx/models/ctype"
 	"myblogx/models/enum"
 	"myblogx/service/redis_service"
 	"myblogx/utils/jwts"
@@ -39,7 +40,14 @@ func (h ArticleApi) ArticleCreateView(c *gin.Context) {
 
 	applyTagArticleCountDelta(redis_service.NewDeps(h.App.Redis, h.App.Logger), buildTagArticleCountDelta(nil, tagIDs))
 
-	res.OkWithMsg("创建文章成功", c)
+	res.OkWithData(ArticleCreateResponse{
+		ID:             article.ID,
+		Title:          article.Title,
+		CategoryID:     article.CategoryID,
+		TagIDs:         append([]ctype.ID(nil), tagIDs...),
+		CommentsToggle: article.CommentsToggle,
+		Status:         article.Status,
+	}, c)
 
 	middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{
 		ActionName: "article_create",

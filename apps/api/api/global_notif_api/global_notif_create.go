@@ -48,7 +48,7 @@ func (h GlobalNotifApi) GlobalNotifCreateView(c *gin.Context) {
 	}
 
 	// 执行创建
-	if err := app.DB.Create(&models.GlobalNotifModel{
+	model = models.GlobalNotifModel{
 		ActionUser:      claims.UserID,
 		ExpireTime:      *cr.ExpireTime,
 		UserVisibleRule: cr.UserVisibleRule,
@@ -56,14 +56,24 @@ func (h GlobalNotifApi) GlobalNotifCreateView(c *gin.Context) {
 		Content:         cr.Content,
 		Href:            cr.Href,
 		Icon:            cr.Icon,
-	}).Error; err != nil {
+	}
+	if err := app.DB.Create(&model).Error; err != nil {
 		res.FailWithMsg(fmt.Sprintf("全局通知创建失败 %v", err), c)
 		return
 	}
-	res.OkWithMsg("创建成功", c)
+	res.OkWithData(GlobalNotifCreateResponse{
+		ID:              model.ID,
+		ExpireTime:      model.ExpireTime,
+		UserVisibleRule: model.UserVisibleRule,
+		Title:           model.Title,
+		Content:         model.Content,
+		Icon:            model.Icon,
+		Href:            model.Href,
+	}, c)
 	middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{
 		ActionName:        "global_notif_create",
 		TargetType:        "global_notif",
+		TargetID:          model.ID.String(),
 		Success:           true,
 		Message:           "创建全局通知成功",
 		RequestBody:       cr,

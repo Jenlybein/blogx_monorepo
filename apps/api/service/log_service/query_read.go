@@ -12,88 +12,88 @@ import (
 
 // RuntimeLogRecord 对应运行日志列表与详情接口返回的单条记录。
 type RuntimeLogRecord struct {
-	EventID    uint64 `json:"event_id"`
-	TS         string `json:"ts"`
-	Service    string `json:"service"`
-	Env        string `json:"env"`
-	Host       string `json:"host"`
-	InstanceID string `json:"instance_id"`
-	Level      string `json:"level"`
-	Message    string `json:"message"`
-	RequestID  string `json:"request_id"`
-	TraceID    string `json:"trace_id"`
-	File       string `json:"file"`
-	Func       string `json:"func"`
-	UserID     uint64 `json:"user_id"`
-	IP         string `json:"ip"`
-	Method     string `json:"method"`
-	Path       string `json:"path"`
-	StatusCode uint16 `json:"status_code"`
-	LatencyMS  uint32 `json:"latency_ms"`
-	EventName  string `json:"event_name"`
-	ErrorCode  string `json:"error_code"`
-	ErrorMsg   string `json:"error_message"`
-	ErrorType  string `json:"error_type"`
-	ErrorStack string `json:"error_stack"`
-	ExtraJSON  string `json:"extra_json"`
+	EventID    ctype.ID `json:"event_id"`
+	TS         string   `json:"ts"`
+	Service    string   `json:"service"`
+	Env        string   `json:"env"`
+	Host       string   `json:"host"`
+	InstanceID string   `json:"instance_id"`
+	Level      string   `json:"level"`
+	Message    string   `json:"message"`
+	RequestID  string   `json:"request_id"`
+	TraceID    string   `json:"trace_id"`
+	File       string   `json:"file"`
+	Func       string   `json:"func"`
+	UserID     ctype.ID `json:"user_id"`
+	IP         string   `json:"ip"`
+	Method     string   `json:"method"`
+	Path       string   `json:"path"`
+	StatusCode uint16   `json:"status_code"`
+	LatencyMS  uint32   `json:"latency_ms"`
+	EventName  string   `json:"event_name"`
+	ErrorCode  string   `json:"error_code"`
+	ErrorMsg   string   `json:"error_message"`
+	ErrorType  string   `json:"error_type"`
+	ErrorStack string   `json:"error_stack"`
+	ExtraJSON  string   `json:"extra_json"`
 }
 
 // LoginEventRecord 对应登录事件日志列表与详情接口返回的单条记录。
 type LoginEventRecord struct {
-	EventID    uint64 `json:"event_id"`
-	TS         string `json:"ts"`
-	Service    string `json:"service"`
-	Env        string `json:"env"`
-	Host       string `json:"host"`
-	InstanceID string `json:"instance_id"`
-	Level      string `json:"level"`
-	Message    string `json:"message"`
-	RequestID  string `json:"request_id"`
-	TraceID    string `json:"trace_id"`
-	UserID     uint64 `json:"user_id"`
-	IP         string `json:"ip"`
-	EventName  string `json:"event_name"`
-	ErrorCode  string `json:"error_code"`
-	ErrorMsg   string `json:"error_message"`
-	Username   string `json:"username"`
-	LoginType  string `json:"login_type"`
-	Success    uint8  `json:"success"`
-	Reason     string `json:"reason"`
-	Addr       string `json:"addr"`
-	UA         string `json:"ua"`
-	ExtraJSON  string `json:"extra_json"`
+	EventID    ctype.ID `json:"event_id"`
+	TS         string   `json:"ts"`
+	Service    string   `json:"service"`
+	Env        string   `json:"env"`
+	Host       string   `json:"host"`
+	InstanceID string   `json:"instance_id"`
+	Level      string   `json:"level"`
+	Message    string   `json:"message"`
+	RequestID  string   `json:"request_id"`
+	TraceID    string   `json:"trace_id"`
+	UserID     ctype.ID `json:"user_id"`
+	IP         string   `json:"ip"`
+	EventName  string   `json:"event_name"`
+	ErrorCode  string   `json:"error_code"`
+	ErrorMsg   string   `json:"error_message"`
+	Username   string   `json:"username"`
+	LoginType  string   `json:"login_type"`
+	Success    uint8    `json:"success"`
+	Reason     string   `json:"reason"`
+	Addr       string   `json:"addr"`
+	UA         string   `json:"ua"`
+	ExtraJSON  string   `json:"extra_json"`
 }
 
 // ActionAuditRecord 对应操作审计日志列表与详情接口返回的单条记录。
 type ActionAuditRecord struct {
-	EventID           uint64 `json:"event_id"`
-	TS                string `json:"ts"`
-	Service           string `json:"service"`
-	Env               string `json:"env"`
-	Host              string `json:"host"`
-	InstanceID        string `json:"instance_id"`
-	Level             string `json:"level"`
-	Message           string `json:"message"`
-	RequestID         string `json:"request_id"`
-	TraceID           string `json:"trace_id"`
-	UserID            uint64 `json:"user_id"`
-	IP                string `json:"ip"`
-	Method            string `json:"method"`
-	Path              string `json:"path"`
-	StatusCode        uint16 `json:"status_code"`
-	ErrorCode         string `json:"error_code"`
-	ErrorMsg          string `json:"error_message"`
-	ActionName        string `json:"action_name"`
-	TargetType        string `json:"target_type"`
-	TargetID          string `json:"target_id"`
-	Success           uint8  `json:"success"`
-	RequestBody       string `json:"request_body"`
-	ResponseBody      string `json:"response_body"`
-	RequestBodyRaw    string `json:"request_body_raw,omitempty"`
-	ResponseBodyRaw   string `json:"response_body_raw,omitempty"`
-	RequestHeaderRaw  string `json:"request_header_raw,omitempty"`
-	ResponseHeaderRaw string `json:"response_header_raw,omitempty"`
-	ExtraJSON         string `json:"extra_json"`
+	EventID           ctype.ID `json:"event_id"`
+	TS                string   `json:"ts"`
+	Service           string   `json:"service"`
+	Env               string   `json:"env"`
+	Host              string   `json:"host"`
+	InstanceID        string   `json:"instance_id"`
+	Level             string   `json:"level"`
+	Message           string   `json:"message"`
+	RequestID         string   `json:"request_id"`
+	TraceID           string   `json:"trace_id"`
+	UserID            ctype.ID `json:"user_id"`
+	IP                string   `json:"ip"`
+	Method            string   `json:"method"`
+	Path              string   `json:"path"`
+	StatusCode        uint16   `json:"status_code"`
+	ErrorCode         string   `json:"error_code"`
+	ErrorMsg          string   `json:"error_message"`
+	ActionName        string   `json:"action_name"`
+	TargetType        string   `json:"target_type"`
+	TargetID          string   `json:"target_id"`
+	Success           uint8    `json:"success"`
+	RequestBody       string   `json:"request_body"`
+	ResponseBody      string   `json:"response_body"`
+	RequestBodyRaw    string   `json:"request_body_raw,omitempty"`
+	ResponseBodyRaw   string   `json:"response_body_raw,omitempty"`
+	RequestHeaderRaw  string   `json:"request_header_raw,omitempty"`
+	ResponseHeaderRaw string   `json:"response_header_raw,omitempty"`
+	ExtraJSON         string   `json:"extra_json"`
 }
 
 // LogTimeRange 表示日志查询使用的开始和结束时间范围。
@@ -409,7 +409,7 @@ LIMIT 1 BY user_id`, LoginEventLogTableName, strings.Join(placeholders, ",")), a
 		); err != nil {
 			return nil, err
 		}
-		result[ctype.ID(item.UserID)] = item
+		result[item.UserID] = item
 	}
 	return result, rows.Err()
 }

@@ -104,6 +104,10 @@ func TestFavoriteCRUD(t *testing.T) {
 		if code := readCode(t, w); code != 0 {
 			t.Fatalf("创建收藏夹应成功, body=%s", w.Body.String())
 		}
+		data := readData(t, w)
+		if got := data["id"]; got == nil || got == "" {
+			t.Fatalf("创建收藏夹应返回字符串 id, body=%s", w.Body.String())
+		}
 	}
 
 	{

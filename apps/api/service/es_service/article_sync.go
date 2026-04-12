@@ -228,7 +228,7 @@ func UpdateESDocsByArticleDeltas(db *gorm.DB, client *elasticsearch.Client, delt
 		})
 	}
 
-	return applyArticlePartialBulkUpdate(client, reqs, "按 article_models 差异更新 ES 文档失败")
+	return applyArticlePartialBulkUpdate(db, client, reqs, "按 article_models 差异更新 ES 文档失败")
 }
 
 // BuildArticleESDocument 将文章及其聚合字段转换为 ES 文档。
@@ -374,7 +374,7 @@ func UpdateESDocsTags(db *gorm.DB, client *elasticsearch.Client, articleIDs []ct
 		})
 	}
 
-	return applyArticlePartialBulkUpdate(client, reqs, "更新文章 ES 标签失败")
+	return applyArticlePartialBulkUpdate(db, client, reqs, "更新文章 ES 标签失败")
 }
 
 // UpdateESDocsContent 在文章正文变化后刷新对应文章的 ES 文档。
@@ -433,7 +433,7 @@ func UpdateESDocsContent(db *gorm.DB, client *elasticsearch.Client, articleIDs [
 		})
 	}
 
-	return applyArticlePartialBulkUpdate(client, reqs, "更新文章 ES 正文失败")
+	return applyArticlePartialBulkUpdate(db, client, reqs, "更新文章 ES 正文失败")
 }
 
 // UpdateESDocsTop 在文章置顶状态变化后刷新对应文章的 ES 文档。
@@ -465,7 +465,7 @@ func UpdateESDocsTop(db *gorm.DB, client *elasticsearch.Client, articleIDs []cty
 		})
 	}
 
-	return applyArticlePartialBulkUpdate(client, reqs, "更新文章 ES 置顶字段失败")
+	return applyArticlePartialBulkUpdate(db, client, reqs, "更新文章 ES 置顶字段失败")
 }
 
 // DeleteESDocs 按文章 ID 删除 ES 文档。
@@ -482,7 +482,7 @@ func DeleteESDocs(_ *gorm.DB, client *elasticsearch.Client, articleIDs []ctype.I
 			ID:     strconv.FormatUint(uint64(articleID), 10),
 		})
 	}
-	return applyArticlePartialBulkUpdate(client, reqs, "删除文章 ES 文档失败")
+	return applyArticlePartialBulkUpdate(nil, client, reqs, "删除文章 ES 文档失败")
 }
 
 func SyncESDocsByCategoryIDs(db *gorm.DB, client *elasticsearch.Client, categoryIDs []ctype.ID) error {
@@ -540,7 +540,7 @@ func SyncESDocsByCategoryIDs(db *gorm.DB, client *elasticsearch.Client, category
 			},
 		})
 	}
-	return applyArticlePartialBulkUpdate(client, reqs, "按分类同步文章 ES 分类快照失败")
+	return applyArticlePartialBulkUpdate(db, client, reqs, "按分类同步文章 ES 分类快照失败")
 }
 
 func SyncESDocsByAuthorIDs(db *gorm.DB, client *elasticsearch.Client, userIDs []ctype.ID) error {
@@ -593,7 +593,7 @@ func SyncESDocsByAuthorIDs(db *gorm.DB, client *elasticsearch.Client, userIDs []
 			},
 		})
 	}
-	return applyArticlePartialBulkUpdate(client, reqs, "按作者同步文章 ES 作者快照失败")
+	return applyArticlePartialBulkUpdate(db, client, reqs, "按作者同步文章 ES 作者快照失败")
 }
 
 // UpdateESDocsTagsByTagIDs 在标签信息变化后按 tag_id 批量刷新相关文章的 tags 字段。
@@ -636,7 +636,15 @@ func UpdateESDocsTopByTopUserIDs(db *gorm.DB, client *elasticsearch.Client, user
 	return UpdateESDocsTop(db, client, articleIDs)
 }
 
-func applyArticlePartialBulkUpdate(client *elasticsearch.Client, reqs []*BulkRequest, errPrefix string) error {
+type articleBulkFailure struct {
+	Action    string
+	ID        string
+	Status    int
+	ErrorType string
+	Reason    string
+}
+
+func applyArticlePartialBulkUpdate(db *gorm.DB, client *elasticsearch.Client, reqs []*BulkRequest, errPrefix string) error {
 	if len(reqs) == 0 {
 		return nil
 	}
@@ -645,34 +653,45 @@ func applyArticlePartialBulkUpdate(client *elasticsearch.Client, reqs []*BulkReq
 	if !resp.Success {
 		return fmt.Errorf("%s: %s", errPrefix, resp.Msg)
 	}
-	if summary := extractBulkErrorSummary(resp.Data, 3); summary != "" {
-		return fmt.Errorf("%s: %s", errPrefix, summary)
+
+	failures, missingUpdateIDs := collectArticleBulkFailures(resp.Data, reqs, 3)
+	if len(missingUpdateIDs) > 0 {
+		if err := SyncESDocs(db, client, missingUpdateIDs); err != nil {
+			return fmt.Errorf("%s: 文档缺失后补建失败: %w", errPrefix, err)
+		}
+	}
+
+	if len(failures) > 0 {
+		return fmt.Errorf("%s: %s", errPrefix, formatArticleBulkFailureSummary(failures))
 	}
 	return nil
 }
 
-func extractBulkErrorSummary(data any, maxItems int) string {
+func collectArticleBulkFailures(data any, reqs []*BulkRequest, maxItems int) ([]articleBulkFailure, []ctype.ID) {
 	root, ok := data.(map[string]any)
 	if !ok {
-		return ""
+		return nil, nil
 	}
 	hasErrors, ok := root["errors"].(bool)
 	if !ok || !hasErrors {
-		return ""
+		return nil, nil
 	}
 
 	items, ok := root["items"].([]any)
 	if !ok || len(items) == 0 {
-		return "bulk errors"
+		return []articleBulkFailure{{Reason: "bulk errors"}}, nil
 	}
 
-	summaries := make([]string, 0, maxItems)
-	for _, item := range items {
+	failures := make([]articleBulkFailure, 0, maxItems)
+	missingUpdateIDs := make([]ctype.ID, 0)
+	seenMissing := make(map[ctype.ID]struct{})
+
+	for index, item := range items {
 		itemMap, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
-		for action, rawResult := range itemMap {
+		for rawAction, rawResult := range itemMap {
 			result, ok := rawResult.(map[string]any)
 			if !ok {
 				continue
@@ -682,10 +701,15 @@ func extractBulkErrorSummary(data any, maxItems int) string {
 				continue
 			}
 
+			action := rawAction
+			if index < len(reqs) && reqs[index] != nil && reqs[index].Action != "" {
+				action = reqs[index].Action
+			}
 			docID, _ := result["_id"].(string)
 			reason := "unknown"
+			errType := ""
 			if errObj, ok := result["error"].(map[string]any); ok {
-				errType, _ := errObj["type"].(string)
+				errType, _ = errObj["type"].(string)
 				errReason, _ := errObj["reason"].(string)
 				reason = strings.TrimSpace(strings.Join([]string{errType, errReason}, ": "))
 				if reason == ":" || reason == "" {
@@ -698,13 +722,49 @@ func extractBulkErrorSummary(data any, maxItems int) string {
 				}
 			}
 
-			summaries = append(summaries, fmt.Sprintf("%s id=%s status=%d reason=%s", action, docID, int(status), reason))
-			if len(summaries) >= maxItems {
-				return "bulk errors: " + strings.Join(summaries, " | ")
+			if action == ActionDelete && errType == "document_missing_exception" {
+				continue
+			}
+			if action == ActionUpdate && errType == "document_missing_exception" {
+				var articleID ctype.ID
+				if err := articleID.UnmarshalText([]byte(docID)); err == nil && articleID != 0 {
+					if _, ok := seenMissing[articleID]; !ok {
+						seenMissing[articleID] = struct{}{}
+						missingUpdateIDs = append(missingUpdateIDs, articleID)
+					}
+					continue
+				}
+			}
+
+			failures = append(failures, articleBulkFailure{
+				Action:    action,
+				ID:        docID,
+				Status:    int(status),
+				ErrorType: errType,
+				Reason:    reason,
+			})
+			if len(failures) >= maxItems {
+				return failures, missingUpdateIDs
 			}
 		}
 	}
 
+	return failures, missingUpdateIDs
+}
+
+func formatArticleBulkFailureSummary(failures []articleBulkFailure) string {
+	if len(failures) == 0 {
+		return ""
+	}
+
+	summaries := make([]string, 0, len(failures))
+	for _, failure := range failures {
+		if failure.Action == "" && failure.Reason != "" {
+			summaries = append(summaries, failure.Reason)
+			continue
+		}
+		summaries = append(summaries, fmt.Sprintf("%s id=%s status=%d reason=%s", failure.Action, failure.ID, failure.Status, failure.Reason))
+	}
 	if len(summaries) == 0 {
 		return "bulk errors"
 	}

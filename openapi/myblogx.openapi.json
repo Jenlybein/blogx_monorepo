@@ -180,7 +180,7 @@
             "name": "Authorization",
             "in": "header",
             "description": "",
-            "required": true,
+            "required": false,
             "example": "Bearer {{bearerToken}}",
             "schema": {
               "type": "string",
@@ -520,7 +520,7 @@
       "post": {
         "summary": "增加轮播图",
         "deprecated": false,
-        "description": "需要管理员权限。",
+        "description": "创建轮播图，成功后返回新建资源摘要。",
         "tags": [
           "轮播管理/管理"
         ],
@@ -558,7 +558,22 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiEmptyDataResponse"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiMessageResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/BannerCreateResponseData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ]
+                    }
+                  ]
                 }
               }
             },
@@ -599,8 +614,8 @@
               },
               "example": {
                 "id_list": [
-                  2,
-                  4
+                  "2",
+                  "4"
                 ]
               }
             }
@@ -736,9 +751,9 @@
             "in": "path",
             "description": "主键 ID",
             "required": true,
-            "example": 0,
+            "example": "0",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -2051,7 +2066,7 @@
       "post": {
         "summary": "发布文章",
         "deprecated": false,
-        "description": "发布新文章。请求体中的 content 为正文内容，tag_ids 为已存在标签 ID 列表，cover 为封面图片地址。\n\n调用顺序：\n1. 前端先完成图片上传，拿到可用图片 URL。\n2. 组织标题、正文、标签、分类、封面和状态等字段。\n3. 调用本接口提交文章。\n4. 成功后再跳转到文章详情页或管理页。",
+        "description": "发布新文章。请求体中的 content 为正文内容，tag_ids 为已存在标签 ID 字符串列表，cover 为封面图片地址。成功后会直接返回新资源摘要，包含新文章 id，避免前端或脚本再额外回查。\n\n调用顺序：\n1. 前端先完成图片上传，拿到可用图片 URL。\n2. 组织标题、正文、标签、分类、封面和状态等字段。\n3. 调用本接口提交文章。\n4. 成功后再跳转到文章详情页或管理页。",
         "tags": [
           "文章管理/文章"
         ],
@@ -2080,10 +2095,10 @@
                     "title": "测试文章",
                     "abstract": "这是一篇用于联调的文章摘要。",
                     "content": "# 这是一个标题\\n\\n正文内容。\\n\\n![测试图片](https://image.gentlybeing.cn/myblogx/images/20260328/ljZa0YMcc2u6lyAqG-ALnuhewGrY)",
-                    "category_id": 1,
+                    "category_id": "1",
                     "tag_ids": [
-                      1,
-                      2
+                      "1",
+                      "2"
                     ],
                     "cover": "https://image.gentlybeing.cn/myblogx/images/20260328/ljZa0YMcc2u6lyAqG-ALnuhewGrY",
                     "comments_toggle": true,
@@ -2102,7 +2117,22 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiEmptyDataResponse"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiMessageResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ArticleCreateResponseData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ]
+                    }
+                  ]
                 },
                 "examples": {
                   "success": {
@@ -2110,7 +2140,17 @@
                     "value": {
                       "code": 0,
                       "msg": "成功",
-                      "data": {}
+                      "data": {
+                        "id": "301768758504984576",
+                        "title": "测试文章",
+                        "category_id": "1",
+                        "tag_ids": [
+                          "1",
+                          "2"
+                        ],
+                        "comments_toggle": true,
+                        "status": 2
+                      }
                     }
                   }
                 }
@@ -2236,9 +2276,9 @@
             "in": "path",
             "description": "主键 ID",
             "required": true,
-            "example": 0,
+            "example": "301768758504984576",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -2285,7 +2325,7 @@
       "get": {
         "summary": "文章详情",
         "deprecated": false,
-        "description": "获取指定文章详情。适合文章详情页初始化，也会返回文章统计与作者信息。",
+        "description": "获取指定文章详情。详情数据直接从 MySQL 聚合读取，适合文章详情页初始化，也会返回文章统计与作者信息。与 `/api/search/articles` 的 ES 搜索读模型不同，因此在刚写入或刚更新后的短时间内，可能出现“详情已可见、搜索尚未同步”的窗口。",
         "tags": [
           "文章管理/文章"
         ],
@@ -2295,16 +2335,16 @@
             "in": "path",
             "description": "主键 ID",
             "required": true,
-            "example": 0,
+            "example": "301768758504984576",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
             "name": "Authorization",
             "in": "header",
             "description": "",
-            "required": true,
+            "required": false,
             "example": "Bearer {{bearerToken}}",
             "schema": {
               "type": "string",
@@ -2355,9 +2395,9 @@
             "in": "path",
             "description": "主键 ID",
             "required": true,
-            "example": 0,
+            "example": "301768758504984576",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -2407,9 +2447,9 @@
             "in": "path",
             "description": "主键 ID",
             "required": true,
-            "example": 0,
+            "example": "301768758504984576",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -2475,9 +2515,9 @@
             "in": "path",
             "description": "主键 ID",
             "required": true,
-            "example": 0,
+            "example": "0",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -2606,7 +2646,7 @@
       "put": {
         "summary": "更新收藏夹",
         "deprecated": false,
-        "description": "更新收藏夹基本信息，如标题、封面和简介。",
+        "description": "创建或更新收藏夹。不传 id 视为创建并返回资源摘要，传入 id 视为更新并返回空 data。",
         "tags": [
           "文章管理/收藏夹"
         ],
@@ -2639,7 +2679,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiEmptyDataResponse"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiEmptyDataResponse"
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiMessageResponse"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "data": {
+                              "$ref": "#/components/schemas/FavoriteCreateResponseData"
+                            }
+                          },
+                          "required": [
+                            "data"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
                 }
               }
             },
@@ -2774,7 +2836,7 @@
                             "type": "object",
                             "properties": {
                               "id": {
-                                "type": "integer"
+                                "type": "string"
                               },
                               "created_at": {
                                 "type": "string"
@@ -2791,7 +2853,7 @@
                                 "type": "string"
                               },
                               "user_id": {
-                                "type": "integer"
+                                "type": "string"
                               },
                               "article_count": {
                                 "type": "integer"
@@ -2862,7 +2924,7 @@
             "description": "目标收藏夹 ID。",
             "required": true,
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -3113,9 +3175,9 @@
     },
     "/api/articles/category": {
       "post": {
-        "summary": "更新分类",
+        "summary": "创建/更新分类",
         "deprecated": false,
-        "description": "创建或更新文章分类，具体行为取决于请求体中的 ID 与字段。",
+        "description": "创建或更新文章分类。不传 `id` 时创建并返回新分类摘要；传 `id` 时更新并返回空对象。",
         "tags": [
           "文章管理/分类"
         ],
@@ -3148,7 +3210,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiEmptyDataResponse"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiEmptyDataResponse"
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiMessageResponse"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "data": {
+                              "$ref": "#/components/schemas/CategoryCreateResponseData"
+                            }
+                          },
+                          "required": [
+                            "data"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
                 }
               }
             },
@@ -3263,7 +3347,7 @@
                             "type": "object",
                             "properties": {
                               "id": {
-                                "type": "integer"
+                                "type": "string"
                               },
                               "created_at": {
                                 "type": "string"
@@ -3280,7 +3364,7 @@
                                 "type": "string"
                               },
                               "user_id": {
-                                "type": "integer"
+                                "type": "string"
                               },
                               "article_count": {
                                 "type": "integer"
@@ -3316,23 +3400,11 @@
       "get": {
         "summary": "分类选项",
         "deprecated": false,
-        "description": "获取分类选项数据，适合下拉框或表单选择器使用。",
+        "description": "获取分类选项数据，适合下拉框或表单选择器使用。匿名访问时返回公开已发布文章涉及到的分类；带有效登录态访问时返回当前用户自己的分类。返回结构同时包含 `id/title` 与 `label/value`，且雪花 ID 统一为字符串。",
         "tags": [
           "文章管理/分类"
         ],
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "",
-            "required": true,
-            "example": "Bearer {{bearerToken}}",
-            "schema": {
-              "type": "string",
-              "default": "Bearer {{bearerToken}}"
-            }
-          }
-        ],
+        "parameters": [],
         "responses": {
           "200": {
             "description": "",
@@ -3364,18 +3436,14 @@
             "headers": {}
           }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        "security": []
       }
     },
     "/api/articles/tags": {
       "put": {
         "summary": "创建/编辑标签",
         "deprecated": false,
-        "description": "需要管理员权限。",
+        "description": "需要管理员权限。不传 `id` 时创建并返回新标签摘要；传 `id` 时更新并返回空对象。",
         "tags": [
           "文章管理/标签"
         ],
@@ -3418,7 +3486,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiEmptyDataResponse"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiEmptyDataResponse"
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiMessageResponse"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "data": {
+                              "$ref": "#/components/schemas/TagCreateResponseData"
+                            }
+                          },
+                          "required": [
+                            "data"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
                 }
               }
             },
@@ -3474,7 +3564,7 @@
                             "type": "object",
                             "properties": {
                               "id": {
-                                "type": "integer"
+                                "type": "string"
                               },
                               "created_at": {
                                 "type": "string"
@@ -3597,23 +3687,11 @@
       "get": {
         "summary": "标签选项",
         "deprecated": false,
-        "description": "获取标签选项数据，适合表单选择组件初始化时调用。",
+        "description": "获取标签选项数据，适合表单选择组件初始化时调用。匿名可读，返回结构同时包含 `id/title` 与 `label/value`，且雪花 ID 统一为字符串。",
         "tags": [
           "文章管理/标签"
         ],
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "",
-            "required": true,
-            "example": "Bearer {{bearerToken}}",
-            "schema": {
-              "type": "string",
-              "default": "Bearer {{bearerToken}}"
-            }
-          }
-        ],
+        "parameters": [],
         "responses": {
           "200": {
             "description": "",
@@ -3645,11 +3723,7 @@
             "headers": {}
           }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        "security": []
       }
     },
     "/api/articles/top": {
@@ -3841,7 +3915,7 @@
       "post": {
         "summary": "创建评论",
         "deprecated": false,
-        "description": "创建评论或回复评论。请求体中的父评论信息决定是根评论还是二级回复。",
+        "description": "发表评论或回复评论，成功后返回新评论摘要。",
         "tags": [
           "评论管理/用户"
         ],
@@ -3874,7 +3948,22 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiEmptyDataResponse"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiMessageResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/CommentCreateResponseData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ]
+                    }
+                  ]
                 }
               }
             },
@@ -3983,7 +4072,7 @@
             "description": "目标文章 ID。",
             "required": false,
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -3992,7 +4081,7 @@
             "description": "目标用户 ID，用于筛选或指定用户。",
             "required": false,
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -4099,9 +4188,9 @@
             "in": "path",
             "description": "主键 ID",
             "required": true,
-            "example": 0,
+            "example": "0",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -4165,9 +4254,9 @@
             "in": "path",
             "description": "主键 ID",
             "required": true,
-            "example": 0,
+            "example": "0",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -4254,7 +4343,7 @@
             "description": "目标文章 ID。",
             "required": true,
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -4263,7 +4352,7 @@
             "description": "根评论 ID，用于获取该根评论下的回复。",
             "required": true,
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -4673,7 +4762,7 @@
       "post": {
         "summary": "创建全局消息",
         "deprecated": false,
-        "description": "需要管理员权限。",
+        "description": "需要管理员权限。创建成功后会直接返回新通知摘要，包含新资源 id，便于后台继续做回显或后续操作。",
         "tags": [
           "全局消息/管理"
         ],
@@ -4706,7 +4795,22 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiEmptyDataResponse"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiMessageResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/GlobalNotifCreateResponseData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ]
+                    }
+                  ]
                 }
               }
             },
@@ -5085,9 +5189,9 @@
             "in": "path",
             "description": "主键 ID",
             "required": true,
-            "example": 0,
+            "example": "0",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -5151,9 +5255,9 @@
             "in": "path",
             "description": "主键 ID",
             "required": true,
-            "example": 0,
+            "example": "0",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -5738,7 +5842,7 @@
       "get": {
         "summary": "文章搜索",
         "deprecated": false,
-        "description": "统一的文章读取接口。公开文章流、推荐流、作者文章、我的文章、管理员文章查询全部走这里。`key` 为空时退化为文章列表；`page_mode=has_more` 适合前台滚动加载，`page_mode=count` 适合后台准确总数页。",
+        "description": "统一的文章搜索/列表接口。公开文章流、推荐流、作者文章、我的文章、管理员文章查询全部走这里。`key` 为空时退化为文章列表；`page_mode=has_more` 适合前台滚动加载，`page_mode=count` 适合后台准确总数页。\n\n说明：本接口读取 ES 搜索投影；`/api/articles/{id}` 详情接口读取 MySQL 聚合。写入、更新、审核后，需要等待 river/同步链路把数据投影到 ES，因此短时间内可能出现“详情有，搜索还没有”或搜索结果短暂未更新的情况。",
         "tags": [
           "搜索模块/文章"
         ],
@@ -6534,7 +6638,7 @@
                       "msg": "成功",
                       "data": {
                         "skip_upload": true,
-                        "image_id": 295954303670030340,
+                        "image_id": "295954303670030340",
                         "status": "ready",
                         "url": "https://image.gentlybeing.cn/myblogx/images/20260328/Fm8TSAox63x45bd-hrHs87ZQPSxx",
                         "hash": "Fm8TSAox63x45bd-hrHs87ZQPSxx"
@@ -6548,7 +6652,7 @@
                       "msg": "成功",
                       "data": {
                         "skip_upload": false,
-                        "upload_id": 295621418450685950,
+                        "upload_id": "295621418450685950",
                         "provider": "qiniu",
                         "bucket": "myblogx",
                         "object_key": "myblogx/images/20260328/Fm8TSAox63x45bd-hrHs87ZQPSxx",
@@ -6603,7 +6707,7 @@
               "examples": {
                 "manual_complete": {
                   "value": {
-                    "upload_id": 295621418450685950,
+                    "upload_id": "295621418450685950",
                     "object_key": "myblogx/images/20260328/Fm8TSAox63x45bd-hrHs87ZQPSxx"
                   },
                   "summary": "开发环境手动完成上传"
@@ -6643,8 +6747,8 @@
                       "code": 0,
                       "msg": "成功",
                       "data": {
-                        "upload_id": 295621418450685950,
-                        "image_id": 295954303670030340,
+                        "upload_id": "295621418450685950",
+                        "image_id": "295954303670030340",
                         "status": "ready",
                         "url": "https://image.gentlybeing.cn/myblogx/images/20260328/Fm8TSAox63x45bd-hrHs87ZQPSxx"
                       }
@@ -6677,9 +6781,9 @@
             "in": "path",
             "description": "主键 ID",
             "required": true,
-            "example": 0,
+            "example": "0",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -6724,7 +6828,7 @@
                       "code": 0,
                       "msg": "成功",
                       "data": {
-                        "upload_id": 295621418450685950,
+                        "upload_id": "295621418450685950",
                         "status": "pending",
                         "hash": "Fm8TSAox63x45bd-hrHs87ZQPSxx"
                       }
@@ -6736,8 +6840,8 @@
                       "code": 0,
                       "msg": "成功",
                       "data": {
-                        "upload_id": 295621418450685950,
-                        "image_id": 295954303670030340,
+                        "upload_id": "295621418450685950",
+                        "image_id": "295954303670030340",
                         "status": "ready",
                         "url": "https://image.gentlybeing.cn/myblogx/images/20260328/Fm8TSAox63x45bd-hrHs87ZQPSxx",
                         "hash": "Fm8TSAox63x45bd-hrHs87ZQPSxx"
@@ -6834,10 +6938,10 @@
                       "type": "object",
                       "properties": {
                         "upload_id": {
-                          "type": "integer"
+                          "type": "string"
                         },
                         "image_id": {
-                          "type": "integer"
+                          "type": "string"
                         },
                         "status": {
                           "type": "string"
@@ -6864,8 +6968,8 @@
                       "code": 0,
                       "msg": "成功",
                       "data": {
-                        "upload_id": 295621418450685950,
-                        "image_id": 295954303670030340,
+                        "upload_id": "295621418450685950",
+                        "image_id": "295954303670030340",
                         "status": "ready",
                         "url": "https://image.gentlybeing.cn/myblogx/images/20260328/Fm8TSAox63x45bd-hrHs87ZQPSxx"
                       }
@@ -7069,9 +7173,9 @@
               },
               "example": {
                 "id_list": [
-                  1,
-                  2,
-                  3
+                  "1",
+                  "2",
+                  "3"
                 ]
               }
             }
@@ -7208,7 +7312,7 @@
             "description": "用户 ID。",
             "required": false,
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -7353,9 +7457,9 @@
             "in": "path",
             "description": "主键 ID",
             "required": true,
-            "example": 0,
+            "example": "0",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -7458,7 +7562,7 @@
             "description": "用户 ID。",
             "required": false,
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -7639,9 +7743,9 @@
             "in": "path",
             "description": "主键 ID",
             "required": true,
-            "example": 0,
+            "example": "0",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -7744,7 +7848,7 @@
             "description": "用户 ID。",
             "required": false,
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -7943,9 +8047,9 @@
             "in": "path",
             "description": "主键 ID",
             "required": true,
-            "example": 0,
+            "example": "0",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -8256,9 +8360,9 @@
             "in": "path",
             "description": "主键 ID",
             "required": true,
-            "example": 0,
+            "example": "0",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -8569,9 +8673,9 @@
             "in": "path",
             "description": "主键 ID",
             "required": true,
-            "example": 0,
+            "example": "0",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
@@ -8804,7 +8908,7 @@
           "id_list": {
             "type": "array",
             "items": {
-              "type": "integer"
+              "type": "string"
             },
             "description": "需要批量操作的主键 ID 列表。"
           }
@@ -8868,7 +8972,7 @@
             "description": "为 true 时表示命中预去重并跳过实际上传。"
           },
           "upload_id": {
-            "type": "integer",
+            "type": "string",
             "description": "上传任务 ID。"
           },
           "provider": {
@@ -8900,7 +9004,7 @@
             "description": "允许上传的最大文件大小。"
           },
           "image_id": {
-            "type": "integer",
+            "type": "string",
             "description": "图片资源 ID。"
           },
           "status": {
@@ -8921,7 +9025,7 @@
         "type": "object",
         "properties": {
           "upload_id": {
-            "type": "integer",
+            "type": "string",
             "description": "上传任务 ID。"
           },
           "object_key": {
@@ -8938,11 +9042,11 @@
         "type": "object",
         "properties": {
           "upload_id": {
-            "type": "integer",
+            "type": "string",
             "description": "上传任务 ID。"
           },
           "image_id": {
-            "type": "integer",
+            "type": "string",
             "description": "图片资源 ID。"
           },
           "status": {
@@ -8963,11 +9067,11 @@
         "type": "object",
         "properties": {
           "upload_id": {
-            "type": "integer",
+            "type": "string",
             "description": "上传任务 ID。"
           },
           "image_id": {
-            "type": "integer",
+            "type": "string",
             "description": "图片资源 ID。"
           },
           "status": {
@@ -9213,7 +9317,7 @@
             "nullable": true
           },
           "home_style_id": {
-            "type": "integer",
+            "type": "string",
             "description": "个人主页样式 ID。",
             "nullable": true
           }
@@ -9223,7 +9327,7 @@
         "type": "object",
         "properties": {
           "user_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的用户 ID。"
           },
           "username": {
@@ -9275,7 +9379,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "code_age": {
@@ -9315,7 +9419,7 @@
             "description": "粉丝列表是否对外可见。"
           },
           "home_style_id": {
-            "type": "integer",
+            "type": "string",
             "description": "首页样式 ID。"
           },
           "relation": {
@@ -9347,7 +9451,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "created_at": {
@@ -9392,7 +9496,7 @@
             "description": "粉丝列表可见性配置。"
           },
           "home_style_id": {
-            "type": "integer",
+            "type": "string",
             "description": "个人主页样式 ID。",
             "nullable": true
           },
@@ -9423,7 +9527,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "created_at": {
@@ -9443,7 +9547,7 @@
             "nullable": true
           },
           "user_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的用户 ID。"
           },
           "ip": {
@@ -9483,7 +9587,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "nickname": {
@@ -9552,7 +9656,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "created_at": {
@@ -9597,7 +9701,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "created_at": {
@@ -9633,7 +9737,7 @@
             "description": "日志级别。"
           },
           "user_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的用户 ID。"
           },
           "ip": {
@@ -9736,14 +9840,14 @@
             "description": "正文内容，通常为 Markdown 或富文本内容。"
           },
           "category_id": {
-            "type": "integer",
+            "type": "string",
             "description": "分类 ID。",
             "nullable": true
           },
           "tag_ids": {
             "type": "array",
             "items": {
-              "type": "integer"
+              "type": "string"
             },
             "description": "标签 ID 列表，需传入已存在标签的主键。"
           },
@@ -9770,6 +9874,46 @@
           "status"
         ]
       },
+      "ArticleCreateResponseData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "新创建文章的雪花 ID。"
+          },
+          "title": {
+            "type": "string",
+            "description": "文章标题。"
+          },
+          "category_id": {
+            "type": "string",
+            "description": "分类 ID。",
+            "nullable": true
+          },
+          "tag_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "标签 ID 列表。"
+          },
+          "comments_toggle": {
+            "type": "boolean",
+            "description": "是否开启评论。"
+          },
+          "status": {
+            "type": "integer",
+            "description": "文章状态。"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "tag_ids",
+          "comments_toggle",
+          "status"
+        ]
+      },
       "ArticleUpdateRequest": {
         "type": "object",
         "properties": {
@@ -9789,14 +9933,14 @@
             "nullable": true
           },
           "category_id": {
-            "type": "integer",
+            "type": "string",
             "description": "分类 ID。",
             "nullable": true
           },
           "tag_ids": {
             "type": "array",
             "items": {
-              "type": "integer"
+              "type": "string"
             },
             "description": "标签 ID 列表，需传入已存在标签的主键。"
           },
@@ -9816,7 +9960,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "created_at": {
@@ -9928,7 +10072,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "created_at": {
@@ -10035,11 +10179,11 @@
         "type": "object",
         "properties": {
           "article_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的文章 ID。"
           },
           "favor_id": {
-            "type": "integer",
+            "type": "string",
             "description": "目标收藏夹 ID。"
           }
         },
@@ -10051,7 +10195,7 @@
         "type": "object",
         "properties": {
           "article_id": {
-            "type": "integer",
+            "type": "string",
             "description": "需要记录浏览的文章 ID。"
           }
         },
@@ -10063,7 +10207,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "title": {
@@ -10093,7 +10237,7 @@
             "description": "favorited_at 时间。"
           },
           "article_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的文章 ID。"
           },
           "title": {
@@ -10156,13 +10300,13 @@
         "type": "object",
         "properties": {
           "favorite_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的收藏夹 ID。"
           },
           "articles": {
             "type": "array",
             "items": {
-              "type": "integer"
+              "type": "string"
             },
             "description": "字段 `articles` 的数组数据。"
           }
@@ -10176,7 +10320,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "title": {
@@ -10188,19 +10332,46 @@
           "title"
         ]
       },
+      "CategoryCreateResponseData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "新创建分类的雪花 ID。"
+          },
+          "title": {
+            "type": "string",
+            "description": "分类标题。"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ]
+      },
       "OptionIDTitle": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string",
+            "description": "雪花 ID 字符串。"
+          },
+          "title": {
+            "type": "string",
+            "description": "选项标题。"
+          },
           "label": {
             "type": "string",
             "description": "展示标签。"
           },
           "value": {
-            "type": "integer",
+            "type": "string",
             "description": "字段 `value` 的业务含义请结合该接口上下文使用。"
           }
         },
         "required": [
+          "id",
+          "title",
           "label",
           "value"
         ]
@@ -10209,7 +10380,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "title": {
@@ -10234,11 +10405,43 @@
           "title"
         ]
       },
+      "TagCreateResponseData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "新创建标签的雪花 ID。"
+          },
+          "title": {
+            "type": "string",
+            "description": "标签标题。"
+          },
+          "sort": {
+            "type": "integer",
+            "description": "标签排序值。"
+          },
+          "description": {
+            "type": "string",
+            "description": "标签描述。"
+          },
+          "is_enabled": {
+            "type": "boolean",
+            "description": "标签是否启用。"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "sort",
+          "description",
+          "is_enabled"
+        ]
+      },
       "ArticleTopSetRequest": {
         "type": "object",
         "properties": {
           "article_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的文章 ID。"
           },
           "type": {
@@ -10258,7 +10461,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "created_at": {
@@ -10381,11 +10584,11 @@
             "description": "头像图片地址。"
           },
           "user_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的用户 ID。"
           },
           "article_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的文章 ID。"
           }
         },
@@ -10403,7 +10606,7 @@
         "type": "object",
         "properties": {
           "article_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的文章 ID。"
           },
           "content": {
@@ -10411,7 +10614,7 @@
             "description": "正文内容，通常为 Markdown 或富文本内容。"
           },
           "reply_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的 reply ID。"
           }
         },
@@ -10424,7 +10627,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "created_at": {
@@ -10437,15 +10640,15 @@
             "description": "正文内容，通常为 Markdown 或富文本内容。"
           },
           "user_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的用户 ID。"
           },
           "reply_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的 reply ID。"
           },
           "root_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的根评论 ID。"
           },
           "digg_count": {
@@ -10530,11 +10733,11 @@
             "description": "正文内容，通常为 Markdown 或富文本内容。"
           },
           "user_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的用户 ID。"
           },
           "reply_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的 reply ID。"
           },
           "digg_count": {
@@ -10589,7 +10792,7 @@
         "type": "object",
         "properties": {
           "root_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的根评论 ID。"
           },
           "reply_count": {
@@ -10623,7 +10826,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "created_at": {
@@ -10643,7 +10846,7 @@
             "description": "reply 统计数量。"
           },
           "user_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的用户 ID。"
           },
           "user_nickname": {
@@ -10655,7 +10858,7 @@
             "description": "关联用户头像地址。"
           },
           "article_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的文章 ID。"
           },
           "article_title": {
@@ -10712,7 +10915,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "t": {
@@ -10730,7 +10933,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "t": {
@@ -10775,7 +10978,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "created_at": {
@@ -10799,11 +11002,11 @@
             "description": "当前对象的类型值。"
           },
           "receiver_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的 receiver ID。"
           },
           "action_user_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的 action_user ID。",
             "nullable": true
           },
@@ -10822,11 +11025,11 @@
             "description": "正文内容，通常为 Markdown 或富文本内容。"
           },
           "article_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的文章 ID。"
           },
           "comment_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的 comment ID。"
           },
           "article_title": {
@@ -10902,11 +11105,54 @@
           "content"
         ]
       },
+      "GlobalNotifCreateResponseData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "新创建通知的雪花 ID。"
+          },
+          "expire_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "过期时间。"
+          },
+          "user_visible_rule": {
+            "type": "integer",
+            "description": "可见规则。"
+          },
+          "title": {
+            "type": "string",
+            "description": "通知标题。"
+          },
+          "content": {
+            "type": "string",
+            "description": "通知内容。"
+          },
+          "icon": {
+            "type": "string",
+            "description": "通知图标。"
+          },
+          "href": {
+            "type": "string",
+            "description": "通知链接。"
+          }
+        },
+        "required": [
+          "id",
+          "expire_time",
+          "user_visible_rule",
+          "title",
+          "content",
+          "icon",
+          "href"
+        ]
+      },
       "GlobalNotifListItem": {
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "create_at": {
@@ -10949,7 +11195,7 @@
         "type": "object",
         "properties": {
           "followed_user_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的 followed_user ID。"
           },
           "followed_nickname": {
@@ -10987,7 +11233,7 @@
         "type": "object",
         "properties": {
           "fans_user_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的 fans_user ID。"
           },
           "fans_nickname": {
@@ -11042,7 +11288,7 @@
           "msg_id_list": {
             "type": "array",
             "items": {
-              "type": "integer"
+              "type": "string"
             },
             "description": "msg_id_list 列表数据。"
           }
@@ -11057,7 +11303,7 @@
           "msg_id_list": {
             "type": "array",
             "items": {
-              "type": "integer"
+              "type": "string"
             },
             "description": "msg_id_list 列表数据。"
           }
@@ -11074,7 +11320,7 @@
             "description": "关联的会话 ID。"
           },
           "receiver_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的 receiver ID。"
           },
           "receiver_nickname": {
@@ -11134,15 +11380,15 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "sender_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的 sender ID。"
           },
           "receiver_id": {
-            "type": "integer",
+            "type": "string",
             "description": "关联的 receiver ID。"
           },
           "session_id": {
@@ -11455,7 +11701,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "title": {
@@ -11655,7 +11901,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer",
+            "type": "string",
             "description": "主键 ID。"
           },
           "created_at": {
@@ -12227,7 +12473,7 @@
         "type": "object",
         "properties": {
           "event_id": {
-            "type": "integer"
+            "type": "string"
           },
           "ts": {
             "type": "string"
@@ -12263,7 +12509,7 @@
             "type": "string"
           },
           "user_id": {
-            "type": "integer"
+            "type": "string"
           },
           "ip": {
             "type": "string"
@@ -12330,7 +12576,7 @@
         "type": "object",
         "properties": {
           "event_id": {
-            "type": "integer"
+            "type": "string"
           },
           "ts": {
             "type": "string"
@@ -12360,7 +12606,7 @@
             "type": "string"
           },
           "user_id": {
-            "type": "integer"
+            "type": "string"
           },
           "ip": {
             "type": "string"
@@ -12426,7 +12672,7 @@
         "type": "object",
         "properties": {
           "event_id": {
-            "type": "integer"
+            "type": "string"
           },
           "ts": {
             "type": "string"
@@ -12456,7 +12702,7 @@
             "type": "string"
           },
           "user_id": {
-            "type": "integer"
+            "type": "string"
           },
           "ip": {
             "type": "string"
@@ -12596,7 +12842,7 @@
         "type": "object",
         "properties": {
           "event_id": {
-            "type": "integer"
+            "type": "string"
           },
           "ts": {
             "type": "string"
@@ -12687,7 +12933,7 @@
         "type": "object",
         "properties": {
           "event_id": {
-            "type": "integer"
+            "type": "string"
           },
           "ts": {
             "type": "string"
@@ -12814,7 +13060,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "integer"
+            "type": "string"
           },
           "stream": {
             "type": "string"
@@ -13118,6 +13364,112 @@
           "list",
           "pagination"
         ]
+      },
+      "BannerCreateResponseData": {
+        "type": "object",
+        "required": [
+          "id",
+          "cover",
+          "href",
+          "show"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "301768758504984576"
+          },
+          "cover": {
+            "type": "string",
+            "example": "/upload/banner/home.png"
+          },
+          "href": {
+            "type": "string",
+            "example": "/article/301768758504984576"
+          },
+          "show": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "FavoriteCreateResponseData": {
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "title",
+          "cover",
+          "abstract",
+          "is_default",
+          "article_count"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "301768758504984576"
+          },
+          "user_id": {
+            "type": "string",
+            "example": "301768758504984512"
+          },
+          "title": {
+            "type": "string",
+            "example": "默认收藏夹"
+          },
+          "cover": {
+            "type": "string",
+            "example": "/upload/favorite/default.png"
+          },
+          "abstract": {
+            "type": "string",
+            "example": "用于归档常看的文章"
+          },
+          "is_default": {
+            "type": "boolean",
+            "example": false
+          },
+          "article_count": {
+            "type": "integer",
+            "example": 0
+          }
+        }
+      },
+      "CommentCreateResponseData": {
+        "type": "object",
+        "required": [
+          "id",
+          "article_id",
+          "reply_id",
+          "root_id",
+          "status",
+          "content"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "301768758504984576"
+          },
+          "article_id": {
+            "type": "string",
+            "example": "301768758504984320"
+          },
+          "reply_id": {
+            "type": "string",
+            "example": "0"
+          },
+          "root_id": {
+            "type": "string",
+            "example": "0"
+          },
+          "status": {
+            "type": "integer",
+            "example": 2
+          },
+          "content": {
+            "type": "string",
+            "example": "这篇文章对 river 链路解释得很清楚。"
+          }
+        }
       }
     },
     "responses": {

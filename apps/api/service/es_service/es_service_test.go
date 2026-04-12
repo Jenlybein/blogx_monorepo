@@ -3,6 +3,7 @@ package es_service
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"myblogx/conf"
 	confsite "myblogx/conf/site"
@@ -459,6 +460,85 @@ func TestUpdateESDocsTop(t *testing.T) {
 	}
 	if _, ok = docMap["tags"]; ok {
 		t.Fatalf("UpdateESDocsTop 不应更新其他字段: %#v", docMap)
+	}
+}
+
+func TestUpdateESDocsByArticleDeltasRebuildsMissingDocs(t *testing.T) {
+	db := testutil.SetupSQLite(t,
+		&models.UserModel{},
+		&models.UserConfModel{},
+		&models.ArticleModel{},
+		&models.TagModel{},
+		&models.ArticleTagModel{},
+		&models.UserTopArticleModel{},
+	)
+	testutil.SetConfig(&conf.Config{
+		ES: conf.ES{Index: "article_index"},
+		Site: conf.Site{
+			SiteInfo: confsite.SiteInfo{Mode: enum.SiteModeCommunity},
+		},
+	})
+
+	user := models.UserModel{Username: "author", Password: "x", Role: enum.RoleUser, Nickname: "作者", Avatar: "/avatar.png"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("创建用户失败: %v", err)
+	}
+	article := models.ArticleModel{
+		Title:    "旧标题",
+		Abstract: "旧摘要",
+		Content:  "旧内容",
+		AuthorID: user.ID,
+		Status:   enum.ArticleStatusPublished,
+	}
+	if err := db.Create(&article).Error; err != nil {
+		t.Fatalf("创建文章失败: %v", err)
+	}
+	if err := db.Model(&article).Updates(map[string]any{
+		"title":    "新标题",
+		"abstract": "新摘要",
+		"content":  "新内容",
+	}).Error; err != nil {
+		t.Fatalf("更新文章失败: %v", err)
+	}
+
+	bulkBodies := make([]string, 0, 2)
+	setupMockES(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/":
+			writeJSON(w, 200, `{"name":"mock","cluster_name":"mock","version":{"number":"7.17.10"},"tagline":"You Know, for Search"}`)
+		case r.URL.Path == "/_bulk" || strings.HasSuffix(r.URL.Path, "/_bulk"):
+			body, _ := io.ReadAll(r.Body)
+			payload := string(body)
+			bulkBodies = append(bulkBodies, payload)
+			if strings.Contains(payload, "\"update\"") {
+				writeJSON(w, 200, fmt.Sprintf(`{"took":1,"errors":true,"items":[{"update":{"_id":"%s","status":404,"error":{"type":"document_missing_exception","reason":"missing"}}}]}`, article.ID.String()))
+				return
+			}
+			writeJSON(w, 200, `{"took":1,"errors":false,"items":[{"index":{"_id":"ok","status":201}}]}`)
+		default:
+			writeJSON(w, 404, `{"error":{"reason":"not found"}}`)
+		}
+	})
+
+	err := UpdateESDocsByArticleDeltas(db, testutil.ESClient(), []ArticleModelDelta{{
+		ArticleID: article.ID,
+		Changed: map[string]any{
+			"title":    "新标题",
+			"abstract": "新摘要",
+			"content":  "新内容",
+		},
+	}})
+	if err != nil {
+		t.Fatalf("缺文档时应自动回源重建, got err=%v", err)
+	}
+	if len(bulkBodies) != 2 {
+		t.Fatalf("应先局部更新再回源重建, got=%d", len(bulkBodies))
+	}
+	if !strings.Contains(bulkBodies[0], "\"update\"") {
+		t.Fatalf("第一轮应为 update 请求: %s", bulkBodies[0])
+	}
+	if !strings.Contains(bulkBodies[1], "\"index\"") || !strings.Contains(bulkBodies[1], "新标题") {
+		t.Fatalf("第二轮应为完整 index 重建: %s", bulkBodies[1])
 	}
 }
 

@@ -14,7 +14,7 @@ import (
 
 func TestCommentManListView(t *testing.T) {
 	owner := setupCommentEnv(t)
-	api := CommentApi{}
+	api := setupCommentAPI(t)
 
 	if err := testutil.DB().Model(owner).Updates(map[string]any{
 		"nickname": "owner",

@@ -17,6 +17,15 @@ type ArticleCreateRequest struct {
 	Status         enum.ArticleStatus `json:"status" binding:"required,oneof=1 2"`
 }
 
+type ArticleCreateResponse struct {
+	ID             ctype.ID           `json:"id"`
+	Title          string             `json:"title"`
+	CategoryID     *ctype.ID          `json:"category_id"`
+	TagIDs         []ctype.ID         `json:"tag_ids"`
+	CommentsToggle bool               `json:"comments_toggle"`
+	Status         enum.ArticleStatus `json:"status"`
+}
+
 type ArticleDetailResponse struct {
 	ID             ctype.ID           `gorm:"primaryKey" json:"id"`
 	CreatedAt      time.Time          `json:"created_at"`

@@ -32,6 +32,15 @@ func readCode(t *testing.T, w *httptest.ResponseRecorder) int {
 	return int(body["code"].(float64))
 }
 
+func readBody(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
+	t.Helper()
+	var body map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("解析响应失败: %v", err)
+	}
+	return body
+}
+
 func setupTagEnv(t *testing.T) *models.UserModel {
 	t.Helper()
 	db := testutil.SetupSQLite(
@@ -92,6 +101,10 @@ func TestTagCRUDAndOptions(t *testing.T) {
 		if code := readCode(t, w); code != 0 {
 			t.Fatalf("创建标签失败, body=%s", w.Body.String())
 		}
+		data := readBody(t, w)["data"].(map[string]any)
+		if _, ok := data["id"].(string); !ok {
+			t.Fatalf("创建标签返回的 id 应为字符串, body=%s", w.Body.String())
+		}
 	}
 
 	var tag models.TagModel
@@ -113,6 +126,27 @@ func TestTagCRUDAndOptions(t *testing.T) {
 
 	{
 		c, w := newCtx()
+		req := httptest.NewRequest(http.MethodGet, "/articles/tags/options", nil)
+		c.Request = req
+		api.ArticleTagOptionsView(c)
+		if code := readCode(t, w); code != 0 {
+			t.Fatalf("标签选项失败, body=%s", w.Body.String())
+		}
+		list := readBody(t, w)["data"].([]any)
+		if len(list) != 1 {
+			t.Fatalf("标签选项数量异常, body=%s", w.Body.String())
+		}
+		item := list[0].(map[string]any)
+		if item["title"] != "Golang" || item["label"] != "Golang" {
+			t.Fatalf("标签选项 title/label 异常, body=%s", w.Body.String())
+		}
+		if item["id"] != tag.ID.String() || item["value"] != tag.ID.String() {
+			t.Fatalf("标签选项 id/value 异常, body=%s", w.Body.String())
+		}
+	}
+
+	{
+		c, w := newCtx()
 		disabled := false
 		c.Set("claims", claims)
 		c.Set("requestJson", TagRequest{
@@ -123,18 +157,6 @@ func TestTagCRUDAndOptions(t *testing.T) {
 		api.TagCreateUpdateView(c)
 		if code := readCode(t, w); code != 0 {
 			t.Fatalf("更新标签失败, body=%s", w.Body.String())
-		}
-	}
-
-	token := tokenForUser(t, admin)
-	{
-		c, w := newCtx()
-		req := httptest.NewRequest(http.MethodGet, "/articles/tags/options", nil)
-		req.Header.Set("token", token)
-		c.Request = req
-		api.ArticleTagOptionsView(c)
-		if code := readCode(t, w); code != 0 {
-			t.Fatalf("标签选项失败, body=%s", w.Body.String())
 		}
 	}
 

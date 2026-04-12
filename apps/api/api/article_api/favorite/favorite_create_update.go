@@ -44,7 +44,15 @@ func (h FavoriteApi) FavoriteCreateUpdateView(c *gin.Context) {
 			res.FailWithMsg(fmt.Sprintf("创建收藏夹失败 %v", err), c)
 			return
 		}
-		res.OkWithMsg("创建收藏夹成功", c)
+		res.OkWithData(FavoriteCreateResponse{
+			ID:           favorite.ID,
+			UserID:       favorite.UserID,
+			Title:        favorite.Title,
+			Cover:        favorite.Cover,
+			Abstract:     favorite.Abstract,
+			IsDefault:    favorite.IsDefault,
+			ArticleCount: favorite.ArticleCount,
+		}, c)
 		return
 	}
 
