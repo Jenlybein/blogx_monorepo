@@ -12,11 +12,16 @@ import (
 
 func Run(deps apideps.Deps, app api.Api) {
 	gin.SetMode(deps.System.GinMode)
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.LoggerWithConfig(gin.LoggerConfig{
+		SkipPaths: []string{"/health"},
+	}))
+	r.Use(gin.Recovery())
 	r.Use(middleware.CorsMiddleware())
 	mwRuntime := middleware.NewRuntime(deps)
 
 	r.Static("/uploads", "./uploads")
+	HealthRouter(r)
 
 	nr := r.Group("/api")
 	nr.Use(mwRuntime.LogMiddleware)

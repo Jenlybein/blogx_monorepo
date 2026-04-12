@@ -12,6 +12,7 @@ import (
 func TestRegisterAllRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
+	router.HealthRouter(r)
 	api := r.Group("/api")
 	app := api2.New(api2.Deps{})
 	runtimeMw := mw.Runtime{}
@@ -38,6 +39,7 @@ func TestRegisterAllRoutes(t *testing.T) {
 	}
 
 	expect := []string{
+		"GET /health",
 		"GET /api/site/qq_url",
 		"GET /api/site/:name",
 		"GET /api/imagecaptcha",

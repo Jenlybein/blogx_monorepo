@@ -24,17 +24,13 @@
     healthcheck:
       test:
         [
-          "CMD",
-          "mysqladmin",
-          "ping",
-          "-h",
-          "localhost",
-          "-uroot",
-          "-p$${MYSQL_ROOT_PASSWORD}",
+          "CMD-SHELL",
+          'mysql -h127.0.0.1 -P3306 --protocol=TCP --skip-ssl -u"$${BLOGX_DB_USER}" -p"$${BLOGX_DB_PASSWORD}" -D"$${MYSQL_DATABASE}" -e "SELECT 1" > /dev/null 2>&1 || exit 1',
         ]
-      interval: 2s
-      timeout: 2s
+      interval: 30s
+      timeout: 5s
       retries: 10
+      start_period: 20s
     networks:
       - blogx_network
 
@@ -47,6 +43,8 @@
       MYSQL_ROOT_PASSWORD: "${BLOGX_DB_PASSWORD}"
       TZ: "${TZ}"
       BLOGX_DB_NAME: "${BLOGX_DB_NAME}"
+      BLOGX_DB_USER: "${BLOGX_DB_USER}"
+      BLOGX_DB_PASSWORD: "${BLOGX_DB_PASSWORD}"
       BLOGX_DB_REPL_USER: "${BLOGX_DB_REPL_USER}"
       BLOGX_DB_REPL_PASSWORD: "${BLOGX_DB_REPL_PASSWORD}"
     command:
@@ -64,17 +62,13 @@
     healthcheck:
       test:
         [
-          "CMD",
-          "mysqladmin",
-          "ping",
-          "-h",
-          "localhost",
-          "-uroot",
-          "-p$${MYSQL_ROOT_PASSWORD}",
+          "CMD-SHELL",
+          'mysql -h127.0.0.1 -P3306 --protocol=TCP --skip-ssl -u"$${BLOGX_DB_USER}" -p"$${BLOGX_DB_PASSWORD}" -D"$${BLOGX_DB_NAME}" -e "SELECT 1" > /dev/null 2>&1 || exit 1',
         ]
-      interval: 5s
+      interval: 30s
       timeout: 5s
-      retries: 20
+      retries: 12
+      start_period: 30s
     networks:
       - blogx_network
 
@@ -106,9 +100,9 @@
           "CMD-SHELL",
           "curl -fsS -u elastic:$${ELASTIC_PASSWORD} http://127.0.0.1:9200/_cluster/health?wait_for_status=green&timeout=5s > /dev/null || exit 1",
         ]
-      interval: 10s
+      interval: 30s
       timeout: 10s
-      retries: 20
+      retries: 12
       start_period: 40s
     networks:
       - blogx_network
@@ -129,9 +123,10 @@
       - ../../docker/redis/conf/render-config.sh:/etc/redis/render-config.sh:ro
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${BLOGX_REDIS_PASSWORD}", "ping"]
-      interval: 5s
+      interval: 30s
       timeout: 5s
-      retries: 20
+      retries: 12
+      start_period: 10s
     networks:
       - blogx_network
 
@@ -291,9 +286,9 @@
           "CMD-SHELL",
           'clickhouse-client --user default --password "$${CLICKHOUSE_PASSWORD}" --query "SELECT 1" || exit 1',
         ]
-      interval: 10s
+      interval: 30s
       timeout: 10s
-      retries: 20
+      retries: 12
       start_period: 20s
     networks:
       - blogx_network
@@ -436,9 +431,9 @@
       test:
         [
           "CMD-SHELL",
-          "wget -q -O /dev/null http://127.0.0.1:$${BLOGX_APP_PORT}/api/site/ai_info || exit 1",
+          "wget -q -O /dev/null http://127.0.0.1:$${BLOGX_APP_PORT}/health || exit 1",
         ]
-      interval: 100s
+      interval: 60s
       timeout: 5s
       retries: 10
       start_period: 20s
