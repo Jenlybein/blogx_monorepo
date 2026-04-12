@@ -43,15 +43,14 @@ func (r *River) syncArticleDocsByArticleRows(e *canal.RowsEvent) error {
 			IDs:  articleIDs,
 		})
 	case canal.InsertAction:
-		articleIDs := collectRowsIDs(e, "id")
-		if len(articleIDs) == 0 {
+		snapshots, err := collectArticleRowSnapshots(e)
+		if err != nil {
+			return err
+		}
+		if len(snapshots) == 0 {
 			return nil
 		}
-		// 新增文章时直接全量 upsert，一次写入完整读模型快照。
-		return es_service.SyncArticleSearchProjection(r.db, r.es, es_service.ArticleSearchProjectionEvent{
-			Type: es_service.ArticleSearchProjectionArticleUpsert,
-			IDs:  articleIDs,
-		})
+		return es_service.SyncESDocsByArticleSnapshots(r.db, r.es, snapshots)
 	case canal.UpdateAction:
 		deltas := collectArticleModelDeltas(e)
 		if len(deltas) == 0 {

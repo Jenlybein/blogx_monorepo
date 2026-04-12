@@ -58,6 +58,33 @@ type ArticleModelDelta struct {
 	Changed   map[string]any
 }
 
+// ArticleRowSnapshot 是文章 ES 投影所需的“文章主体快照”。
+// insert 场景直接来自 binlog after row；补偿重建场景则从 article_models 按需读取。
+type ArticleRowSnapshot struct {
+	ID             ctype.ID
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	Title          string
+	Abstract       string
+	Content        string
+	CategoryID     *ctype.ID
+	Cover          string
+	AuthorID       ctype.ID
+	ViewCount      int
+	DiggCount      int
+	CommentCount   int
+	FavorCount     int
+	CommentsToggle bool
+	Status         enum.ArticleStatus
+}
+
+type articleProjectionDeps struct {
+	CategoryTitleMap map[ctype.ID]string
+	AuthorMap        map[ctype.ID]authorSnapshot
+	ArticleTagsMap   map[ctype.ID][]models.ESTag
+	TopMap           map[ctype.ID]articleESTop
+}
+
 // SyncArticleSearchProjection 是文章搜索读模型的统一更新入口。
 // River 在监听到相关表变更后，统一通过该入口路由到“单字段或小范围字段”更新逻辑。
 func SyncArticleSearchProjection(db *gorm.DB, client *elasticsearch.Client, event ArticleSearchProjectionEvent) error {
@@ -241,55 +268,107 @@ func BuildArticleESDocument(article models.ArticleModel, adminTop, authorTop boo
 		})
 	}
 
+	snapshot := ArticleRowSnapshot{
+		ID:             article.ID,
+		CreatedAt:      article.CreatedAt,
+		UpdatedAt:      article.UpdatedAt,
+		Title:          article.Title,
+		Abstract:       article.Abstract,
+		Content:        article.Content,
+		CategoryID:     article.CategoryID,
+		Cover:          article.Cover,
+		AuthorID:       article.AuthorID,
+		ViewCount:      article.ViewCount,
+		DiggCount:      article.DiggCount,
+		CommentCount:   article.CommentCount,
+		FavorCount:     article.FavorCount,
+		CommentsToggle: article.CommentsToggle,
+		Status:         article.Status,
+	}
+
+	deps := articleProjectionDeps{
+		CategoryTitleMap: map[ctype.ID]string{},
+		AuthorMap:        map[ctype.ID]authorSnapshot{},
+		ArticleTagsMap:   map[ctype.ID][]models.ESTag{article.ID: tags},
+		TopMap: map[ctype.ID]articleESTop{
+			article.ID: {
+				AdminTop:  adminTop,
+				AuthorTop: authorTop,
+			},
+		},
+	}
+	if article.CategoryModel != nil && article.CategoryID != nil {
+		deps.CategoryTitleMap[*article.CategoryID] = article.CategoryModel.Title
+	}
+	if article.UserModel.ID != 0 {
+		deps.AuthorMap[article.AuthorID] = authorSnapshot{
+			Nickname: article.UserModel.Nickname,
+			Avatar:   article.UserModel.Avatar,
+		}
+	}
+	return buildArticleESDocumentFromSnapshot(snapshot, deps)
+}
+
+func buildArticleESDocumentFromSnapshot(snapshot ArticleRowSnapshot, deps articleProjectionDeps) map[string]any {
+	categoryIDValue := toESNullableID(snapshot.CategoryID)
+	var categoryTitle string
+	if snapshot.CategoryID != nil {
+		categoryTitle = deps.CategoryTitleMap[*snapshot.CategoryID]
+	}
+	author := deps.AuthorMap[snapshot.AuthorID]
+	top := deps.TopMap[snapshot.ID]
+	tags := deps.ArticleTagsMap[snapshot.ID]
+	if tags == nil {
+		tags = []models.ESTag{}
+	}
+
 	return map[string]any{
-		"id":            toESID(article.ID),
-		"created_at":    article.CreatedAt,
-		"updated_at":    article.UpdatedAt,
-		"title":         article.Title,
-		"abstract":      article.Abstract,
-		"content_parts": markdown.MdToContentParts(article.Content),
-		"content_head":  markdown.ExtractText(markdown.MdToTextParagraph(article.Content), 150),
-		"category_id":   toESNullableID(article.CategoryID),
+		"id":            toESID(snapshot.ID),
+		"created_at":    snapshot.CreatedAt,
+		"updated_at":    snapshot.UpdatedAt,
+		"title":         snapshot.Title,
+		"abstract":      snapshot.Abstract,
+		"content_parts": markdown.MdToContentParts(snapshot.Content),
+		"content_head":  markdown.ExtractText(markdown.MdToTextParagraph(snapshot.Content), 150),
+		"category_id":   categoryIDValue,
 		"category": map[string]any{
-			"id": toESNullableID(article.CategoryID),
-			"title": func() string {
-				if article.CategoryModel == nil {
-					return ""
-				}
-				return article.CategoryModel.Title
-			}(),
+			"id":    categoryIDValue,
+			"title": categoryTitle,
 		},
-		"cover":     article.Cover,
-		"author_id": toESID(article.AuthorID),
+		"cover":     snapshot.Cover,
+		"author_id": toESID(snapshot.AuthorID),
 		"author": map[string]any{
-			"id": toESID(article.AuthorID),
-			"nickname": func() string {
-				if article.UserModel.ID == 0 {
-					return ""
-				}
-				return article.UserModel.Nickname
-			}(),
-			"avatar": func() string {
-				if article.UserModel.ID == 0 {
-					return ""
-				}
-				return article.UserModel.Avatar
-			}(),
+			"id":       toESID(snapshot.AuthorID),
+			"nickname": author.Nickname,
+			"avatar":   author.Avatar,
 		},
-		"view_count":      article.ViewCount,
-		"digg_count":      article.DiggCount,
-		"comment_count":   article.CommentCount,
-		"favor_count":     article.FavorCount,
-		"status":          article.Status,
-		"comments_toggle": article.CommentsToggle,
+		"view_count":      snapshot.ViewCount,
+		"digg_count":      snapshot.DiggCount,
+		"comment_count":   snapshot.CommentCount,
+		"favor_count":     snapshot.FavorCount,
+		"status":          snapshot.Status,
+		"comments_toggle": snapshot.CommentsToggle,
 		"tags":            tags,
 		"top": map[string]any{
-			"user":  authorTop,
-			"admin": adminTop,
+			"user":  top.AuthorTop,
+			"admin": top.AdminTop,
 		},
-		"admin_top":  adminTop,
-		"author_top": authorTop,
+		"admin_top":  top.AdminTop,
+		"author_top": top.AuthorTop,
 	}
+}
+
+// SyncESDocsByArticleSnapshots 直接使用文章主体快照构建 ES 文档。
+// 文章 insert 主路径会使用该入口，避免再回查 article_models。
+func SyncESDocsByArticleSnapshots(db *gorm.DB, client *elasticsearch.Client, snapshots []ArticleRowSnapshot) error {
+	if db == nil || client == nil {
+		return nil
+	}
+	snapshots = normalizeArticleSnapshots(snapshots)
+	if len(snapshots) == 0 {
+		return nil
+	}
+	return indexArticleSnapshots(db, client, snapshots, "同步文章 ES 文档失败")
 }
 
 // SyncESDocs 按文章 ID 批量重建 ES 文档。
@@ -304,43 +383,97 @@ func SyncESDocs(db *gorm.DB, client *elasticsearch.Client, articleIDs []ctype.ID
 		return nil
 	}
 
-	articleList, err := loadArticlesForES(db, articleIDs)
+	snapshots, err := loadArticleSnapshotsByIDs(db, articleIDs)
 	if err != nil {
 		return err
 	}
-	if len(articleList) == 0 {
+	if len(snapshots) == 0 {
+		return fmt.Errorf("按文章 ID 同步 ES 文档失败: 未加载到任何文章，article_ids=%v", articleIDs)
+	}
+
+	missingArticleIDs := collectMissingArticleIDs(articleIDs, snapshots)
+	if len(missingArticleIDs) > 0 {
+		return fmt.Errorf("按文章 ID 同步 ES 文档失败: 部分文章未加载到，missing_article_ids=%v", missingArticleIDs)
+	}
+	return indexArticleSnapshots(db, client, snapshots, "同步文章 ES 文档失败")
+}
+
+func indexArticleSnapshots(db *gorm.DB, client *elasticsearch.Client, snapshots []ArticleRowSnapshot, errPrefix string) error {
+	if len(snapshots) == 0 {
 		return nil
 	}
 
-	topMap, err := loadArticleESTopMap(db, articleIDs)
+	deps, err := loadArticleProjectionDeps(db, snapshots)
 	if err != nil {
 		return err
 	}
 
-	reqs := make([]*BulkRequest, 0, len(articleList))
-	for _, article := range articleList {
-		top := topMap[article.ID]
+	reqs := make([]*BulkRequest, 0, len(snapshots))
+	for _, snapshot := range snapshots {
 		reqs = append(reqs, &BulkRequest{
 			Action: ActionIndex,
-			ID:     strconv.FormatUint(uint64(article.ID), 10),
-			Data:   BuildArticleESDocument(article, top.AdminTop, top.AuthorTop),
+			ID:     strconv.FormatUint(uint64(snapshot.ID), 10),
+			Data:   buildArticleESDocumentFromSnapshot(snapshot, deps),
 		})
-	}
-
-	if len(reqs) == 0 {
-		return nil
 	}
 
 	resp := IndexBulk(client, models.ArticleModel{}.Index(), reqs)
 	if !resp.Success {
-		return fmt.Errorf("同步文章 ES 文档失败: %s", resp.Msg)
+		return fmt.Errorf("%s: %s", errPrefix, resp.Msg)
 	}
 	if data, ok := resp.Data.(map[string]any); ok {
 		if hasErrors, ok := data["errors"].(bool); ok && hasErrors {
-			return fmt.Errorf("同步文章 ES 文档失败: bulk errors")
+			return fmt.Errorf("%s: bulk errors", errPrefix)
 		}
 	}
 	return nil
+}
+
+func collectMissingArticleIDs(requested []ctype.ID, snapshots []ArticleRowSnapshot) []ctype.ID {
+	if len(requested) == 0 {
+		return nil
+	}
+	existing := make(map[ctype.ID]struct{}, len(snapshots))
+	for _, snapshot := range snapshots {
+		existing[snapshot.ID] = struct{}{}
+	}
+	missing := make([]ctype.ID, 0)
+	for _, articleID := range requested {
+		if _, ok := existing[articleID]; ok {
+			continue
+		}
+		missing = append(missing, articleID)
+	}
+	return missing
+}
+
+func normalizeArticleSnapshots(snapshots []ArticleRowSnapshot) []ArticleRowSnapshot {
+	if len(snapshots) == 0 {
+		return nil
+	}
+
+	merged := make(map[ctype.ID]ArticleRowSnapshot, len(snapshots))
+	for _, snapshot := range snapshots {
+		if snapshot.ID == 0 {
+			continue
+		}
+		merged[snapshot.ID] = snapshot
+	}
+	if len(merged) == 0 {
+		return nil
+	}
+
+	articleIDs := make([]ctype.ID, 0, len(merged))
+	for articleID := range merged {
+		articleIDs = append(articleIDs, articleID)
+	}
+	slices.Sort(articleIDs)
+
+	result := make([]ArticleRowSnapshot, 0, len(articleIDs))
+	for _, articleID := range articleIDs {
+		result = append(result, merged[articleID])
+	}
+	return result
 }
 
 // UpdateESDocsTags 在文章标签关系变化后刷新对应文章的 ES 文档。
@@ -986,9 +1119,9 @@ func parseTimeText(raw string) (time.Time, bool) {
 	return time.Time{}, false
 }
 
-func loadArticlesForES(db *gorm.DB, articleIDs []ctype.ID) ([]models.ArticleModel, error) {
-	var articleList []models.ArticleModel
-	err := db.Select(
+func loadArticleSnapshotsByIDs(db *gorm.DB, articleIDs []ctype.ID) ([]ArticleRowSnapshot, error) {
+	var snapshots []ArticleRowSnapshot
+	err := db.Model(&models.ArticleModel{}).Select(
 		"id",
 		"created_at",
 		"updated_at",
@@ -1006,18 +1139,125 @@ func loadArticlesForES(db *gorm.DB, articleIDs []ctype.ID) ([]models.ArticleMode
 		"comments_toggle",
 	).
 		Where("id IN ?", articleIDs).
-		Preload("Tags", func(db *gorm.DB) *gorm.DB {
-			return db.Select("tag_models.id", "tag_models.title").Order("sort desc, id asc")
-		}).
-		Preload("CategoryModel", func(db *gorm.DB) *gorm.DB {
-			return db.Select("id", "title")
-		}).
-		Preload("UserModel", func(db *gorm.DB) *gorm.DB {
-			return db.Select("id", "nickname", "avatar")
-		}).
 		Order("id asc").
-		Find(&articleList).Error
-	return articleList, err
+		Find(&snapshots).Error
+	return snapshots, err
+}
+
+func loadArticleProjectionDeps(db *gorm.DB, snapshots []ArticleRowSnapshot) (articleProjectionDeps, error) {
+	deps := articleProjectionDeps{
+		CategoryTitleMap: map[ctype.ID]string{},
+		AuthorMap:        map[ctype.ID]authorSnapshot{},
+		ArticleTagsMap:   map[ctype.ID][]models.ESTag{},
+		TopMap:           map[ctype.ID]articleESTop{},
+	}
+	if len(snapshots) == 0 {
+		return deps, nil
+	}
+
+	categoryIDs := make([]ctype.ID, 0, len(snapshots))
+	authorIDs := make([]ctype.ID, 0, len(snapshots))
+	articleIDs := make([]ctype.ID, 0, len(snapshots))
+	for _, snapshot := range snapshots {
+		articleIDs = append(articleIDs, snapshot.ID)
+		authorIDs = append(authorIDs, snapshot.AuthorID)
+		if snapshot.CategoryID != nil {
+			categoryIDs = append(categoryIDs, *snapshot.CategoryID)
+		}
+	}
+
+	var err error
+	deps.CategoryTitleMap, err = loadCategoryTitleMap(db, categoryIDs)
+	if err != nil {
+		return deps, err
+	}
+	deps.AuthorMap, err = loadAuthorSnapshotMap(db, authorIDs)
+	if err != nil {
+		return deps, err
+	}
+	deps.ArticleTagsMap, err = loadArticleESTagsMapByArticleIDs(db, articleIDs)
+	if err != nil {
+		return deps, err
+	}
+	deps.TopMap, err = loadArticleESTopMapBySnapshots(db, snapshots)
+	if err != nil {
+		return deps, err
+	}
+	return deps, nil
+}
+
+func loadArticleESTagsMapByArticleIDs(db *gorm.DB, articleIDs []ctype.ID) (map[ctype.ID][]models.ESTag, error) {
+	result := make(map[ctype.ID][]models.ESTag)
+	articleIDs = normalizeArticleIDs(articleIDs)
+	if len(articleIDs) == 0 {
+		return result, nil
+	}
+
+	type articleTagRow struct {
+		ArticleID ctype.ID
+		TagID     ctype.ID
+		Title     string
+		Sort      int
+	}
+	var rows []articleTagRow
+	if err := db.Table("article_tag_models").
+		Select("article_tag_models.article_id", "tag_models.id AS tag_id", "tag_models.title", "tag_models.sort").
+		Joins("JOIN tag_models ON tag_models.id = article_tag_models.tag_id AND tag_models.deleted_at IS NULL").
+		Where("article_tag_models.article_id IN ?", articleIDs).
+		Order("article_tag_models.article_id asc, tag_models.sort desc, tag_models.id asc").
+		Find(&rows).Error; err != nil {
+		return result, err
+	}
+
+	for _, row := range rows {
+		result[row.ArticleID] = append(result[row.ArticleID], models.ESTag{
+			ID:    row.TagID,
+			Title: row.Title,
+		})
+	}
+	return result, nil
+}
+
+func loadArticleESTopMapBySnapshots(db *gorm.DB, snapshots []ArticleRowSnapshot) (map[ctype.ID]articleESTop, error) {
+	result := make(map[ctype.ID]articleESTop, len(snapshots))
+	if len(snapshots) == 0 {
+		return result, nil
+	}
+
+	articleIDs := make([]ctype.ID, 0, len(snapshots))
+	articleAuthorMap := make(map[ctype.ID]ctype.ID, len(snapshots))
+	for _, snapshot := range snapshots {
+		articleIDs = append(articleIDs, snapshot.ID)
+		articleAuthorMap[snapshot.ID] = snapshot.AuthorID
+	}
+	articleIDs = normalizeArticleIDs(articleIDs)
+
+	type topRoleRow struct {
+		ArticleID ctype.ID
+		TopUserID ctype.ID
+		Role      enum.RoleType
+	}
+	var rows []topRoleRow
+	if err := db.Model(&models.UserTopArticleModel{}).
+		Select("user_top_article_models.article_id", "user_top_article_models.user_id AS top_user_id", "user_models.role").
+		Joins("JOIN user_models ON user_models.id = user_top_article_models.user_id AND user_models.deleted_at IS NULL").
+		Where("user_top_article_models.article_id IN ?", articleIDs).
+		Order("user_top_article_models.article_id asc, user_top_article_models.user_id asc").
+		Find(&rows).Error; err != nil {
+		return result, err
+	}
+
+	for _, row := range rows {
+		state := result[row.ArticleID]
+		if row.Role == enum.RoleAdmin {
+			state.AdminTop = true
+		}
+		if row.TopUserID == articleAuthorMap[row.ArticleID] {
+			state.AuthorTop = true
+		}
+		result[row.ArticleID] = state
+	}
+	return result, nil
 }
 
 func loadArticlesForESContentUpdate(db *gorm.DB, articleIDs []ctype.ID) ([]models.ArticleModel, error) {

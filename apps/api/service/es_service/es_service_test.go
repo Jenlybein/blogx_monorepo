@@ -15,6 +15,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/elastic/go-elasticsearch/v7/esapi"
@@ -463,6 +464,124 @@ func TestUpdateESDocsTop(t *testing.T) {
 	}
 }
 
+func TestSyncESDocsByArticleSnapshots(t *testing.T) {
+	db := testutil.SetupSQLite(t,
+		&models.UserModel{},
+		&models.UserConfModel{},
+		&models.CategoryModel{},
+		&models.TagModel{},
+		&models.ArticleTagModel{},
+		&models.UserTopArticleModel{},
+	)
+	testutil.SetConfig(&conf.Config{
+		ES: conf.ES{Index: "article_index"},
+		Site: conf.Site{
+			SiteInfo: confsite.SiteInfo{Mode: enum.SiteModeCommunity},
+		},
+	})
+
+	admin := models.UserModel{Username: "admin", Password: "x", Role: enum.RoleAdmin, Nickname: "管理员"}
+	author := models.UserModel{Username: "author", Password: "x", Role: enum.RoleUser, Nickname: "作者", Avatar: "/avatar.png"}
+	if err := db.Create(&admin).Error; err != nil {
+		t.Fatalf("创建管理员失败: %v", err)
+	}
+	if err := db.Create(&author).Error; err != nil {
+		t.Fatalf("创建作者失败: %v", err)
+	}
+	category := models.CategoryModel{Title: "后端", UserID: author.ID}
+	if err := db.Create(&category).Error; err != nil {
+		t.Fatalf("创建分类失败: %v", err)
+	}
+	tag := models.TagModel{Title: "Go", IsEnabled: true}
+	if err := db.Create(&tag).Error; err != nil {
+		t.Fatalf("创建标签失败: %v", err)
+	}
+
+	articleID := ctype.ID(301900000000000001)
+	if err := db.Exec("INSERT INTO article_tag_models(article_id, tag_id) VALUES (?, ?)", articleID, tag.ID).Error; err != nil {
+		t.Fatalf("创建文章标签关系失败: %v", err)
+	}
+	if err := db.Create(&models.UserTopArticleModel{UserID: admin.ID, ArticleID: articleID}).Error; err != nil {
+		t.Fatalf("创建管理员置顶失败: %v", err)
+	}
+	if err := db.Create(&models.UserTopArticleModel{UserID: author.ID, ArticleID: articleID}).Error; err != nil {
+		t.Fatalf("创建作者置顶失败: %v", err)
+	}
+
+	var bulkDocs []map[string]any
+	setupMockES(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/":
+			writeJSON(w, 200, `{"name":"mock","cluster_name":"mock","version":{"number":"7.17.10"},"tagline":"You Know, for Search"}`)
+		case r.URL.Path == "/_bulk" || strings.HasSuffix(r.URL.Path, "/_bulk"):
+			body, _ := io.ReadAll(r.Body)
+			scanner := bufio.NewScanner(strings.NewReader(string(body)))
+			lineNo := 0
+			for scanner.Scan() {
+				lineNo++
+				line := scanner.Bytes()
+				if len(strings.TrimSpace(string(line))) == 0 {
+					continue
+				}
+				if lineNo%2 == 0 {
+					var doc map[string]any
+					if err := json.Unmarshal(line, &doc); err != nil {
+						t.Fatalf("解析 bulk 文档失败: %v", err)
+					}
+					bulkDocs = append(bulkDocs, doc)
+				}
+			}
+			writeJSON(w, 200, `{"took":1,"errors":false,"items":[]}`)
+		default:
+			writeJSON(w, 404, `{"error":{"reason":"not found"}}`)
+		}
+	})
+
+	snapshots := []ArticleRowSnapshot{{
+		ID:             articleID,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+		Title:          "新文章",
+		Abstract:       "摘要",
+		Content:        "# 标题\n正文",
+		CategoryID:     &category.ID,
+		Cover:          "/cover.png",
+		AuthorID:       author.ID,
+		ViewCount:      1,
+		DiggCount:      2,
+		CommentCount:   3,
+		FavorCount:     4,
+		CommentsToggle: true,
+		Status:         enum.ArticleStatusPublished,
+	}}
+	if err := SyncESDocsByArticleSnapshots(db, testutil.ESClient(), snapshots); err != nil {
+		t.Fatalf("SyncESDocsByArticleSnapshots 失败: %v", err)
+	}
+	if len(bulkDocs) != 1 {
+		t.Fatalf("应写入一篇 ES 文档, got=%d", len(bulkDocs))
+	}
+
+	doc := bulkDocs[0]
+	if doc["title"] != "新文章" {
+		t.Fatalf("文章标题应直接来自快照, got=%#v", doc["title"])
+	}
+	categoryDoc, ok := doc["category"].(map[string]any)
+	if !ok || categoryDoc["title"] != "后端" {
+		t.Fatalf("分类快照补齐失败: %#v", doc["category"])
+	}
+	authorDoc, ok := doc["author"].(map[string]any)
+	if !ok || authorDoc["nickname"] != "作者" {
+		t.Fatalf("作者快照补齐失败: %#v", doc["author"])
+	}
+	tags, ok := doc["tags"].([]any)
+	if !ok || len(tags) != 1 {
+		t.Fatalf("标签补齐失败: %#v", doc["tags"])
+	}
+	if doc["admin_top"] != true || doc["author_top"] != true {
+		t.Fatalf("置顶补齐失败: admin=%#v author=%#v", doc["admin_top"], doc["author_top"])
+	}
+}
+
 func TestUpdateESDocsByArticleDeltasRebuildsMissingDocs(t *testing.T) {
 	db := testutil.SetupSQLite(t,
 		&models.UserModel{},
@@ -539,6 +658,43 @@ func TestUpdateESDocsByArticleDeltasRebuildsMissingDocs(t *testing.T) {
 	}
 	if !strings.Contains(bulkBodies[1], "\"index\"") || !strings.Contains(bulkBodies[1], "新标题") {
 		t.Fatalf("第二轮应为完整 index 重建: %s", bulkBodies[1])
+	}
+}
+
+func TestSyncESDocsReturnsErrorWhenArticlesMissing(t *testing.T) {
+	db := testutil.SetupSQLite(t,
+		&models.UserModel{},
+		&models.UserConfModel{},
+		&models.ArticleModel{},
+		&models.TagModel{},
+		&models.ArticleTagModel{},
+		&models.UserTopArticleModel{},
+	)
+	testutil.SetConfig(&conf.Config{
+		ES: conf.ES{Index: "article_index"},
+		Site: conf.Site{
+			SiteInfo: confsite.SiteInfo{Mode: enum.SiteModeCommunity},
+		},
+	})
+
+	setupMockES(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/":
+			writeJSON(w, 200, `{"name":"mock","cluster_name":"mock","version":{"number":"7.17.10"},"tagline":"You Know, for Search"}`)
+		case r.URL.Path == "/_bulk" || strings.HasSuffix(r.URL.Path, "/_bulk"):
+			writeJSON(w, 200, `{"took":1,"errors":false,"items":[]}`)
+		default:
+			writeJSON(w, 404, `{"error":{"reason":"not found"}}`)
+		}
+	})
+
+	missingID := ctype.ID(301829212698841088)
+	err := SyncESDocs(db, testutil.ESClient(), []ctype.ID{missingID})
+	if err == nil {
+		t.Fatal("文章不存在时应返回错误，避免 river 静默吞掉 upsert 事件")
+	}
+	if !strings.Contains(err.Error(), "未加载到任何文章") {
+		t.Fatalf("错误信息应指向缺失文章，got=%v", err)
 	}
 }
 
