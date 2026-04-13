@@ -22,7 +22,8 @@ type UserInfoUpdateRequest struct {
 	Nickname            *string     `json:"nickname"`
 	Avatar              *string     `json:"avatar"`
 	Abstract            *string     `json:"abstract"`
-	LikeTags            *[]ctype.ID `json:"like_tags"`
+	LikeTagIDs          *[]ctype.ID `json:"like_tag_ids"`
+	LikeTags            *[]ctype.ID `json:"like_tags"` // deprecated: 兼容旧前端，后续统一移除
 	FavoritesVisibility *bool       `json:"favorites_visibility"`
 	FollowVisibility    *bool       `json:"followers_visibility"`
 	FansVisibility      *bool       `json:"fans_visibility"`
@@ -44,8 +45,8 @@ func (h ProfileApi) UserInfoUpdateView(c *gin.Context) {
 		return
 	}
 
-	if cr.LikeTags != nil {
-		tagIDs, err := validateLikeTagIDs(app.DB, *cr.LikeTags)
+	if likeTagIDs, ok := resolveLikeTagIDs(cr); ok {
+		tagIDs, err := validateLikeTagIDs(app.DB, likeTagIDs)
 		if err != nil {
 			res.FailWithMsg(err.Error(), c)
 			return
@@ -126,6 +127,16 @@ func (h ProfileApi) UserInfoUpdateView(c *gin.Context) {
 	}
 
 	res.OkWithMsg("用户信息更新成功", c)
+}
+
+func resolveLikeTagIDs(cr UserInfoUpdateRequest) ([]ctype.ID, bool) {
+	if cr.LikeTagIDs != nil {
+		return *cr.LikeTagIDs, true
+	}
+	if cr.LikeTags != nil {
+		return *cr.LikeTags, true
+	}
+	return nil, false
 }
 
 func validateLikeTagIDs(db *gorm.DB, tagIDs []ctype.ID) ([]ctype.ID, error) {

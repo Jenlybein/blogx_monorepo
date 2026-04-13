@@ -113,8 +113,13 @@ func TestProfileHandlers(t *testing.T) {
 		var body struct {
 			Code int `json:"code"`
 			Data struct {
-				Email       *string `json:"email"`
-				HasPassword bool    `json:"has_password"`
+				Email        *string  `json:"email"`
+				HasPassword  bool     `json:"has_password"`
+				LikeTagIDs   []string `json:"like_tag_ids"`
+				LikeTagItems []struct {
+					ID    string `json:"id"`
+					Title string `json:"title"`
+				} `json:"like_tag_items"`
 			} `json:"data"`
 		}
 		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
@@ -125,6 +130,9 @@ func TestProfileHandlers(t *testing.T) {
 		}
 		if !body.Data.HasPassword {
 			t.Fatalf("用户详情应返回已绑定密码")
+		}
+		if len(body.Data.LikeTagIDs) != 0 || len(body.Data.LikeTagItems) != 0 {
+			t.Fatalf("初始偏好标签应为空: %+v", body.Data)
 		}
 	}
 
@@ -243,7 +251,7 @@ func TestProfileHandlers(t *testing.T) {
 		likeTags := []ctype.ID{tag.ID, tag.ID, 0}
 		c.Set("claims", &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: user.Role}})
 		c.Set("requestJson", profile_api.UserInfoUpdateRequest{
-			LikeTags: &likeTags,
+			LikeTagIDs: &likeTags,
 		})
 		api.UserInfoUpdateView(c)
 		if code := readCode(t, w); code != 0 {
@@ -261,6 +269,34 @@ func TestProfileHandlers(t *testing.T) {
 
 	{
 		c, w := newCtx()
+		c.Set("claims", &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: user.Role}})
+		api.UserDetailView(c)
+		if code := readCode(t, w); code != 0 {
+			t.Fatalf("更新偏好标签后查询详情失败, code=%d body=%s", code, w.Body.String())
+		}
+
+		var body struct {
+			Data struct {
+				LikeTagIDs   []ctype.ID `json:"like_tag_ids"`
+				LikeTagItems []struct {
+					ID    ctype.ID `json:"id"`
+					Title string   `json:"title"`
+				} `json:"like_tag_items"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatalf("解析偏好标签详情失败: %v", err)
+		}
+		if len(body.Data.LikeTagIDs) != 1 || body.Data.LikeTagIDs[0] != tag.ID {
+			t.Fatalf("详情返回的 like_tag_ids 异常: %+v", body.Data.LikeTagIDs)
+		}
+		if len(body.Data.LikeTagItems) != 1 || body.Data.LikeTagItems[0].ID != tag.ID || body.Data.LikeTagItems[0].Title != tag.Title {
+			t.Fatalf("详情返回的 like_tag_items 异常: %+v", body.Data.LikeTagItems)
+		}
+	}
+
+	{
+		c, w := newCtx()
 		likeTags := []ctype.ID{disabledTag.ID}
 		c.Set("claims", &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: user.Role}})
 		c.Set("requestJson", profile_api.UserInfoUpdateRequest{
@@ -269,6 +305,19 @@ func TestProfileHandlers(t *testing.T) {
 		api.UserInfoUpdateView(c)
 		if code := readCode(t, w); code == 0 {
 			t.Fatalf("停用标签不应允许更新, body=%s", w.Body.String())
+		}
+	}
+
+	{
+		c, w := newCtx()
+		likeTags := []ctype.ID{tag.ID}
+		c.Set("claims", &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: user.Role}})
+		c.Set("requestJson", profile_api.UserInfoUpdateRequest{
+			LikeTags: &likeTags,
+		})
+		api.UserInfoUpdateView(c)
+		if code := readCode(t, w); code != 0 {
+			t.Fatalf("旧字段 like_tags 兼容更新失败, code=%d body=%s", code, w.Body.String())
 		}
 	}
 

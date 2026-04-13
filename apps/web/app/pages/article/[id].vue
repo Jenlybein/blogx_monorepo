@@ -531,7 +531,7 @@ useSeoMeta({
         </section>
       </div>
 
-      <aside class="profile-sidebar">
+      <aside class="profile-sidebar home-sidebar">
         <div class="article-sidebar-stack">
           <section class="surface-card p-5 md:p-6">
             <div class="eyebrow">Author</div>

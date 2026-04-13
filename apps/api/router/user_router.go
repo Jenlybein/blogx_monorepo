@@ -29,10 +29,12 @@ func UserRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtime) 
 	authGroup.POST("logout", auth.UserLogoutView)
 	authGroup.POST("logout/all", auth.UserLogoutAllView)
 	authGroup.PUT("email/bind", runtimeMw.EmailVerifyMiddleware, auth.BindEmailView)
+	authGroup.GET("sessions", mw.BindQuery[auth_api.UserSessionListRequest], auth.UserSessionListView)
+	authGroup.DELETE("sessions/:id", mw.BindUri[models.IDRequest], auth.UserSessionDeleteView)
 
 	profile := appContainer.UserApi.ProfileApi
 	authGroup.GET("detail", profile.UserDetailView)
-	Group.GET("base", mw.BindQuery[models.IDRequest], profile.UserBaseInfoView)
+	Group.GET("base", runtimeMw.OptionalAuthMiddleware, mw.BindQuery[models.IDRequest], profile.UserBaseInfoView)
 	authGroup.PUT("info", mw.BindJson[profile_api.UserInfoUpdateRequest], profile.UserInfoUpdateView)
 	adminGroup.PUT("admin/info", mw.CaptureLog(mw.ReqBody|mw.ReqHeader), mw.BindJson[profile_api.AdminUserInfoUpdateRequest], profile.AdminUserInfoUpdateView)
 

@@ -25,6 +25,12 @@ func (h FollowApi) FollowUserView(c *gin.Context) {
 		return
 	}
 
+	var targetUser models.UserModel
+	if err := h.App.DB.Select("id").Take(&targetUser, cr.ID).Error; err != nil {
+		res.FailWithMsg("目标用户不存在", c)
+		return
+	}
+
 	// TODO：考虑每天关注量上限和取关量上限
 
 	createdOrRestored := false

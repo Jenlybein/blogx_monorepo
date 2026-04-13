@@ -8,6 +8,7 @@ const props = defineProps<{
   profile: UserBaseInfo;
   isSelf?: boolean;
   relationText?: string;
+  actionDisabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -40,6 +41,7 @@ const emit = defineEmits<{
       v-if="!isSelf"
       secondary
       round
+      :disabled="actionDisabled"
       @click="emit('follow')"
     >
       {{ relationText || "关注作者" }}

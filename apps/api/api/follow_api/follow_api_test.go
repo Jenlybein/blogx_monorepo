@@ -51,6 +51,14 @@ func TestFollowAndUnfollowUserView(t *testing.T) {
 		}
 	})
 
+	t.Run("不能关注不存在的用户", func(t *testing.T) {
+		c, w := newFollowCtx(t, http.MethodPost, users.owner, models.IDRequest{ID: ctype.ID(999999999999)}, nil)
+		api.FollowUserView(c)
+		if readFollowCode(t, w) == 0 {
+			t.Fatalf("关注不存在用户应失败, body=%s", w.Body.String())
+		}
+	})
+
 	t.Run("关注和取关流程", func(t *testing.T) {
 		c1, w1 := newFollowCtx(t, http.MethodPost, users.owner, models.IDRequest{ID: users.followedA.ID}, nil)
 		api.FollowUserView(c1)

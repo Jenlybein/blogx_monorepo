@@ -11,12 +11,14 @@ export interface SearchArticlesParams {
   category_id?: string;
   tag_ids?: string;
   status?: number;
+  auth?: boolean;
 }
 
 export function searchArticles(params: SearchArticlesParams) {
+  const { auth = false, ...query } = params;
   return useNuxtApp().$api.request<SearchArticleResponse>("/api/search/articles", {
-    query: params as Record<string, unknown>,
-    auth: false,
+    query: query as Record<string, unknown>,
+    auth,
   });
 }
 

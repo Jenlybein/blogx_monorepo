@@ -11,6 +11,10 @@ func AuthMiddleware(c *gin.Context) {
 	runtimeFromContext(c).AuthMiddleware(c)
 }
 
+func OptionalAuthMiddleware(c *gin.Context) {
+	runtimeFromContext(c).OptionalAuthMiddleware(c)
+}
+
 func AdminMiddleware(c *gin.Context) {
 	claims := jwts.MustGetClaimsByGin(c)
 
@@ -33,6 +37,31 @@ func (h Runtime) AuthMiddleware(c *gin.Context) {
 	if err != nil {
 		res.FailWithMsg(err.Error(), c)
 		c.Abort()
+		return
+	}
+
+	c.Set("claims", authResult.Claims)
+	c.Set("auth_user", authResult.User)
+	c.Set("auth_session", authResult.Session)
+	c.Set("access_token", authResult.Token)
+	c.Next()
+}
+
+func (h Runtime) OptionalAuthMiddleware(c *gin.Context) {
+	if h.Authenticator == nil {
+		c.Next()
+		return
+	}
+
+	token := jwts.GetTokenByGin(c)
+	if token == "" {
+		c.Next()
+		return
+	}
+
+	authResult, err := h.Authenticator.AuthenticateAccessToken(token)
+	if err != nil {
+		c.Next()
 		return
 	}
 

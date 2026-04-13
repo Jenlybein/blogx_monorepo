@@ -25,6 +25,17 @@ const newFolderTitle = ref("");
 const newFolderAbstract = ref("");
 
 const folderCountText = computed(() => `${folders.value.length} 个收藏夹`);
+const sortedFolders = computed(() =>
+  [...folders.value].sort((left, right) => {
+    if (left.is_default !== right.is_default) {
+      return left.is_default ? -1 : 1;
+    }
+    if (left.has_article !== right.has_article) {
+      return left.has_article ? -1 : 1;
+    }
+    return left.title.localeCompare(right.title, "zh-CN");
+  }),
+);
 const message = useMessage();
 const modalOpen = computed({
   get: () => props.show,
@@ -141,18 +152,18 @@ watch(
         <div class="glass-badge">{{ folderCountText }}</div>
       </div>
 
-      <div class="space-y-3">
+      <div class="max-h-[360px] overflow-y-auto rounded-[22px] border border-slate-200/80 px-2 pt-2 pr-1 dark:border-slate-700/70">
         <template v-if="pending">
-          <div v-for="index in 3" :key="index" class="surface-section p-4">
+          <div v-for="index in 3" :key="index" class="surface-section mb-3 p-4 last:mb-0">
             <NSkeleton text :repeat="2" />
           </div>
         </template>
 
         <template v-else-if="folders.length">
           <div
-            v-for="folder in folders"
+            v-for="folder in sortedFolders"
             :key="folder.id"
-            class="surface-section flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between"
+            class="surface-section mb-3 flex flex-col gap-3 p-4 last:mb-0 md:flex-row md:items-center md:justify-between"
           >
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2">

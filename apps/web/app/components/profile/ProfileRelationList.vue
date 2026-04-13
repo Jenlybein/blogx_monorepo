@@ -1,0 +1,97 @@
+<script setup lang="ts">
+import { NAvatar, NButton, NTag } from "naive-ui";
+import type { FanUserItem, FollowUserItem } from "~/types/api";
+import { formatDateTimeLabel } from "~/utils/format";
+
+type RelationRow = {
+  id: string;
+  nickname: string;
+  avatar: string;
+  abstract: string;
+  time: string;
+  relation: number;
+};
+
+const props = defineProps<{
+  title: string;
+  items: Array<FollowUserItem | FanUserItem>;
+  pending?: boolean;
+  locked?: boolean;
+  lockedTitle?: string;
+  lockedDescription?: string;
+}>();
+
+const emit = defineEmits<{
+  toggleFollow: [id: string, relation: number];
+}>();
+
+const normalizedItems = computed<RelationRow[]>(() =>
+  props.items.map((item) =>
+    "followed_user_id" in item
+      ? {
+          id: item.followed_user_id,
+          nickname: item.followed_nickname,
+          avatar: item.followed_avatar,
+          abstract: item.followed_abstract,
+          time: item.follow_time,
+          relation: item.relation,
+        }
+      : {
+          id: item.fans_user_id,
+          nickname: item.fans_nickname,
+          avatar: item.fans_avatar,
+          abstract: item.fans_abstract,
+          time: item.follow_time,
+          relation: item.relation,
+        },
+  ),
+);
+
+function relationLabel(relation: number) {
+  if (relation === 3) return "互相关注";
+  if (relation === 2) return "对方关注";
+  if (relation === 1) return "已关注";
+  return "未关注";
+}
+</script>
+
+<template>
+  <div v-if="locked" class="surface-section flex min-h-[280px] flex-col items-center justify-center p-6 text-center">
+    <h3 class="section-title">{{ lockedTitle }}</h3>
+    <p class="mt-3 max-w-xl text-sm leading-7 muted">{{ lockedDescription }}</p>
+  </div>
+
+  <div v-else-if="normalizedItems.length" class="profile-relation-list">
+    <article v-for="item in normalizedItems" :key="item.id" class="profile-relation-card">
+      <div class="profile-relation-card__main">
+        <NAvatar round :src="item.avatar || undefined">
+          {{ item.nickname.slice(0, 1).toUpperCase() }}
+        </NAvatar>
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <NuxtLink :to="`/users/${item.id}`" class="text-lg font-semibold">
+              {{ item.nickname }}
+            </NuxtLink>
+            <NTag size="small">{{ relationLabel(item.relation) }}</NTag>
+          </div>
+          <p class="mt-2 break-words text-sm leading-7 muted">{{ item.abstract || "这个用户还没有填写简介。" }}</p>
+          <p class="mt-2 text-xs muted">{{ formatDateTimeLabel(item.time) }}</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <NuxtLink :to="`/users/${item.id}`" class="glass-badge">查看主页</NuxtLink>
+        <NButton quaternary size="small" @click="emit('toggleFollow', item.id, item.relation)">
+          {{ item.relation === 1 || item.relation === 3 ? "取消关注" : "回关" }}
+        </NButton>
+      </div>
+    </article>
+  </div>
+
+  <div v-else class="surface-section flex min-h-[280px] flex-col items-center justify-center p-6 text-center">
+    <h3 class="section-title">{{ pending ? `正在加载${title}…` : `还没有${title}` }}</h3>
+    <p class="mt-3 max-w-xl text-sm leading-7 muted">
+      {{ pending ? "系统正在读取最新关系数据。" : "当前这个分栏还没有可展示的关系记录。" }}
+    </p>
+  </div>
+</template>

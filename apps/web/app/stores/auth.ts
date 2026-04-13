@@ -17,6 +17,8 @@ export const useAuthStore = defineStore("auth", () => {
   function clearSession() {
     accessToken.value = "";
     currentUser.value = null;
+    useMessageStore().clear();
+    useChatStore().resetSocketState();
   }
 
   async function fetchCurrentUser() {
@@ -56,6 +58,7 @@ export const useAuthStore = defineStore("auth", () => {
 
         setAccessToken(response.data);
         await fetchCurrentUser();
+        await useMessageStore().refreshSummary().catch(() => undefined);
         return true;
       } catch {
         clearSession();
@@ -88,6 +91,7 @@ export const useAuthStore = defineStore("auth", () => {
       const token = await loginWithPassword(payload);
       setAccessToken(token);
       await fetchCurrentUser();
+      await useMessageStore().refreshSummary().catch(() => undefined);
       initialized.value = true;
       return true;
     } finally {
@@ -101,6 +105,7 @@ export const useAuthStore = defineStore("auth", () => {
       const token = await loginWithEmailCode(payload);
       setAccessToken(token);
       await fetchCurrentUser();
+      await useMessageStore().refreshSummary().catch(() => undefined);
       initialized.value = true;
       return true;
     } finally {
@@ -114,6 +119,7 @@ export const useAuthStore = defineStore("auth", () => {
       const token = await registerWithEmail(payload);
       setAccessToken(token);
       await fetchCurrentUser();
+      await useMessageStore().refreshSummary().catch(() => undefined);
       initialized.value = true;
       return true;
     } finally {

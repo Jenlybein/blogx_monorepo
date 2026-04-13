@@ -28,6 +28,11 @@ watch(
 
 const userMenuOptions = computed(() => [
   {
+    label: "个人中心",
+    key: "studio",
+    icon: () => h(IconHome2, { size: 16 }),
+  },
+  {
     label: "我的主页",
     key: "profile",
     icon: () => h(IconUserCircle, { size: 16 }),
@@ -47,6 +52,11 @@ async function submitSearch() {
 }
 
 async function handleUserMenuSelect(key: string | number) {
+  if (key === "studio") {
+    await navigateTo("/studio/dashboard");
+    return;
+  }
+
   if (key === "profile" && authStore.profileId) {
     await navigateTo(`/users/${authStore.profileId}`);
     return;

@@ -283,3 +283,265 @@ export interface EmailVerifyPayload {
   email_id: string;
   email: string;
 }
+
+export interface ArticleListItem {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  title: string;
+  abstract: string;
+  content: string;
+  cover: string;
+  view_count: number;
+  digg_count: number;
+  comment_count: number;
+  favor_count: number;
+  comments_toggle: boolean;
+  status: number;
+  tags: string[];
+  user_top: boolean;
+  admin_top: boolean;
+  category_title: string;
+  user_nickname: string;
+  user_avatar: string;
+}
+
+export interface ArticleListResponse {
+  list: ArticleListItem[];
+  count: number;
+}
+
+export interface HistoryArticleItem {
+  updated_at: string;
+  title: string;
+  cover: string;
+  nickname: string;
+  avatar: string;
+  user_id: string;
+  article_id: string;
+}
+
+export interface HistoryArticleListData {
+  list: HistoryArticleItem[];
+  count: number;
+}
+
+export interface CommentManageItem {
+  id: string;
+  created_at: string;
+  content: string;
+  digg_count: number;
+  reply_count: number;
+  user_id: string;
+  user_nickname: string;
+  user_avatar: string;
+  article_id: string;
+  article_title: string;
+  article_cover: string;
+}
+
+export interface CommentManageListData {
+  list: CommentManageItem[];
+  count: number;
+}
+
+export interface FollowUserItem {
+  followed_user_id: string;
+  followed_nickname: string;
+  followed_avatar: string;
+  followed_abstract: string;
+  follow_time: string;
+  relation: number;
+}
+
+export interface FollowUserListData {
+  list: FollowUserItem[];
+  count: number;
+}
+
+export interface FanUserItem {
+  fans_user_id: string;
+  fans_nickname: string;
+  fans_avatar: string;
+  fans_abstract: string;
+  follow_time: string;
+  relation: number;
+}
+
+export interface FanUserListData {
+  list: FanUserItem[];
+  count: number;
+}
+
+export interface FavoriteArticleItem {
+  favorited_at: string;
+  article_id: string;
+  title: string;
+  abstract: string;
+  cover: string;
+  view_count: number;
+  digg_count: number;
+  comment_count: number;
+  favor_count: number;
+  user_nickname: string;
+  user_avatar: string;
+  article_status: number;
+}
+
+export interface FavoriteArticleListData {
+  list: FavoriteArticleItem[];
+  count: number;
+}
+
+export interface LoginLogItem {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+  ip: string;
+  addr: string;
+  ua: string;
+  user_nickname: string;
+  user_avatar: string;
+}
+
+export interface LoginLogListData {
+  list: LoginLogItem[];
+  count: number;
+}
+
+export interface UserSessionItem {
+  id: string;
+  ip: string;
+  addr: string;
+  ua: string;
+  created_at: string;
+  last_seen_at?: string | null;
+  expires_at: string;
+  is_current: boolean;
+}
+
+export interface UserSessionListData {
+  list: UserSessionItem[];
+  count: number;
+}
+
+export interface MessageSummary {
+  comment_msg_count: number;
+  digg_favor_msg_count: number;
+  private_msg_count: number;
+  system_msg_count: number;
+}
+
+export interface MessagePreference {
+  digg_notice_enabled: boolean;
+  comment_notice_enabled: boolean;
+  favor_notice_enabled: boolean;
+  private_chat_notice_enabled: boolean;
+}
+
+export interface SiteMessageItem {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  type: number;
+  receiver_id: string;
+  action_user_id: string | null;
+  action_user_nickname: string | null;
+  action_user_avatar: string | null;
+  content: string;
+  article_id: string;
+  comment_id: string;
+  article_title: string;
+  link_title: string;
+  link_herf: string;
+  is_read: boolean;
+  read_at: string | null;
+}
+
+export interface SiteMessageListData {
+  list: SiteMessageItem[];
+  count: number;
+}
+
+export interface GlobalNoticeItem {
+  id: string;
+  create_at: string;
+  title: string;
+  icon: string;
+  content: string;
+  herf: string;
+  is_read: boolean;
+}
+
+export interface GlobalNoticeListData {
+  list: GlobalNoticeItem[];
+  count: number;
+}
+
+export interface ChatSessionItem {
+  session_id: string;
+  receiver_id: string;
+  receiver_nickname: string;
+  receiver_avatar: string;
+  relation: number;
+  last_msg_content: string;
+  last_msg_time: string | null;
+  unread_count: number;
+  is_top: boolean;
+  is_mute: boolean;
+  deleted_at?: string | null;
+}
+
+export interface ChatSessionListData {
+  list: ChatSessionItem[];
+  count: number;
+}
+
+export interface ChatMessageItem {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  session_id: string;
+  content: string;
+  send_time: string;
+  msg_status: number;
+  msg_type: number;
+  is_self: boolean;
+  is_read: boolean;
+  deleted_at?: string | null;
+}
+
+export interface ChatMessageListData {
+  list: ChatMessageItem[];
+  count: number;
+}
+
+export interface ChatWsTicketData {
+  ticket?: string;
+  [key: string]: unknown;
+}
+
+export interface ChatSocketEnvelope<TData = unknown> {
+  code: number;
+  msg: string;
+  data: TData;
+}
+
+export interface ChatSocketOutgoingMessage {
+  receiver_id: string;
+  msg_type: 1 | 2 | 7;
+  content: string;
+}
+
+export interface UserProfileUpdatePayload {
+  username?: string | null;
+  nickname?: string | null;
+  avatar?: string | null;
+  abstract?: string | null;
+  like_tags?: number[];
+  favorites_visibility?: boolean | null;
+  followers_visibility?: boolean | null;
+  fans_visibility?: boolean | null;
+  home_style_id?: string | null;
+}

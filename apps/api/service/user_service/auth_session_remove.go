@@ -19,8 +19,8 @@ func RevokeSessionByID(deps Deps, userID, sessionID ctype.ID) error {
 		Model(&models.UserSessionModel{}).
 		Where("id = ? AND user_id = ? AND revoked_at IS NULL", sessionID, userID).
 		Updates(map[string]any{
-			"revoked_at":         now, // 设置吊销时间
-			"refresh_token_hash": "",  // 清空令牌哈希，使其彻底失效
+			// 依赖 revoked_at 作为失效判定，避免把唯一索引列统一改成相同空值。
+			"revoked_at": now,
 		}).Error
 }
 
@@ -35,8 +35,7 @@ func RevokeAllUserSessions(deps Deps, userID ctype.ID) error {
 		Model(&models.UserSessionModel{}).
 		Where("user_id = ? AND revoked_at IS NULL", userID).
 		Updates(map[string]any{
-			"revoked_at":         now,
-			"refresh_token_hash": "",
+			"revoked_at": now,
 		}).Error
 }
 
@@ -63,8 +62,7 @@ func UpdatePasswordAndRevokeSessions(deps Deps, user *models.UserModel, hashedPa
 		if err := tx.Model(&models.UserSessionModel{}).
 			Where("user_id = ? AND revoked_at IS NULL", user.ID).
 			Updates(map[string]any{
-				"revoked_at":         now,
-				"refresh_token_hash": "",
+				"revoked_at": now,
 			}).Error; err != nil {
 			return err
 		}
@@ -98,8 +96,7 @@ func InvalidateUserAuthState(deps Deps, user *models.UserModel) error {
 		if err := tx.Model(&models.UserSessionModel{}).
 			Where("user_id = ? AND revoked_at IS NULL", user.ID).
 			Updates(map[string]any{
-				"revoked_at":         now,
-				"refresh_token_hash": "",
+				"revoked_at": now,
 			}).Error; err != nil {
 			return err
 		}

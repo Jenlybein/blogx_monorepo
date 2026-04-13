@@ -52,6 +52,8 @@ func TestRegisterAllRoutes(t *testing.T) {
 		"GET /api/banners",
 		"POST /api/users/login",
 		"GET /api/users/base",
+		"GET /api/users/sessions",
+		"DELETE /api/users/sessions/:id",
 		"POST /api/users/admin",
 		"GET /api/articles/author_info",
 		"GET /api/search/articles",

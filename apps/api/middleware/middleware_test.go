@@ -208,6 +208,63 @@ func TestAuthAndAdminMiddleware(t *testing.T) {
 	}
 }
 
+func TestOptionalAuthMiddleware(t *testing.T) {
+	setupAuthEnv(t)
+	r := newMiddlewareEngine(t)
+
+	r.GET("/optional-auth", middleware.OptionalAuthMiddleware, func(c *gin.Context) {
+		if claims := jwts.GetClaimsByGin(c); claims != nil {
+			c.JSON(http.StatusOK, gin.H{"user": claims.Username})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"user": ""})
+	})
+
+	user := &models.UserModel{Username: "optional_user", Password: "x", Role: enum.RoleUser}
+	if err := testutil.DB().Create(user).Error; err != nil {
+		t.Fatalf("创建用户失败: %v", err)
+	}
+	userToken := testutil.IssueAccessToken(t, user)
+
+	{
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/optional-auth", nil)
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("无 token 时 optional auth 不应拦截, code=%d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), `"user":""`) {
+			t.Fatalf("无 token 时不应注入 claims, body=%s", w.Body.String())
+		}
+	}
+
+	{
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/optional-auth", nil)
+		req.Header.Set("token", userToken)
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("合法 token 时 optional auth 不应拦截, code=%d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), user.Username) {
+			t.Fatalf("合法 token 时应注入 claims, body=%s", w.Body.String())
+		}
+	}
+
+	{
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/optional-auth", nil)
+		req.Header.Set("token", "invalid-token")
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("非法 token 时 optional auth 也不应拦截, code=%d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), `"user":""`) {
+			t.Fatalf("非法 token 时不应注入 claims, body=%s", w.Body.String())
+		}
+	}
+}
+
 func TestCaptchaAndEmailVerifyMiddleware(t *testing.T) {
 	setupAuthEnv(t)
 	r := newMiddlewareEngine(t)
