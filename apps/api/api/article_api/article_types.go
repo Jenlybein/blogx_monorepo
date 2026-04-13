@@ -27,27 +27,29 @@ type ArticleCreateResponse struct {
 }
 
 type ArticleDetailResponse struct {
-	ID             ctype.ID           `gorm:"primaryKey" json:"id"`
-	CreatedAt      time.Time          `json:"created_at"`
-	UpdatedAt      time.Time          `json:"updated_at"`
-	Title          string             `json:"title"`
-	Abstract       string             `json:"abstract"`
-	Content        string             `json:"content"`
-	Cover          string             `json:"cover"`
-	ViewCount      int                `json:"view_count"`
-	DiggCount      int                `json:"digg_count"`
-	CommentCount   int                `json:"comment_count"`
-	FavorCount     int                `json:"favor_count"`
-	CommentsToggle bool               `json:"comments_toggle"`
-	Status         enum.ArticleStatus `json:"status"`
-	Tags           []string           `json:"tags"`
-	AuthorID       ctype.ID           `json:"author_id"`
-	AuthorAvatar   string             `json:"author_avatar"`
-	AuthorNickname string             `json:"author_name"`
-	AuthorUsername string             `json:"author_username"`
-	CategoryName   string             `json:"category_name"`
-	IsDigg         bool               `json:"is_digg"`
-	IsFavor        bool               `json:"is_favor"`
+	ID              ctype.ID           `gorm:"primaryKey" json:"id"`
+	CreatedAt       time.Time          `json:"created_at"`
+	UpdatedAt       time.Time          `json:"updated_at"`
+	Title           string             `json:"title"`
+	Abstract        string             `json:"abstract"`
+	Content         string             `json:"content"`
+	Cover           string             `json:"cover"`
+	ViewCount       int                `json:"view_count"`
+	DiggCount       int                `json:"digg_count"`
+	CommentCount    int                `json:"comment_count"`
+	FavorCount      int                `json:"favor_count"`
+	CommentsToggle  bool               `json:"comments_toggle"`
+	Status          enum.ArticleStatus `json:"status"`
+	Tags            []string           `json:"tags"`
+	AuthorID        ctype.ID           `json:"author_id"`
+	AuthorAvatar    string             `json:"author_avatar"`
+	AuthorAbstract  string             `json:"author_abstract"`
+	AuthorCreatedAt time.Time          `json:"author_created_time"`
+	AuthorNickname  string             `json:"author_name"`
+	AuthorUsername  string             `json:"author_username"`
+	CategoryName    string             `json:"category_name"`
+	IsDigg          bool               `json:"is_digg"`
+	IsFavor         bool               `json:"is_favor"`
 }
 
 type ArticleExamineRequest struct {

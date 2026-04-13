@@ -180,7 +180,7 @@ func (s *CronService) Start() {
 	}
 
 	_, err = scheduler.NewJob(
-		gocron.DailyJob(1, gocron.NewAtTimes(gocron.NewAtTime(2, 0, 0))),
+		gocron.DurationJob(30*time.Minute),
 		gocron.NewTask(s.syncCounters),
 	)
 	if err != nil {

@@ -179,6 +179,8 @@ export interface ArticleDetail {
   tags: string[];
   author_id: string;
   author_avatar: string;
+  author_abstract: string;
+  author_created_time: string;
   author_name: string;
   author_username: string;
   category_name: string;

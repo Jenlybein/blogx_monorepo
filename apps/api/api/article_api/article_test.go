@@ -87,6 +87,7 @@ func setupArticleEnv(t *testing.T) *models.UserModel {
 	user := &models.UserModel{
 		Username: "u1",
 		Password: "x",
+		Abstract: "backend author",
 		Role:     enum.RoleUser,
 	}
 	if err := db.Create(user).Error; err != nil {
@@ -461,6 +462,12 @@ func TestArticleDiggFavoriteVisitDetailRemoveUser(t *testing.T) {
 		}
 		if data["author_id"] != article.AuthorID.String() {
 			t.Fatalf("文章详情作者 id 异常, body=%s", w.Body.String())
+		}
+		if data["author_abstract"] != user.Abstract {
+			t.Fatalf("文章详情作者简介异常, body=%s", w.Body.String())
+		}
+		if _, ok := data["author_created_time"].(string); !ok {
+			t.Fatalf("文章详情作者创建时间异常, body=%s", w.Body.String())
 		}
 		if data["category_name"] != category.Title {
 			t.Fatalf("文章详情分类名异常, body=%s", w.Body.String())

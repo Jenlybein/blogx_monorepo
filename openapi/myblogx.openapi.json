@@ -1784,7 +1784,7 @@
       "get": {
         "summary": "作者文章统计信息",
         "deprecated": false,
-        "description": "根据作者 ID 返回作者文章数、作者文章累计阅读数和粉丝数，用于文章详情页作者信息展示。",
+        "description": "根据作者 ID 返回作者文章数、作者文章累计阅读数和粉丝数，用于文章详情页作者统计展示。",
         "tags": [
           "文章管理/详情"
         ],
@@ -10178,6 +10178,15 @@
             "type": "string",
             "description": "作者头像地址。"
           },
+          "author_abstract": {
+            "type": "string",
+            "description": "作者简介。"
+          },
+          "author_created_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "作者注册时间。"
+          },
           "author_name": {
             "type": "string",
             "description": "作者昵称。"
@@ -10216,6 +10225,8 @@
           "tags",
           "author_id",
           "author_avatar",
+          "author_abstract",
+          "author_created_time",
           "author_name",
           "author_username",
           "category_name",

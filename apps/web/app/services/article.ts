@@ -1,4 +1,4 @@
-import type { ArticleDetail, ArticleTopItem } from "~/types/api";
+import type { ArticleAuthorInfo, ArticleDetail, ArticleTopItem } from "~/types/api";
 
 export function getTopArticles() {
   return useNuxtApp().$api.request<{ list: ArticleTopItem[]; count: number }>("/api/articles/top", {
@@ -11,6 +11,15 @@ export function getTopArticles() {
 
 export function getArticleDetail(id: string | number) {
   return useNuxtApp().$api.request<ArticleDetail>(`/api/articles/${id}`);
+}
+
+export function getArticleAuthorInfo(authorId: string | number) {
+  return useNuxtApp().$api.request<ArticleAuthorInfo>("/api/articles/author_info", {
+    auth: false,
+    query: {
+      author_id: String(authorId),
+    },
+  });
 }
 
 export function markArticleViewed(id: string | number) {

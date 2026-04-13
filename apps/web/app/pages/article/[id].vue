@@ -8,9 +8,11 @@ import CommentThread from "~/components/comment/CommentThread.vue";
 import FavoriteFolderModal from "~/components/favorite/FavoriteFolderModal.vue";
 import { useArticleMarkdown } from "~/composables/useArticleMarkdown";
 import { useReadingProgress } from "~/composables/useReadingProgress";
+import { followUser, unfollowUser } from "~/services/follow";
 import { ApiBusinessError } from "~/services/http/errors";
-import { getArticleDetail, markArticleViewed, toggleArticleDigg } from "~/services/article";
+import { getArticleAuthorInfo, getArticleDetail, markArticleViewed, toggleArticleDigg } from "~/services/article";
 import { createComment, diggComment, getReplyComments, getRootComments } from "~/services/comment";
+import { getUserBaseInfo } from "~/services/user";
 import type { CommentReplyItem } from "~/types/api";
 import { formatCount, formatDateTimeLabel } from "~/utils/format";
 
@@ -45,6 +47,23 @@ const articleLoadError = computed(() => {
 
   return "文章详情暂时无法加载。";
 });
+const authorId = computed(() => article.value?.author_id || "");
+
+const { data: authorInfo, refresh: refreshAuthorInfo } = await useAsyncData<Awaited<ReturnType<typeof getArticleAuthorInfo>> | null>(
+  () => `article-author-info-${authorId.value || articleId.value}`,
+  () => (authorId.value ? getArticleAuthorInfo(authorId.value) : Promise.resolve(null)),
+  {
+    watch: [authorId],
+  },
+);
+
+const { data: authorProfile, refresh: refreshAuthorProfile } = await useAsyncData<Awaited<ReturnType<typeof getUserBaseInfo>> | null>(
+  () => `article-author-base-${authorId.value || articleId.value}`,
+  () => (authorId.value ? getUserBaseInfo(authorId.value).catch(() => null) : Promise.resolve(null)),
+  {
+    watch: [authorId],
+  },
+);
 
 const commentsPager = await usePagedResourceCache({
   cacheKey: () => `article-comments:${articleId.value}`,
@@ -116,6 +135,19 @@ function resetReplyState(rootId: string) {
 const { renderedHtml: renderedContent, headings: articleHeadings } = useArticleMarkdown(computed(() => article.value?.content));
 const { activeHeadingId, progressPercent } = useReadingProgress(computed(() => articleHeadings.value.map((heading) => heading.id)));
 const authorInitial = computed(() => article.value?.author_name?.slice(0, 1).toUpperCase() || "A");
+const authorRelationText = computed(() => {
+  switch (authorProfile.value?.relation) {
+    case 1:
+      return "已关注";
+    case 2:
+      return "对方关注了你";
+    case 3:
+      return "互相关注";
+    default:
+      return "关注";
+  }
+});
+const isSelfAuthor = computed(() => authStore.profileId != null && String(authStore.profileId) === authorId.value);
 
 async function handleLike() {
   if (!authStore.isLoggedIn) {
@@ -270,6 +302,50 @@ async function handleFavoriteUpdated() {
   await refreshArticle();
 }
 
+async function handleAuthorFollow() {
+  if (!authorId.value) {
+    return;
+  }
+
+  if (!authStore.isLoggedIn) {
+    uiStore.openAuthModal();
+    return;
+  }
+
+  if (isSelfAuthor.value) {
+    message.info("这是你自己发布的文章。");
+    return;
+  }
+
+  try {
+    if (authorProfile.value?.relation === 1 || authorProfile.value?.relation === 3) {
+      await unfollowUser(authorId.value);
+      message.success("已取消关注");
+    } else {
+      await followUser(authorId.value);
+      message.success("已关注作者");
+    }
+    await refreshAuthorProfile();
+    await refreshAuthorInfo();
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : "关注操作失败");
+  }
+}
+
+function handlePrivateMessage() {
+  if (!authStore.isLoggedIn) {
+    uiStore.openAuthModal();
+    return;
+  }
+
+  if (isSelfAuthor.value) {
+    message.info("不能给自己发送私信。");
+    return;
+  }
+
+  message.info("私信页面接入中，后续会直接跳转到与该作者的会话。");
+}
+
 const comments = computed(() =>
   commentsPager.currentItems.value.map((comment) => {
     const replyState = replyStates.value[comment.id];
@@ -344,38 +420,44 @@ useSeoMeta({
 
     <template v-else>
     <section class="surface-card p-6 md:p-8">
-      <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div class="max-w-3xl">
-          <div class="mb-4 flex flex-wrap items-center gap-2">
-            <NTag round size="small" :bordered="false">{{ article?.category_name || "未分类" }}</NTag>
-            <NTag v-for="tag in article?.tags || []" :key="tag" round size="small" :bordered="false">{{ tag }}</NTag>
-          </div>
+      <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div class="max-w-3xl flex-1">
           <h1 class="page-title">{{ article?.title }}</h1>
           <p class="mt-4 text-base leading-8 muted">{{ article?.abstract }}</p>
-          <div class="mt-5 flex flex-wrap items-center gap-5 text-sm muted">
-            <span>{{ article?.author_name }}</span>
-            <span>{{ formatDateTimeLabel(article?.created_at) }}</span>
-            <span class="inline-flex items-center gap-1.5"><IconEye :size="16" /> {{ formatCount(article?.view_count || 0) }}</span>
-            <span class="inline-flex items-center gap-1.5"><IconThumbUp :size="16" /> {{ formatCount(article?.digg_count || 0) }}</span>
-            <span class="inline-flex items-center gap-1.5"><IconHeart :size="16" /> {{ formatCount(article?.favor_count || 0) }}</span>
-            <span class="inline-flex items-center gap-1.5"><IconMessageCircle2 :size="16" /> {{ formatCount(article?.comment_count || 0) }}</span>
+          <div class="mt-5 flex flex-col gap-4">
+            <div class="flex flex-wrap items-center gap-2.5 text-sm muted">
+              <span
+                v-if="article?.category_name"
+                class="inline-flex items-center rounded-full bg-teal-50 px-3 py-1 text-sm font-medium text-teal-700 dark:bg-teal-500/10 dark:text-teal-200"
+              >
+                文章分类：{{ article.category_name }}
+              </span>
+              <NTag v-for="tag in article?.tags || []" :key="tag" round size="small" :bordered="false">{{ tag }}</NTag>
+            </div>
+            <div class="flex flex-wrap items-center gap-5 text-sm muted">
+              <span>{{ formatDateTimeLabel(article?.created_at) }}</span>
+              <span class="inline-flex items-center gap-1.5"><IconEye :size="16" /> {{ formatCount(article?.view_count || 0) }}</span>
+              <span class="inline-flex items-center gap-1.5"><IconThumbUp :size="16" /> {{ formatCount(article?.digg_count || 0) }}</span>
+              <span class="inline-flex items-center gap-1.5"><IconHeart :size="16" /> {{ formatCount(article?.favor_count || 0) }}</span>
+              <span class="inline-flex items-center gap-1.5"><IconMessageCircle2 :size="16" /> {{ formatCount(article?.comment_count || 0) }}</span>
+            </div>
           </div>
         </div>
 
-        <div class="flex shrink-0 flex-wrap gap-3">
-          <NButton secondary round @click="handleLike">
+        <div class="flex shrink-0 flex-wrap items-center gap-3 lg:justify-end">
+          <NButton round size="large" color="#0f766e" @click="handleLike">
             <template #icon>
               <IconThumbUp :size="18" />
             </template>
             {{ article?.is_digg ? "已点赞" : "点赞" }}
           </NButton>
-          <NButton secondary round @click="handleFavorite">
+          <NButton round size="large" color="#b45309" @click="handleFavorite">
             <template #icon>
               <IconHeart :size="18" />
             </template>
             收藏 {{ formatCount(article?.favor_count || 0) }}
           </NButton>
-          <NButton secondary round @click="handleShare">
+          <NButton round size="large" color="#475569" @click="handleShare">
             <template #icon>
               <IconShare2 :size="18" />
             </template>
@@ -463,30 +545,38 @@ useSeoMeta({
                   <span class="glass-badge">文章作者</span>
                 </div>
                 <p class="mt-1 truncate text-sm muted">@{{ article?.author_username }}</p>
+                <p class="mt-1 text-xs muted">
+                  加入于 {{ formatDateTimeLabel(article?.author_created_time) || "暂未公开" }}
+                </p>
               </div>
             </div>
 
             <p class="mt-4 text-sm leading-7 muted">
-              本文由 {{ article?.author_name }} 发布，文章信息与目录导航会在阅读过程中固定显示，方便随时回到关键信息。
+              {{ article?.author_abstract || authorProfile?.abstract || `${article?.author_name} 持续分享前端工程化、接口设计与页面组织相关内容。` }}
             </p>
 
-            <div class="mt-5 grid gap-3 text-sm">
-              <div class="article-author-row">
-                <span class="muted">发布时间</span>
-                <span>{{ formatDateTimeLabel(article?.created_at) }}</span>
+            <div class="mt-5 grid grid-cols-3 gap-3 rounded-[24px] border border-white/60 bg-white/50 px-4 py-4 text-center dark:border-slate-700/70 dark:bg-slate-900/40">
+              <div>
+                <div class="text-[24px] font-semibold tracking-[-0.03em]">{{ formatCount(authorInfo?.article_count || 0) }}</div>
+                <div class="mt-1 text-xs muted">文章</div>
               </div>
-              <div class="article-author-row">
-                <span class="muted">文章分类</span>
-                <span>{{ article?.category_name || "未分类" }}</span>
+              <div>
+                <div class="text-[24px] font-semibold tracking-[-0.03em]">{{ formatCount(authorInfo?.article_visited_count || 0) }}</div>
+                <div class="mt-1 text-xs muted">阅读</div>
               </div>
-              <div class="article-author-row">
-                <span class="muted">评论状态</span>
-                <span>{{ article?.comments_toggle ? "允许评论" : "评论关闭" }}</span>
+              <div>
+                <div class="text-[24px] font-semibold tracking-[-0.03em]">{{ formatCount(authorInfo?.fans_count || 0) }}</div>
+                <div class="mt-1 text-xs muted">粉丝</div>
               </div>
-              <div class="article-author-row">
-                <span class="muted">互动概况</span>
-                <span>{{ formatCount(article?.digg_count || 0) }} 赞 · {{ formatCount(article?.comment_count || 0) }} 评</span>
-              </div>
+            </div>
+
+            <div class="mt-5 grid grid-cols-2 gap-3">
+              <NButton type="primary" round block @click="handleAuthorFollow">
+                {{ isSelfAuthor ? "这是你" : authorRelationText }}
+              </NButton>
+              <NButton secondary round block @click="handlePrivateMessage">
+                私信
+              </NButton>
             </div>
           </section>
 
