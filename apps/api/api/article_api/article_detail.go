@@ -26,6 +26,7 @@ func (h ArticleApi) ArticleDetailView(c *gin.Context) {
 		"Title",
 		"Abstract",
 		"Content",
+		"CategoryID",
 		"Cover",
 		"AuthorID",
 		"ViewCount",

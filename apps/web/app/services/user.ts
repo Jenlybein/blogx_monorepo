@@ -5,6 +5,7 @@ export function getUserBaseInfo(id: string | number) {
     query: {
       id: String(id),
     },
+    auth: false,
   });
 }
 

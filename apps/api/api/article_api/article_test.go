@@ -381,16 +381,21 @@ func TestArticleDiggFavoriteVisitDetailRemoveUser(t *testing.T) {
 	db := testutil.DB()
 	api := setupArticleAPI(t)
 
+	category := models.CategoryModel{Title: "后端", UserID: user.ID}
+	if err := db.Create(&category).Error; err != nil {
+		t.Fatalf("创建分类失败: %v", err)
+	}
 	tag := models.TagModel{Title: "Backend", IsEnabled: true}
 	if err := db.Create(&tag).Error; err != nil {
 		t.Fatalf("创建标签失败: %v", err)
 	}
 
 	article := models.ArticleModel{
-		Title:    "a1",
-		Content:  "content",
-		AuthorID: user.ID,
-		Status:   enum.ArticleStatusPublished,
+		Title:      "a1",
+		Content:    "content",
+		CategoryID: &category.ID,
+		AuthorID:   user.ID,
+		Status:     enum.ArticleStatusPublished,
 	}
 	if err := db.Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)
@@ -436,6 +441,9 @@ func TestArticleDiggFavoriteVisitDetailRemoveUser(t *testing.T) {
 		data := body["data"].(map[string]any)
 		if !data["is_digg"].(bool) || !data["is_favor"].(bool) {
 			t.Fatalf("文章详情点赞/收藏状态异常, body=%s", w.Body.String())
+		}
+		if data["category_name"] != category.Title {
+			t.Fatalf("文章详情分类名异常, body=%s", w.Body.String())
 		}
 	}
 	{

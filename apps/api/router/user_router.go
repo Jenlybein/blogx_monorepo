@@ -32,7 +32,7 @@ func UserRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtime) 
 
 	profile := appContainer.UserApi.ProfileApi
 	authGroup.GET("detail", profile.UserDetailView)
-	authGroup.GET("base", mw.BindQuery[models.IDRequest], profile.UserBaseInfoView)
+	Group.GET("base", mw.BindQuery[models.IDRequest], profile.UserBaseInfoView)
 	authGroup.PUT("info", mw.BindJson[profile_api.UserInfoUpdateRequest], profile.UserInfoUpdateView)
 	adminGroup.PUT("admin/info", mw.CaptureLog(mw.ReqBody|mw.ReqHeader), mw.BindJson[profile_api.AdminUserInfoUpdateRequest], profile.AdminUserInfoUpdateView)
 

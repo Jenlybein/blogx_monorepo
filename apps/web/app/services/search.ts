@@ -36,10 +36,13 @@ export function getTagOptions() {
     );
 }
 
-export function getCategoryOptions() {
+export function getCategoryOptions(userId: string | number) {
   return useNuxtApp()
     .$api.request<Array<{ id?: string; title?: string; value?: string; label?: string }>>("/api/articles/category/options", {
       auth: false,
+      query: {
+        user_id: String(userId),
+      },
     })
     .then((list) =>
       list.map(

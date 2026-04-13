@@ -1742,21 +1742,10 @@
             "name": "id",
             "in": "query",
             "description": "目标资源的主键 ID，用于定位具体记录。",
-            "required": false,
+            "required": true,
             "example": "2",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "",
-            "required": true,
-            "example": "Bearer {{bearerToken}}",
-            "schema": {
-              "type": "string",
-              "default": "Bearer {{bearerToken}}"
             }
           }
         ],
@@ -1788,11 +1777,7 @@
             "headers": {}
           }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        "security": []
       }
     },
     "/api/users/info": {
@@ -3400,11 +3385,22 @@
       "get": {
         "summary": "分类选项",
         "deprecated": false,
-        "description": "获取分类选项数据，适合下拉框或表单选择器使用。匿名访问时返回公开已发布文章涉及到的分类；带有效登录态访问时返回当前用户自己的分类。返回结构同时包含 `id/title` 与 `label/value`，且雪花 ID 统一为字符串。",
+        "description": "按指定 `user_id` 获取该用户的分类选项，适合作者页、发文表单或按作者过滤场景。返回结构同时包含 `id/title` 与 `label/value`，且雪花 ID 统一为字符串。",
         "tags": [
           "文章管理/分类"
         ],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "description": "要查询分类选项的目标用户 ID。",
+            "required": true,
+            "example": "2",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",

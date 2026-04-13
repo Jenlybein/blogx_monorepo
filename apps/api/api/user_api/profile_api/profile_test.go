@@ -115,6 +115,28 @@ func TestProfileHandlers(t *testing.T) {
 	{
 		c, w := newCtx()
 		c.Set("requestQuery", models.IDRequest{ID: user.ID})
+		api.UserBaseInfoView(c)
+		if code := readCode(t, w); code != 0 {
+			t.Fatalf("匿名获取用户基础信息失败, code=%d body=%s", code, w.Body.String())
+		}
+
+		var body struct {
+			Code int `json:"code"`
+			Data struct {
+				Relation int8 `json:"relation"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatalf("解析匿名用户基础信息响应失败: %v", err)
+		}
+		if body.Data.Relation != 0 {
+			t.Fatalf("匿名访问用户关系应为 0, got=%d", body.Data.Relation)
+		}
+	}
+
+	{
+		c, w := newCtx()
+		c.Set("requestQuery", models.IDRequest{ID: user.ID})
 		c.Set("claims", &jwts.MyClaims{Claims: jwts.Claims{UserID: viewer.ID, Role: viewer.Role}})
 		api.UserBaseInfoView(c)
 		if code := readCode(t, w); code != 0 {

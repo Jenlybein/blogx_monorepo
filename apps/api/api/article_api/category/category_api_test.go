@@ -174,10 +174,19 @@ func TestCategoryOptionsSupportsAnonymousAndAuthenticated(t *testing.T) {
 	user := setupCategoryEnv(t)
 	db := testutil.DB()
 	api := setupCategoryAPI()
+	otherUser := &models.UserModel{
+		Username: "category_user_other",
+		Password: "x",
+		Role:     enum.RoleUser,
+	}
+	if err := db.Create(otherUser).Error; err != nil {
+		t.Fatalf("创建第二个用户失败: %v", err)
+	}
 
 	privateCategory := models.CategoryModel{Title: "我的分类", UserID: user.ID}
 	publicCategory := models.CategoryModel{Title: "公开分类", UserID: user.ID}
-	if err := db.Create(&[]models.CategoryModel{privateCategory, publicCategory}).Error; err != nil {
+	otherSameTitleCategory := models.CategoryModel{Title: "公开分类", UserID: otherUser.ID}
+	if err := db.Create(&[]models.CategoryModel{privateCategory, publicCategory, otherSameTitleCategory}).Error; err != nil {
 		t.Fatalf("创建分类失败: %v", err)
 	}
 	var categories []models.CategoryModel
@@ -186,50 +195,45 @@ func TestCategoryOptionsSupportsAnonymousAndAuthenticated(t *testing.T) {
 	}
 	privateCategory = categories[0]
 	publicCategory = categories[1]
-
-	article := models.ArticleModel{
-		Title:      "公开文章",
-		Content:    "content",
-		AuthorID:   user.ID,
-		CategoryID: &publicCategory.ID,
-		Status:     enum.ArticleStatusPublished,
-	}
-	if err := db.Create(&article).Error; err != nil {
-		t.Fatalf("创建文章失败: %v", err)
-	}
+	otherSameTitleCategory = categories[2]
 
 	{
 		c, w := newCtx()
+		c.Set("requestQuery", CategoryOptionsRequest{UserID: user.ID})
 		c.Request = httptest.NewRequest(http.MethodGet, "/articles/category/options", nil)
 		api.CategoryOptionsView(c)
 		if code := readCode(t, w); code != 0 {
-			t.Fatalf("匿名获取分类选项应成功, body=%s", w.Body.String())
+			t.Fatalf("按用户获取分类选项应成功, body=%s", w.Body.String())
 		}
 		list := readBody(t, w)["data"].([]any)
-		if len(list) != 1 {
-			t.Fatalf("匿名分类选项应只返回公开分类, body=%s", w.Body.String())
+		if len(list) != 2 {
+			t.Fatalf("分类选项应只返回指定用户自己的分类, body=%s", w.Body.String())
 		}
-		item := list[0].(map[string]any)
-		if item["title"] != publicCategory.Title || item["label"] != publicCategory.Title {
-			t.Fatalf("匿名分类选项字段异常, body=%s", w.Body.String())
+		first := list[0].(map[string]any)
+		second := list[1].(map[string]any)
+		if first["id"] != publicCategory.ID.String() || second["id"] != privateCategory.ID.String() {
+			t.Fatalf("分类选项应按 title,id 排序且只返回指定用户分类, body=%s", w.Body.String())
 		}
-		if item["id"] != publicCategory.ID.String() || item["value"] != publicCategory.ID.String() {
-			t.Fatalf("匿名分类选项 ID 字段异常, body=%s", w.Body.String())
+		if first["title"] != publicCategory.Title || second["title"] != privateCategory.Title {
+			t.Fatalf("分类选项标题异常, body=%s", w.Body.String())
 		}
 	}
 
 	{
 		c, w := newCtx()
-		req := httptest.NewRequest(http.MethodGet, "/articles/category/options", nil)
-		req.Header.Set("token", tokenForUser(t, user))
-		c.Request = req
+		c.Set("requestQuery", CategoryOptionsRequest{UserID: otherUser.ID})
+		c.Request = httptest.NewRequest(http.MethodGet, "/articles/category/options", nil)
 		api.CategoryOptionsView(c)
 		if code := readCode(t, w); code != 0 {
-			t.Fatalf("登录获取分类选项应成功, body=%s", w.Body.String())
+			t.Fatalf("按第二个用户获取分类选项应成功, body=%s", w.Body.String())
 		}
 		list := readBody(t, w)["data"].([]any)
-		if len(list) != 2 {
-			t.Fatalf("登录分类选项应返回自己的全部分类, body=%s", w.Body.String())
+		if len(list) != 1 {
+			t.Fatalf("第二个用户分类选项应只返回自己的分类, body=%s", w.Body.String())
+		}
+		item := list[0].(map[string]any)
+		if item["id"] != otherSameTitleCategory.ID.String() || item["title"] != otherSameTitleCategory.Title {
+			t.Fatalf("分类选项不应混入其他用户同名分类, body=%s", w.Body.String())
 		}
 	}
 }

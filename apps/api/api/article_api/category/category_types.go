@@ -22,6 +22,10 @@ type CategoryListRequest struct {
 	Type   int8     `form:"type" binding:"required,oneof=1 2 3"` // 1:查自己 2:查别人 3:管理员后台查
 }
 
+type CategoryOptionsRequest struct {
+	UserID ctype.ID `form:"user_id" binding:"required"`
+}
+
 type CategoryListResponse struct {
 	models.CategoryModel
 	ArticleCount int    `json:"article_count"`

@@ -53,7 +53,7 @@ func ArticleRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtim
 	group.GET("category", mw.BindQuery[category.CategoryListRequest], app.CategoryListView)
 	authGroup.POST("category", mw.CaptureLog(mw.ReqBody), mw.BindJson[category.CategoryRequest], app.CategoryCreateUpdateView)
 	authGroup.DELETE("category", mw.CaptureLog(mw.ReqBody|mw.ReqHeader), mw.BindJson[models.IDListRequest], app.CategoryDeleteView)
-	group.GET("category/options", app.CategoryOptionsView)
+	group.GET("category/options", mw.BindQuery[category.CategoryOptionsRequest], app.CategoryOptionsView)
 
 	// 标签
 	group.GET("tags", mw.BindQuery[tags.TagListRequest], app.TagListView)

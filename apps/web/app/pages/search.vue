@@ -1,20 +1,19 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { NButton, NInput } from "naive-ui";
-import { getCategoryOptions, getTagOptions } from "~/services/search";
+import { getTagOptions } from "~/services/search";
 
 const route = useRoute();
 const router = useRouter();
 
 useSeoMeta({
   title: "搜索文章",
-  description: "按关键词、分类、标签与排序方式搜索公开文章。",
+  description: "按关键词、标签与排序方式搜索公开文章。",
 });
 
 const key = ref("");
 const sort = ref("1");
 const tagId = ref("");
-const categoryId = ref("");
 const page = ref(1);
 
 watch(
@@ -23,21 +22,18 @@ watch(
     key.value = typeof query.key === "string" ? query.key : "";
     sort.value = typeof query.sort === "string" ? query.sort : "1";
     tagId.value = typeof query.tag_ids === "string" ? query.tag_ids : "";
-    categoryId.value = typeof query.category_id === "string" ? query.category_id : "";
     page.value = typeof query.page === "string" && query.page ? Number(query.page) : 1;
   },
   { immediate: true },
 );
 
 const { data: tagOptions } = await useAsyncData("search-tags", () => getTagOptions().catch(() => []));
-const { data: categoryOptions } = await useAsyncData("search-categories", () => getCategoryOptions().catch(() => []));
 
 const searchParams = computed(() => ({
   key: key.value || undefined,
   type: 1 as const,
   sort: Number(sort.value || "1") as 1 | 2 | 3 | 4 | 5 | 6,
   tag_ids: tagId.value || undefined,
-  category_id: categoryId.value || undefined,
   page: page.value,
   limit: 12,
   page_mode: "count" as const,
@@ -49,7 +45,6 @@ const { articles, pending, pagination, total } = await useArticleSearch(searchPa
         key: key.value,
         sort: sort.value,
         tag_ids: tagId.value,
-        category_id: categoryId.value,
         page: page.value,
       })}`,
   ),
@@ -68,7 +63,6 @@ function handleReset() {
   key.value = "";
   sort.value = "1";
   tagId.value = "";
-  categoryId.value = "";
   page.value = 1;
   router.push({ path: "/search" });
 }
@@ -81,7 +75,6 @@ function handleSearch() {
       ...(key.value ? { key: key.value } : {}),
       ...(sort.value && sort.value !== "1" ? { sort: sort.value } : {}),
       ...(tagId.value ? { tag_ids: tagId.value } : {}),
-      ...(categoryId.value ? { category_id: categoryId.value } : {}),
       ...(page.value > 1 ? { page: String(page.value) } : {}),
     },
   });
@@ -94,7 +87,6 @@ function handlePageChange(nextPage: number) {
       ...(key.value ? { key: key.value } : {}),
       ...(sort.value && sort.value !== "1" ? { sort: sort.value } : {}),
       ...(tagId.value ? { tag_ids: tagId.value } : {}),
-      ...(categoryId.value ? { category_id: categoryId.value } : {}),
       ...(nextPage > 1 ? { page: String(nextPage) } : {}),
     },
   });
@@ -121,16 +113,7 @@ function handlePageChange(nextPage: number) {
           @keydown.enter.prevent="handleSearch"
         />
 
-        <div class="grid gap-4 md:grid-cols-3">
-          <label class="flex items-center">
-            <select v-model="categoryId" name="category_id" aria-label="分类筛选" class="h-12 w-full rounded-full border border-white/70 bg-white/78 px-4 text-sm text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] backdrop-blur">
-              <option value="">全部分类</option>
-              <option v-for="option in categoryOptions || []" :key="option.value" :value="String(option.value)">
-                {{ option.label }}
-              </option>
-            </select>
-          </label>
-
+        <div class="grid gap-4 md:grid-cols-2">
           <label class="flex items-center">
             <select v-model="tagId" name="tag_ids" aria-label="标签筛选" class="h-12 w-full rounded-full border border-white/70 bg-white/78 px-4 text-sm text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] backdrop-blur">
               <option value="">全部标签</option>
