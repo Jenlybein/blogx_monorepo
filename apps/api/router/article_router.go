@@ -22,6 +22,7 @@ func ArticleRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtim
 	app := appContainer.ArticleApi
 
 	// 文章操作
+	group.GET("author_info", mw.BindQuery[article_api.ArticleAuthorInfoBindRequest], app.ArticleAuthorInfoView)
 	group.GET(":id", mw.BindUri[models.IDRequest], app.ArticleDetailView)
 	authGroup.POST("", mw.BindJson[article_api.ArticleCreateRequest], app.ArticleCreateView)
 	authGroup.PUT(":id", mw.BindUri[models.IDRequest], mw.BindJson[article_api.ArticleUpdateRequest], app.ArticleUpdateView)

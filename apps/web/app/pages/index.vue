@@ -141,9 +141,7 @@ async function handleNextLatestPage() {
             />
 
             <div class="flex flex-wrap items-center justify-between gap-3 border-t border-white/60 pt-5 text-sm muted">
-              <span>
-                每页 9 篇，已加载 {{ Object.keys(latestPager.pages).length }} 页。未刷新前会直接复用已加载页。
-              </span>
+              <span>每页 9 篇，本次已缓存 {{ Object.keys(latestPager.pages).length }} 页。未刷新前会直接复用已访问页。</span>
               <div class="flex items-center gap-3">
                 <NButton quaternary :disabled="!latestPager.hasPreviousPage" @click="handlePreviousLatestPage">
                   上一页

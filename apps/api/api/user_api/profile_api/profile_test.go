@@ -43,7 +43,7 @@ func newProfileAPI() profile_api.ProfileApi {
 }
 
 func TestProfileHandlers(t *testing.T) {
-	db := testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{}, &models.UserViewDailyModel{}, &models.UserFollowModel{}, &models.TagModel{}, &models.UserSessionModel{})
+	db := testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{}, &models.UserStatModel{}, &models.UserViewDailyModel{}, &models.UserFollowModel{}, &models.TagModel{}, &models.UserSessionModel{}, &models.ArticleModel{})
 	_ = testutil.SetupMiniRedis(t)
 	email := "u1@example.com"
 	user := models.UserModel{
@@ -70,6 +70,22 @@ func TestProfileHandlers(t *testing.T) {
 		FansUserID:     viewer.ID,
 	}).Error; err != nil {
 		t.Fatalf("创建用户关系失败: %v", err)
+	}
+	if err := db.Create(&models.ArticleModel{
+		Title:    "a1",
+		Content:  "content",
+		AuthorID: user.ID,
+		Status:   enum.ArticleStatusPublished,
+	}).Error; err != nil {
+		t.Fatalf("创建文章失败: %v", err)
+	}
+	if err := db.Model(&models.UserStatModel{}).
+		Where("user_id = ?", user.ID).
+		Updates(map[string]any{
+			"article_count":         1,
+			"article_visited_count": 9,
+		}).Error; err != nil {
+		t.Fatalf("预置用户文章统计失败: %v", err)
 	}
 
 	tag := models.TagModel{Title: "Go", IsEnabled: true}
@@ -149,6 +165,8 @@ func TestProfileHandlers(t *testing.T) {
 				ViewCount           int      `json:"view_count"`
 				FansCount           int      `json:"fans_count"`
 				FollowCount         int      `json:"follow_count"`
+				ArticleVisitedCount int      `json:"article_visited_count"`
+				ArticleCount        int      `json:"article_count"`
 				FavoritesVisibility bool     `json:"favorites_visibility"`
 				FollowVisibility    bool     `json:"followers_visibility"`
 				FansVisibility      bool     `json:"fans_visibility"`
@@ -159,7 +177,7 @@ func TestProfileHandlers(t *testing.T) {
 		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 			t.Fatalf("解析用户基础信息响应失败: %v", err)
 		}
-		if body.Data.ViewCount != 1 || body.Data.FansCount != 0 || body.Data.FollowCount != 0 {
+		if body.Data.ViewCount != 1 || body.Data.FansCount != 0 || body.Data.FollowCount != 0 || body.Data.ArticleVisitedCount != 9 || body.Data.ArticleCount != 1 {
 			t.Fatalf("用户基础统计返回异常: %+v", body.Data)
 		}
 		if !body.Data.FavoritesVisibility || !body.Data.FollowVisibility || !body.Data.FansVisibility {
@@ -176,7 +194,7 @@ func TestProfileHandlers(t *testing.T) {
 		if err := db.Take(&stat, "user_id = ?", user.ID).Error; err != nil {
 			t.Fatalf("查询用户统计失败: %v", err)
 		}
-		if stat.ViewCount != 1 || stat.FansCount != 0 || stat.FollowCount != 0 {
+		if stat.ViewCount != 1 || stat.FansCount != 0 || stat.FollowCount != 0 || stat.ArticleVisitedCount != 9 || stat.ArticleCount != 1 {
 			t.Fatalf("用户统计落库异常: %+v", stat)
 		}
 

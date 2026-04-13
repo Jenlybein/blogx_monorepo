@@ -108,6 +108,7 @@ func (h ArticleApi) ArticleDetailView(c *gin.Context) {
 		FavorCount:     article.FavorCount,
 		CommentsToggle: article.CommentsToggle,
 		Status:         article.Status,
+		AuthorID:       article.AuthorID,
 		AuthorAvatar:   article.UserModel.Avatar,
 		AuthorNickname: article.UserModel.Nickname,
 		AuthorUsername: article.UserModel.Username,

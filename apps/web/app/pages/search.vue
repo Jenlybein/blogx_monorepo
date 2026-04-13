@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref, shallowRef, watch } from "vue";
 import { NButton, NInput } from "naive-ui";
 import ArticleFeedItem from "~/components/article/ArticleFeedItem.vue";
-import { getTagOptions } from "~/services/search";
+import { getTagOptions, searchArticles } from "~/services/search";
 
 const route = useRoute();
 const router = useRouter();
@@ -16,6 +16,7 @@ const key = ref("");
 const sort = ref("1");
 const tagId = ref("");
 const page = ref(1);
+const requestError = shallowRef<unknown>(null);
 
 watch(
   () => route.query,
@@ -30,35 +31,79 @@ watch(
 
 const { data: tagOptions } = await useAsyncData("search-tags", () => getTagOptions().catch(() => []));
 
-const searchParams = computed(() => ({
-  key: key.value || undefined,
-  type: 1 as const,
-  sort: Number(sort.value || "1") as 1 | 2 | 3 | 4 | 5 | 6,
-  tag_ids: tagId.value || undefined,
-  page: page.value,
-  limit: 12,
-  page_mode: "count" as const,
-}));
+function formatRequestError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
 
-const { articles, pending, pagination, total, requestError } = await useArticleSearch(searchParams, {
-  key: computed(() =>
-      `search:${JSON.stringify({
-        key: key.value,
-        sort: sort.value,
-        tag_ids: tagId.value,
-        page: page.value,
-      })}`,
-  ),
+const searchPager = await usePagedResourceCache({
+  cacheKey: () =>
+    `search:${JSON.stringify({
+      key: key.value.trim(),
+      sort: sort.value,
+      tag_ids: tagId.value,
+    })}`,
+  pageSize: () => 9,
+  initialPage: () => page.value,
+  fetchPage: async (nextPage, limit) => {
+    try {
+      requestError.value = null;
+      const payload = await searchArticles({
+        key: key.value || undefined,
+        type: 1,
+        sort: Number(sort.value || "1") as 1 | 2 | 3 | 4 | 5 | 6,
+        tag_ids: tagId.value || undefined,
+        page: nextPage,
+        limit,
+        page_mode: "has_more",
+      });
+
+      return {
+        items: payload.list,
+        hasMore: payload.pagination.has_more,
+      };
+    } catch (error) {
+      requestError.value = error;
+      console.error(`[search-articles] request failed: ${formatRequestError(error)}`);
+      return {
+        items: [],
+        hasMore: false,
+      };
+    }
+  },
 });
 
 const sortOptions = [
-  { label: "默认排序", value: "1" },
+  { label: "综合相关度", value: "1" },
   { label: "最新发布", value: "2" },
-  { label: "评论最多", value: "3" },
+  { label: "回复最多", value: "3" },
   { label: "点赞最多", value: "4" },
   { label: "收藏最多", value: "5" },
   { label: "阅读最多", value: "6" },
 ];
+
+watch(
+  page,
+  async (nextPage, previousPage) => {
+    if (nextPage === previousPage) {
+      return;
+    }
+
+    try {
+      await searchPager.goToPage(nextPage);
+    } catch {
+      // 错误状态已在 fetchPage 中收集，这里不重复抛出。
+    }
+  },
+  { flush: "post" },
+);
+
+const articles = computed(() => searchPager.currentItems.value);
+const pending = computed(() => searchPager.pending.value);
+const cachedPageCount = computed(() => Object.keys(searchPager.pages.value).length);
+const currentSearchPage = computed(() => searchPager.currentPage.value);
 
 function handleReset() {
   key.value = "";
@@ -81,15 +126,19 @@ function handleSearch() {
   });
 }
 
+function buildQuery(targetPage = 1) {
+  return {
+    ...(key.value ? { key: key.value } : {}),
+    ...(sort.value && sort.value !== "1" ? { sort: sort.value } : {}),
+    ...(tagId.value ? { tag_ids: tagId.value } : {}),
+    ...(targetPage > 1 ? { page: String(targetPage) } : {}),
+  };
+}
+
 function handlePageChange(nextPage: number) {
   router.push({
     path: "/search",
-    query: {
-      ...(key.value ? { key: key.value } : {}),
-      ...(sort.value && sort.value !== "1" ? { sort: sort.value } : {}),
-      ...(tagId.value ? { tag_ids: tagId.value } : {}),
-      ...(nextPage > 1 ? { page: String(nextPage) } : {}),
-    },
+    query: buildQuery(nextPage),
   });
 }
 </script>
@@ -142,8 +191,8 @@ function handlePageChange(nextPage: number) {
 
     <section class="surface-card p-5 md:p-6">
       <div class="mb-5 flex items-center justify-between">
-        <div class="section-title">共 {{ total }} 条结果</div>
-        <div class="text-sm muted">公开搜索场景默认按文章检索拉取结果</div>
+        <div class="section-title">搜索结果</div>
+        <div class="text-sm muted">每页 9 篇，当前第 {{ currentSearchPage }} 页，本次已缓存 {{ cachedPageCount }} 页。</div>
       </div>
 
       <div v-if="articles.length" class="space-y-4">
@@ -166,19 +215,20 @@ function handlePageChange(nextPage: number) {
       </div>
 
       <div
-        v-if="(pagination.total_pages || 0) > 1"
+        v-if="articles.length"
         class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/60 pt-5 text-sm muted"
       >
-        <span>第 {{ pagination.page }} / {{ pagination.total_pages }} 页</span>
+        <span>未刷新前，已访问页会直接复用缓存。</span>
         <div class="flex items-center gap-3">
-          <NButton quaternary :disabled="pagination.page <= 1" @click="handlePageChange(pagination.page - 1)">
+          <NButton quaternary :disabled="!searchPager.hasPreviousPage" @click="handlePageChange(currentSearchPage - 1)">
             上一页
           </NButton>
           <NButton
             type="primary"
             ghost
-            :disabled="pagination.page >= (pagination.total_pages || 1)"
-            @click="handlePageChange(pagination.page + 1)"
+            :disabled="!searchPager.hasNextPage"
+            :loading="pending"
+            @click="handlePageChange(currentSearchPage + 1)"
           >
             下一页
           </NButton>

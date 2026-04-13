@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import MarkdownIt from "markdown-it";
 import { computed, onMounted, ref, shallowRef } from "vue";
 import { IconEye, IconHeart, IconMessageCircle2, IconShare2, IconThumbUp } from "@tabler/icons-vue";
 import { NAvatar, NButton, NTag, useMessage } from "naive-ui";
+import ArticleTocAnchor from "~/components/article/ArticleTocAnchor.vue";
 import CommentComposer from "~/components/comment/CommentComposer.vue";
 import CommentThread from "~/components/comment/CommentThread.vue";
 import FavoriteFolderModal from "~/components/favorite/FavoriteFolderModal.vue";
+import { useArticleMarkdown } from "~/composables/useArticleMarkdown";
+import { useReadingProgress } from "~/composables/useReadingProgress";
 import { ApiBusinessError } from "~/services/http/errors";
 import { getArticleDetail, markArticleViewed, toggleArticleDigg } from "~/services/article";
 import { createComment, diggComment, getReplyComments, getRootComments } from "~/services/comment";
@@ -18,12 +20,6 @@ const articleId = computed(() => route.params.id as string);
 const authStore = useAuthStore();
 const uiStore = useUiStore();
 const message = useMessage();
-
-const markdown = new MarkdownIt({
-  breaks: true,
-  linkify: true,
-  html: false,
-});
 
 const ROOT_COMMENT_PAGE_SIZE = 7;
 const REPLY_COMMENT_PAGE_SIZE = 3;
@@ -117,9 +113,9 @@ function resetReplyState(rootId: string) {
   };
 }
 
-const renderedContent = computed(() =>
-  article.value?.content ? markdown.render(article.value.content) : "<p>暂无正文内容。</p>",
-);
+const { renderedHtml: renderedContent, headings: articleHeadings } = useArticleMarkdown(computed(() => article.value?.content));
+const { activeHeadingId, progressPercent } = useReadingProgress(computed(() => articleHeadings.value.map((heading) => heading.id)));
+const authorInitial = computed(() => article.value?.author_name?.slice(0, 1).toUpperCase() || "A");
 
 async function handleLike() {
   if (!authStore.isLoggedIn) {
@@ -338,7 +334,7 @@ useSeoMeta({
       <div class="eyebrow">Article</div>
       <h1 class="section-title mt-2">文章详情暂不可用</h1>
       <p class="mt-4 text-sm leading-7 muted">
-        {{ articleLoadError === "文章不存在" ? "当前搜索结果里这篇文章尚未在详情主库同步完成，请稍后重试或返回列表选择其他文章。" : articleLoadError }}
+        {{ articleLoadError === "文章不存在" ? "当前文章详情暂不可用，请稍后重试或返回列表选择其他文章。" : articleLoadError }}
       </p>
       <div class="mt-5 flex flex-wrap gap-3">
         <NButton secondary round @click="router.back()">返回上一页</NButton>
@@ -454,20 +450,52 @@ useSeoMeta({
       </div>
 
       <aside class="profile-sidebar">
-        <section class="surface-card p-5 md:p-6">
-          <div class="mb-4 flex items-center gap-3">
-            <NAvatar round :size="56" :src="article?.author_avatar || undefined">
-              {{ article?.author_name?.slice(0, 1).toUpperCase() }}
-            </NAvatar>
-            <div>
-              <div class="text-lg font-semibold">{{ article?.author_name }}</div>
-              <p class="text-sm muted">@{{ article?.author_username }}</p>
+        <div class="article-sidebar-stack">
+          <section class="surface-card p-5 md:p-6">
+            <div class="eyebrow">Author</div>
+            <div class="mt-3 flex items-start gap-4">
+              <NAvatar round :size="72" :src="article?.author_avatar || undefined">
+                {{ authorInitial }}
+              </NAvatar>
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <div class="truncate text-[22px] font-semibold tracking-[-0.02em]">{{ article?.author_name }}</div>
+                  <span class="glass-badge">文章作者</span>
+                </div>
+                <p class="mt-1 truncate text-sm muted">@{{ article?.author_username }}</p>
+              </div>
             </div>
-          </div>
-          <p class="text-sm leading-7 muted">
-            这块作者信息目前严格按文章详情接口展示。等后端在详情接口补上作者 id 后，这里再直接串作者主页跳转会更稳。
-          </p>
-        </section>
+
+            <p class="mt-4 text-sm leading-7 muted">
+              本文由 {{ article?.author_name }} 发布，文章信息与目录导航会在阅读过程中固定显示，方便随时回到关键信息。
+            </p>
+
+            <div class="mt-5 grid gap-3 text-sm">
+              <div class="article-author-row">
+                <span class="muted">发布时间</span>
+                <span>{{ formatDateTimeLabel(article?.created_at) }}</span>
+              </div>
+              <div class="article-author-row">
+                <span class="muted">文章分类</span>
+                <span>{{ article?.category_name || "未分类" }}</span>
+              </div>
+              <div class="article-author-row">
+                <span class="muted">评论状态</span>
+                <span>{{ article?.comments_toggle ? "允许评论" : "评论关闭" }}</span>
+              </div>
+              <div class="article-author-row">
+                <span class="muted">互动概况</span>
+                <span>{{ formatCount(article?.digg_count || 0) }} 赞 · {{ formatCount(article?.comment_count || 0) }} 评</span>
+              </div>
+            </div>
+          </section>
+
+          <ArticleTocAnchor
+            :headings="articleHeadings"
+            :active-heading-id="activeHeadingId"
+            :progress-percent="progressPercent"
+          />
+        </div>
       </aside>
     </div>
     </template>

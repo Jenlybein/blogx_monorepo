@@ -6,8 +6,12 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/service/article_service"
+	"myblogx/service/redis_service"
+	"myblogx/service/redis_service/redis_article"
+	"myblogx/service/user_service"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func (h ArticleApi) ArticleRemoveView(c *gin.Context) {
@@ -20,7 +24,18 @@ func (h ArticleApi) ArticleRemoveView(c *gin.Context) {
 		res.FailWithMsg("删除失败，文章不存在", c)
 		return
 	}
-	if err := article_service.DeleteArticles(h.App.DB, list, false); err != nil {
+	authorDeltas := buildAuthorStatDeltaMap(redis_article.GetBatchCacheView(redis_service.NewDeps(h.App.Redis, h.App.Logger), collectArticleIDs(list)), list)
+	if err := h.App.DB.Transaction(func(tx *gorm.DB) error {
+		if err := article_service.DeleteArticles(tx, list, false); err != nil {
+			return err
+		}
+		for authorID, delta := range authorDeltas {
+			if err := user_service.StatApplyArticleDelta(tx, authorID, -delta.ArticleCount, -delta.ArticleVisitedCount); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
 		res.FailWithMsg("删除文章失败", c)
 		return
 	}

@@ -278,13 +278,7 @@ func buildCategoryIDQuery(query map[string]any, categoryID ctype.ID) map[string]
 // buildArticleSearchExtraBody 构建文章搜索额外参数。
 // 只有在存在关键词时，才额外请求正文摘要和正文分段，避免空关键词列表返回冗余大字段。
 func buildArticleSearchExtraBody(sortField, key string) map[string]any {
-	sortList := []any{
-		map[string]any{
-			"_score": map[string]any{
-				"order": "desc",
-			},
-		},
-	}
+	sortList := make([]any, 0, 2)
 	if sortField != "" {
 		sortList = append(sortList, map[string]any{
 			sortField: map[string]any{
@@ -292,6 +286,11 @@ func buildArticleSearchExtraBody(sortField, key string) map[string]any {
 			},
 		})
 	}
+	sortList = append(sortList, map[string]any{
+		"_score": map[string]any{
+			"order": "desc",
+		},
+	})
 
 	sourceFields := []string{
 		"id",

@@ -64,10 +64,12 @@ func (u *UserModel) AfterCreate(tx *gorm.DB) error {
 	}
 
 	statModel := UserStatModel{
-		UserID:      u.ID,
-		ViewCount:   0,
-		FansCount:   0,
-		FollowCount: 0,
+		UserID:              u.ID,
+		ViewCount:           0,
+		FansCount:           0,
+		FollowCount:         0,
+		ArticleVisitedCount: 0,
+		ArticleCount:        0,
 	}
 	return tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&statModel).Error
 }

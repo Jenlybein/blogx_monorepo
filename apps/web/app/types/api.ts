@@ -177,6 +177,7 @@ export interface ArticleDetail {
   comments_toggle: boolean;
   status: number;
   tags: string[];
+  author_id: string;
   author_avatar: string;
   author_name: string;
   author_username: string;
@@ -239,6 +240,8 @@ export interface UserBaseInfo {
   view_count: number;
   fans_count: number;
   follow_count: number;
+  article_visited_count: number;
+  article_count: number;
   favor_count?: number;
   digg_count?: number;
   comment_count?: number;
@@ -248,6 +251,13 @@ export interface UserBaseInfo {
   home_style_id: string | null;
   relation: number;
   place: string;
+}
+
+export interface ArticleAuthorInfo {
+  author_id: string;
+  article_count: number;
+  article_visited_count: number;
+  fans_count: number;
 }
 
 export interface UserSelfDetail {

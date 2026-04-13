@@ -57,6 +57,7 @@ func setupArticleEnv(t *testing.T) *models.UserModel {
 		t,
 		&models.UserModel{},
 		&models.UserConfModel{},
+		&models.UserStatModel{},
 		&models.RuntimeSiteConfigModel{},
 		&models.CategoryModel{},
 		&models.ArticleModel{},
@@ -191,6 +192,14 @@ func TestArticleCreateUpdateExamineAndRemove(t *testing.T) {
 		t.Fatalf("文章标签关系应已创建, count=%d", relationCount)
 	}
 
+	var createdStat models.UserStatModel
+	if err := db.Take(&createdStat, "user_id = ?", user.ID).Error; err != nil {
+		t.Fatalf("查询作者统计失败: %v", err)
+	}
+	if createdStat.ArticleCount != 1 || createdStat.ArticleVisitedCount != 0 {
+		t.Fatalf("创建文章后的作者统计异常: %+v", createdStat)
+	}
+
 	{
 		c, w := newCtx()
 		c.Set("claims", claims)
@@ -245,6 +254,14 @@ func TestArticleCreateUpdateExamineAndRemove(t *testing.T) {
 		if code := readCode(t, w); code != 0 {
 			t.Fatalf("删除文章失败, code=%d body=%s", code, w.Body.String())
 		}
+	}
+
+	var removedStat models.UserStatModel
+	if err := db.Take(&removedStat, "user_id = ?", user.ID).Error; err != nil {
+		t.Fatalf("查询删除后的作者统计失败: %v", err)
+	}
+	if removedStat.ArticleCount != 0 || removedStat.ArticleVisitedCount != 0 {
+		t.Fatalf("删除文章后的作者统计异常: %+v", removedStat)
 	}
 }
 
@@ -442,6 +459,9 @@ func TestArticleDiggFavoriteVisitDetailRemoveUser(t *testing.T) {
 		if !data["is_digg"].(bool) || !data["is_favor"].(bool) {
 			t.Fatalf("文章详情点赞/收藏状态异常, body=%s", w.Body.String())
 		}
+		if data["author_id"] != article.AuthorID.String() {
+			t.Fatalf("文章详情作者 id 异常, body=%s", w.Body.String())
+		}
 		if data["category_name"] != category.Title {
 			t.Fatalf("文章详情分类名异常, body=%s", w.Body.String())
 		}
@@ -458,11 +478,22 @@ func TestArticleDiggFavoriteVisitDetailRemoveUser(t *testing.T) {
 
 	{
 		c, w := newCtx()
-		c.Request = httptest.NewRequest(http.MethodPost, "/", nil)
+		req := httptest.NewRequest(http.MethodPost, "/", nil)
+		req.Header.Set("token", token)
+		c.Request = req
 		c.Set("requestJson", ArticleViewCountRequest{ArticleID: article.ID})
 		api.ArticleVisitView(c)
 		if code := readCode(t, w); code != 0 {
 			t.Fatalf("访问计数失败, code=%d body=%s", code, w.Body.String())
+		}
+	}
+	{
+		var stat models.UserStatModel
+		if err := db.Take(&stat, "user_id = ?", user.ID).Error; err != nil {
+			t.Fatalf("查询访问后的作者统计失败: %v", err)
+		}
+		if stat.ArticleVisitedCount != 1 {
+			t.Fatalf("文章访问后作者累计阅读数异常: %+v", stat)
 		}
 	}
 	{
@@ -503,5 +534,46 @@ func TestArticleDiggFavoriteVisitDetailRemoveUser(t *testing.T) {
 		if code := readCode(t, w); code != 0 {
 			t.Fatalf("用户删除文章失败, code=%d body=%s", code, w.Body.String())
 		}
+	}
+	{
+		var stat models.UserStatModel
+		if err := db.Take(&stat, "user_id = ?", user.ID).Error; err != nil {
+			t.Fatalf("查询删除后的作者统计失败: %v", err)
+		}
+		if stat.ArticleCount != 0 || stat.ArticleVisitedCount != 0 {
+			t.Fatalf("删除文章后作者统计应回退: %+v", stat)
+		}
+	}
+}
+
+func TestArticleAuthorInfoView(t *testing.T) {
+	user := setupArticleEnv(t)
+	db := testutil.DB()
+	api := setupArticleAPI(t)
+
+	if err := db.Model(&models.UserStatModel{}).
+		Where("user_id = ?", user.ID).
+		Updates(map[string]any{
+			"article_count":         3,
+			"article_visited_count": 17,
+			"fans_count":            8,
+		}).Error; err != nil {
+		t.Fatalf("更新作者统计失败: %v", err)
+	}
+
+	c, w := newCtx()
+	c.Set("requestQuery", ArticleAuthorInfoBindRequest{AuthorID: user.ID})
+	api.ArticleAuthorInfoView(c)
+	if code := readCode(t, w); code != 0 {
+		t.Fatalf("查询作者信息失败, code=%d body=%s", code, w.Body.String())
+	}
+
+	body := readBody(t, w)
+	data := body["data"].(map[string]any)
+	if data["author_id"] != user.ID.String() {
+		t.Fatalf("作者 id 返回异常: body=%s", w.Body.String())
+	}
+	if int(data["article_count"].(float64)) != 3 || int(data["article_visited_count"].(float64)) != 17 || int(data["fans_count"].(float64)) != 8 {
+		t.Fatalf("作者统计返回异常: body=%s", w.Body.String())
 	}
 }

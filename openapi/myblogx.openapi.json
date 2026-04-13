@@ -1780,6 +1780,57 @@
         "security": []
       }
     },
+    "/api/articles/author_info": {
+      "get": {
+        "summary": "作者文章统计信息",
+        "deprecated": false,
+        "description": "根据作者 ID 返回作者文章数、作者文章累计阅读数和粉丝数，用于文章详情页作者信息展示。",
+        "tags": [
+          "文章管理/详情"
+        ],
+        "parameters": [
+          {
+            "name": "author_id",
+            "in": "query",
+            "description": "作者 ID。",
+            "required": true,
+            "example": "2",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiMessageResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ArticleAuthorInfoResponseData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
     "/api/users/info": {
       "put": {
         "summary": "用户更新信息",
@@ -9468,6 +9519,14 @@
             "type": "integer",
             "description": "follow 统计数量。"
           },
+          "article_visited_count": {
+            "type": "integer",
+            "description": "该用户全部文章累计阅读数。"
+          },
+          "article_count": {
+            "type": "integer",
+            "description": "该用户当前文章总数。"
+          },
           "favorites_visibility": {
             "type": "boolean",
             "description": "收藏夹是否对外可见。"
@@ -9501,12 +9560,41 @@
           "view_count",
           "fans_count",
           "follow_count",
+          "article_visited_count",
+          "article_count",
           "favorites_visibility",
           "followers_visibility",
           "fans_visibility",
           "home_style_id",
           "relation",
           "place"
+        ]
+      },
+      "ArticleAuthorInfoResponseData": {
+        "type": "object",
+        "properties": {
+          "author_id": {
+            "type": "string",
+            "description": "作者 ID。"
+          },
+          "article_count": {
+            "type": "integer",
+            "description": "作者当前文章总数。"
+          },
+          "article_visited_count": {
+            "type": "integer",
+            "description": "作者全部文章累计阅读数。"
+          },
+          "fans_count": {
+            "type": "integer",
+            "description": "作者粉丝数。"
+          }
+        },
+        "required": [
+          "author_id",
+          "article_count",
+          "article_visited_count",
+          "fans_count"
         ]
       },
       "UserDetailResponseData": {
@@ -10082,6 +10170,10 @@
             },
             "description": "标签列表。"
           },
+          "author_id": {
+            "type": "string",
+            "description": "作者 ID。"
+          },
           "author_avatar": {
             "type": "string",
             "description": "作者头像地址。"
@@ -10122,6 +10214,7 @@
           "comments_toggle",
           "status",
           "tags",
+          "author_id",
           "author_avatar",
           "author_name",
           "author_username",

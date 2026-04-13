@@ -20,6 +20,8 @@ type UserBaseInfoResponse struct {
 	ViewCount           int      `json:"view_count"`
 	FansCount           int      `json:"fans_count"`
 	FollowCount         int      `json:"follow_count"`
+	ArticleVisitedCount int      `json:"article_visited_count"`
+	ArticleCount        int      `json:"article_count"`
 	FavoritesVisibility bool     `json:"favorites_visibility"`
 	FollowVisibility    bool     `json:"followers_visibility"`
 	FansVisibility      bool     `json:"fans_visibility"`
@@ -71,6 +73,8 @@ func (h ProfileApi) UserBaseInfoView(c *gin.Context) {
 		ViewCount:           stat.ViewCount + viewCountDelta,
 		FansCount:           stat.FansCount,
 		FollowCount:         stat.FollowCount,
+		ArticleVisitedCount: stat.ArticleVisitedCount,
+		ArticleCount:        stat.ArticleCount,
 		FavoritesVisibility: conf.FavoritesVisibility,
 		FollowVisibility:    conf.FollowVisibility,
 		FansVisibility:      conf.FansVisibility,

@@ -7,6 +7,7 @@ import (
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
 	"myblogx/service/site_service"
+	"myblogx/service/user_service"
 	"myblogx/utils/jwts"
 	"myblogx/utils/markdown"
 
@@ -89,7 +90,10 @@ func (h *articleWriteService) CreateArticle(claims *jwts.MyClaims, cr ArticleCre
 		if err := tx.Create(article).Error; err != nil {
 			return err
 		}
-		return syncArticleTags(tx, article.ID, tagIDs)
+		if err := syncArticleTags(tx, article.ID, tagIDs); err != nil {
+			return err
+		}
+		return user_service.StatApplyArticleDelta(tx, article.AuthorID, 1, 0)
 	}); err != nil {
 		return nil, nil, err
 	}

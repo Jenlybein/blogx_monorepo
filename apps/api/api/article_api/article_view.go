@@ -26,6 +26,28 @@ import (
 
 func (h ArticleApi) ArticleVisitView(c *gin.Context) {
 	cr := middleware.GetBindJson[ArticleViewCountRequest](c)
+	redisDeps := redis_service.NewDeps(h.App.Redis, h.App.Logger)
+
+	var articleMeta struct {
+		ID       ctype.ID
+		AuthorID ctype.ID
+		Status   enum.ArticleStatus
+	}
+	if err := h.App.DB.Model(&models.ArticleModel{}).
+		Select("id", "author_id", "status").
+		Take(&articleMeta, "id = ?", cr.ArticleID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			res.FailWithMsg("文章不存在", c)
+			return
+		}
+		h.App.Logger.Errorf("查询文章访问元信息失败: 错误=%v 文章ID=%d", err, cr.ArticleID)
+		res.FailWithMsg("服务器内部错误", c)
+		return
+	}
+	if articleMeta.Status != enum.ArticleStatusPublished {
+		res.FailWithMsg("文章不存在或未发布", c)
+		return
+	}
 
 	// 获取用户登录信息
 	var authResult *user_service.AuthResult
@@ -56,35 +78,19 @@ func (h ArticleApi) ArticleVisitView(c *gin.Context) {
 		hash := md5.Sum([]byte(fmt.Sprintf("%s:%s", ip, ua)))
 		key := fmt.Sprintf("g:%s", hex.EncodeToString(hash[:]))
 
-		if redis_article.GetGuestArticleHistoryCache(redis_service.NewDeps(h.App.Redis, h.App.Logger), int(cr.ArticleID), key) {
+		if redis_article.GetGuestArticleHistoryCache(redisDeps, int(cr.ArticleID), key) {
 			fmt.Printf("访客已经阅读过该文章, %d", cr.ArticleID)
 			res.OkWithMsg("访客已访问过该文章", c)
 			return
 		}
 
-		redis_article.SetGuestArticleHistoryCache(redis_service.NewDeps(h.App.Redis, h.App.Logger), int(cr.ArticleID), key)
+		redis_article.SetGuestArticleHistoryCache(redisDeps, int(cr.ArticleID), key)
 	} else {
 		claims := authResult.Claims
 		// 已登录用户，靠用户 id 进行确认
-		if redis_article.GetUserArticleHistoryCache(redis_service.NewDeps(h.App.Redis, h.App.Logger), int(cr.ArticleID), int(claims.UserID)) {
+		if redis_article.GetUserArticleHistoryCache(redisDeps, int(cr.ArticleID), int(claims.UserID)) {
 			// TODO：加消息队列通知数据库更新访问历史
 			res.OkWithMsg("用户已访问过该文章", c)
-			return
-		}
-
-		// 验证文章是否存在并已发布
-		var articleID ctype.ID
-		err := h.App.DB.Model(&models.ArticleModel{}).
-			Where("id = ? and status = ?", cr.ArticleID, enum.ArticleStatusPublished).
-			Select("id").Take(&articleID).Error
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				res.FailWithMsg("文章不存在或未发布", c)
-				return
-			}
-			// 记录详细错误日志（建议使用日志库，如 zap）
-			h.App.Logger.Errorf("数据库验证文章失败: 错误=%v 文章ID=%d", err, cr.ArticleID)
-			res.FailWithMsg("服务器内部错误", c)
 			return
 		}
 
@@ -94,7 +100,7 @@ func (h ArticleApi) ArticleVisitView(c *gin.Context) {
 			UserID:    claims.UserID,
 		}
 
-		if err = h.App.DB.Clauses(clause.OnConflict{
+		if err := h.App.DB.Clauses(clause.OnConflict{
 			Columns: []clause.Column{
 				{Name: "article_id"},
 				{Name: "user_id"},
@@ -109,9 +115,14 @@ func (h ArticleApi) ArticleVisitView(c *gin.Context) {
 			return
 		}
 
-		redis_article.SetUserArticleHistoryCache(redis_service.NewDeps(h.App.Redis, h.App.Logger), int(cr.ArticleID), int(claims.UserID))
+		redis_article.SetUserArticleHistoryCache(redisDeps, int(cr.ArticleID), int(claims.UserID))
 	}
 
-	redis_article.SetCacheView(redis_service.NewDeps(h.App.Redis, h.App.Logger), cr.ArticleID, 1)
+	if err := user_service.StatApplyArticleDelta(h.App.DB, articleMeta.AuthorID, 0, 1); err != nil {
+		h.App.Logger.Errorf("更新作者文章访问统计失败: 错误=%v 文章ID=%d 作者ID=%d", err, cr.ArticleID, articleMeta.AuthorID)
+		res.FailWithMsg("服务器内部错误", c)
+		return
+	}
+	redis_article.SetCacheView(redisDeps, cr.ArticleID, 1)
 	res.OkWithMsg("文章访问量增加成功", c)
 }

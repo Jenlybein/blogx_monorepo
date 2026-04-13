@@ -41,6 +41,7 @@ type ArticleDetailResponse struct {
 	CommentsToggle bool               `json:"comments_toggle"`
 	Status         enum.ArticleStatus `json:"status"`
 	Tags           []string           `json:"tags"`
+	AuthorID       ctype.ID           `json:"author_id"`
 	AuthorAvatar   string             `json:"author_avatar"`
 	AuthorNickname string             `json:"author_name"`
 	AuthorUsername string             `json:"author_username"`

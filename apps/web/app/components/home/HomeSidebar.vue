@@ -97,69 +97,69 @@ const projectAbstract = computed(
 </script>
 
 <template>
-  <aside class="profile-sidebar">
-    <section class="surface-card p-5 md:p-6">
-      <div class="section-title">右侧栏</div>
-      <div class="mt-4 space-y-4">
-        <div v-if="showNotice" class="surface-section p-4">
-          <div class="text-base font-semibold">站点公告</div>
-          <p class="mt-2 text-sm leading-7 muted">
-            {{ projectAbstract }}
-          </p>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <NTag size="small" round :bordered="false">
-              {{ projectTitle }}
-            </NTag>
-            <NTag
-              v-for="mode in loginModes"
-              :key="mode"
-              size="small"
-              round
-              :bordered="false"
-              type="success"
-            >
-              {{ mode }}
-            </NTag>
-          </div>
-        </div>
+  <aside class="profile-sidebar home-sidebar">
+    <section v-if="showNotice" class="surface-card p-5 md:p-6">
+      <div class="text-base font-semibold">站点公告</div>
+      <p class="mt-2 text-sm leading-7 muted">
+        {{ projectAbstract }}
+      </p>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <NTag size="small" round :bordered="false">
+          {{ projectTitle }}
+        </NTag>
+        <NTag
+          v-for="mode in loginModes"
+          :key="mode"
+          size="small"
+          round
+          :bordered="false"
+          type="success"
+        >
+          {{ mode }}
+        </NTag>
+      </div>
+    </section>
 
-        <div v-if="showTags && hotTags.length" class="surface-section p-4">
-          <div class="text-base font-semibold">热门标签</div>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <NTag
-              v-for="tag in hotTags"
-              :key="tag.id"
-              size="small"
-              round
-              :bordered="false"
-            >
-              {{ tag.title }}
-            </NTag>
-          </div>
-        </div>
+    <section v-if="showTags && hotTags.length" class="surface-card p-5 md:p-6">
+      <div class="text-base font-semibold">热门标签</div>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <NuxtLink
+          v-for="tag in hotTags"
+          :key="tag.id"
+          :to="{ path: '/search', query: { tag_ids: tag.id } }"
+          class="inline-flex"
+        >
+          <NTag
+            size="small"
+            round
+            :bordered="false"
+          >
+            {{ tag.title }}
+          </NTag>
+        </NuxtLink>
+      </div>
+    </section>
 
-        <div v-if="showAuthors && recommendedAuthors.length" class="surface-section p-4">
-          <div class="text-base font-semibold">推荐作者</div>
-          <div class="mt-3 space-y-3">
-            <NuxtLink
-              v-for="author in recommendedAuthors"
-              :key="author.id"
-              :to="`/users/${author.id}`"
-              class="flex items-center justify-between gap-3 rounded-2xl px-1 py-1 transition hover:bg-slate-100/70 dark:hover:bg-slate-800/70"
-            >
-              <div class="flex items-center gap-3">
-                <NAvatar round :size="38" :src="author.avatar || undefined">
-                  {{ author.nickname.slice(0, 1).toUpperCase() }}
-                </NAvatar>
-                <div>
-                  <div class="text-sm font-semibold">{{ author.nickname }}</div>
-                  <div class="text-xs muted">{{ author.articleCount }} 篇文章</div>
-                </div>
-              </div>
-              <span class="text-xs muted">{{ author.totalViews }} 阅读</span>
-            </NuxtLink>
+    <section v-if="showAuthors && recommendedAuthors.length" class="surface-card p-5 md:p-6">
+      <div class="text-base font-semibold">推荐作者</div>
+      <div class="mt-3 space-y-3">
+        <NuxtLink
+          v-for="author in recommendedAuthors"
+          :key="author.id"
+          :to="`/users/${author.id}`"
+          class="flex items-center justify-between gap-3 rounded-2xl px-1 py-1 transition hover:bg-slate-100/70 dark:hover:bg-slate-800/70"
+        >
+          <div class="flex items-center gap-3">
+            <NAvatar round :size="38" :src="author.avatar || undefined">
+              {{ author.nickname.slice(0, 1).toUpperCase() }}
+            </NAvatar>
+            <div>
+              <div class="text-sm font-semibold">{{ author.nickname }}</div>
+              <div class="text-xs muted">{{ author.articleCount }} 篇文章</div>
+            </div>
           </div>
-        </div>
+          <span class="text-xs muted">{{ author.totalViews }} 阅读</span>
+        </NuxtLink>
       </div>
     </section>
 
