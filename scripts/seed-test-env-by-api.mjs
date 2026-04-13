@@ -555,7 +555,7 @@ const seedUserDefinitions = [
   },
 ];
 
-const authoredArticleDefinitions = [
+const authoredArticleSeedBase = [
   {
     owner: "asterSeed",
     title: "Nuxt 4 页面数据编排与 SSR 安全实践",
@@ -654,6 +654,71 @@ const authoredArticleDefinitions = [
   },
 ];
 
+const generatedArticleOwners = ["asterSeed", "riverSeed", "louisSeed"];
+const generatedArticleCategories = ["前端架构", "工程化", "接口设计", "性能优化"];
+const generatedArticleTagPools = [
+  ["Nuxt", "Vue3", "SSR"],
+  ["Monorepo", "Vue3", "Nuxt"],
+  ["OpenAPI", "搜索", "Nuxt"],
+  ["SSR", "Monorepo", "Vue3"],
+];
+const generatedArticleThemes = [
+  {
+    prefix: "公开页加载链路与缓存策略",
+    abstract: "围绕 SSR 首屏、分页缓存与错误兜底，整理可持续的公开页面加载方式。",
+    body: ["## 关注点", "- SSR 与 hydration 一致", "- 列表页分页缓存", "- 错误态收口"],
+  },
+  {
+    prefix: "搜索页结果编排与筛选收口",
+    abstract: "梳理关键字、排序、标签筛选与结果列表复用之间的前端实现边界。",
+    body: ["## 交互重点", "- 搜索条件单层收口", "- 列表项复用", "- 切页临时缓存"],
+  },
+  {
+    prefix: "评论树分页与子评论按需加载",
+    abstract: "把根评论、子评论和回复输入拆开，避免消息与评论状态互相污染。",
+    body: ["## 分页建议", "- 根评论每页 7 条", "- 子评论每页 3 条", "- 已加载页保留内存缓存"],
+  },
+  {
+    prefix: "个人中心列表与数据概览解耦",
+    abstract: "让数据概览、我的文章、浏览历史和消息中心保持清晰的页面边界。",
+    body: ["## 页面组织", "- 概览只放总览数据", "- 列表页独立分页", "- 交互弹窗统一抽组件"],
+  },
+];
+
+const generatedAuthoredArticles = Array.from({ length: 22 }, (_, index) => {
+  const owner = generatedArticleOwners[index % generatedArticleOwners.length];
+  const theme = generatedArticleThemes[index % generatedArticleThemes.length];
+  const category = generatedArticleCategories[index % generatedArticleCategories.length];
+  const tags = generatedArticleTagPools[index % generatedArticleTagPools.length];
+  const issueNo = index + 1;
+
+  return {
+    owner,
+    title: `${theme.prefix}（第 ${issueNo} 期）`,
+    abstract: `${theme.abstract} 这是第 ${issueNo} 篇扩展测试文章，用于把测试环境公开文章量补到 30 篇以上。`,
+    content: [
+      `# ${theme.prefix}（第 ${issueNo} 期）`,
+      "",
+      `这是一篇自动生成的测试文章，第 ${issueNo} 期，用来补齐首页、搜索页、作者主页和个人中心的真实联调数据。`,
+      "",
+      ...theme.body,
+      "",
+      "## 额外说明",
+      "",
+      "- 文章通过真实接口写入",
+      "- 用于验证 has_more 分页和详情跳转",
+      "- 用于验证搜索、作者主页和个人中心的数据一致性",
+    ].join("\n"),
+    category,
+    tags,
+    cover: index % 2 === 0
+      ? `${config.imageDomain}/myblogx/images/20260328/ljZa0YMcc2u6lyAqG-ALnuhewGrY`
+      : `${config.imageDomain}/myblogx/images/20260328/Fm8TSAox63x45bd-hrHs87ZQPSxx`,
+  };
+});
+
+const authoredArticleDefinitions = [...authoredArticleSeedBase, ...generatedAuthoredArticles];
+
 const favoriteDefinitions = [
   {
     owner: "seedEmail",
@@ -680,7 +745,7 @@ const articleDiggDefinitions = [
   { user: "louisSeed", articleTitle: "搜索与 ES 投影链路排障记录" },
 ];
 
-const commentDefinitions = [
+const baseCommentDefinitions = [
   {
     key: "seed-root-1",
     user: "seedEmail",
@@ -708,6 +773,29 @@ const commentDefinitions = [
     content: "[seed-aster-root] 搜索页把筛选收成一层之后，公开页和个人页复用起来就会轻很多。",
   },
 ];
+
+const generatedCommentRoots = Array.from({ length: 14 }, (_, index) => {
+  const owner = generatedArticleOwners[index % generatedArticleOwners.length];
+  return {
+    key: `generated-root-${index + 1}`,
+    user: owner,
+    articleTitle: "基于 OpenAPI 反向设计 Nuxt Web 前端的落地过程",
+    content: `[generated-root-${index + 1}] 第 ${index + 1} 条根评论，用来验证文章评论列表 7 条一页的分页和缓存逻辑。`,
+  };
+});
+
+const generatedCommentReplies = Array.from({ length: 6 }, (_, index) => {
+  const owner = generatedArticleOwners[(index + 1) % generatedArticleOwners.length];
+  return {
+    key: `generated-reply-${index + 1}`,
+    user: owner,
+    articleTitle: "基于 OpenAPI 反向设计 Nuxt Web 前端的落地过程",
+    replyTo: "generated-root-1",
+    content: `[generated-reply-${index + 1}] 第 ${index + 1} 条子评论，用来验证一级评论下 3 条一页的回复分页。`,
+  };
+});
+
+const commentDefinitions = [...baseCommentDefinitions, ...generatedCommentRoots, ...generatedCommentReplies];
 
 function findUserByUsernameFromDb(username) {
   const row = firstRow(
@@ -1030,13 +1118,20 @@ async function ensureSiteRuntime(token) {
   console.log("站点 runtime 已更新。");
 }
 
-async function getCategoryOptions(token) {
-  return normalizeOptionList(await request("/api/articles/category/options", { token }));
+async function getCategoryOptions(token, userId) {
+  return normalizeOptionList(
+    await request("/api/articles/category/options", {
+      token,
+      query: {
+        user_id: String(userId),
+      },
+    }),
+  );
 }
 
-async function ensureCategories(token, stepTitle = "分类") {
+async function ensureCategories(token, userId, stepTitle = "分类") {
   logStep(stepTitle);
-  let options = await getCategoryOptions(token);
+  let options = await getCategoryOptions(token, userId);
   const byTitle = new Map(options.map((item) => [item.title, item]));
   for (const title of categoryTitles) {
     if (byTitle.has(title)) {
@@ -1050,7 +1145,7 @@ async function ensureCategories(token, stepTitle = "分类") {
     });
     console.log(`创建分类：${title}`);
   }
-  options = await getCategoryOptions(token);
+  options = await getCategoryOptions(token, userId);
   return new Map(options.map((item) => [item.title, item]));
 }
 
@@ -1310,11 +1405,19 @@ async function ensureFollowRelations(seedUsersByKey) {
       console.log(`已关注：${fromUser.nickname} -> ${toUser.nickname}`);
       continue;
     }
-    await request(`/api/follow/${toUser.id}`, {
-      method: "POST",
-      token: fromUser.token,
-    });
-    console.log(`新增关注：${fromUser.nickname} -> ${toUser.nickname}`);
+    try {
+      await request(`/api/follow/${toUser.id}`, {
+        method: "POST",
+        token: fromUser.token,
+      });
+      console.log(`新增关注：${fromUser.nickname} -> ${toUser.nickname}`);
+    } catch (error) {
+      if (error instanceof ApiError && String(error.message).includes("请勿重复关注")) {
+        console.log(`已关注：${fromUser.nickname} -> ${toUser.nickname}`);
+        continue;
+      }
+      throw error;
+    }
   }
 }
 
@@ -1431,9 +1534,10 @@ async function main() {
   const adminAuth = await loginAsAdmin();
   const token = adminAuth.token;
   console.log(`管理员登录成功：${config.adminLogin}（${adminAuth.mode === "password" ? "密码登录" : "邮箱登录"}）`);
+  const adminDetail = await getCurrentUserDetail(token);
 
   await ensureSiteRuntime(token);
-  const categoryMap = await ensureCategories(token);
+  const categoryMap = await ensureCategories(token, adminDetail.id);
   const tagMap = await ensureTags(token);
   const adminArticles = await ensureArticles(token, categoryMap, tagMap);
   await ensureAdminTopArticles(token, adminArticles);
@@ -1457,7 +1561,7 @@ async function main() {
   for (const user of createdUsers) {
     const defs = authoredArticleDefinitions.filter((item) => item.owner === user.key);
     if (!defs.length) continue;
-    const userCategoryMap = await ensureCategories(user.token, `${user.nickname} 的分类`);
+    const userCategoryMap = await ensureCategories(user.token, user.id, `${user.nickname} 的分类`);
     const created = await ensureArticleBatch(user.token, defs, userCategoryMap, tagMap, `${user.nickname} 的文章`);
     authoredArticles.push(...created);
   }

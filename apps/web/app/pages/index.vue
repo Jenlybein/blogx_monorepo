@@ -2,7 +2,8 @@
 import ArticleFeedItem from "~/components/article/ArticleFeedItem.vue";
 import BannerCarousel from "~/components/article/BannerCarousel.vue";
 import HomeSidebar from "~/components/home/HomeSidebar.vue";
-import { shallowRef } from "vue";
+import { computed, shallowRef } from "vue";
+import { NButton } from "naive-ui";
 import { getTopArticles } from "~/services/article";
 import { searchArticles } from "~/services/search";
 import { getBannerList } from "~/services/site";
@@ -34,23 +35,34 @@ const { data: topData } = await useAsyncData("home-top-articles", async () => {
   }
 },
 );
-const { data: latestData, pending: latestPending } = await useAsyncData("home-latest-articles", async () => {
-  try {
-    latestRequestError.value = null;
-    return await searchArticles({
-      type: 1,
-      page: 1,
-      limit: 10,
-      page_mode: "count",
-      sort: 2,
-    });
-  } catch (error) {
-    latestRequestError.value = error;
-    console.error(`[home-latest-articles] request failed: ${formatRequestError(error)}`);
-    return { list: [], pagination: { mode: "count", page: 1, limit: 10, has_more: false, total: 0, total_pages: 0 } };
-  }
-},
-);
+
+const latestPager = await usePagedResourceCache({
+  cacheKey: () => "home-latest-articles",
+  pageSize: () => 9,
+  fetchPage: async (page, limit) => {
+    try {
+      latestRequestError.value = null;
+      const payload = await searchArticles({
+        type: 1,
+        page,
+        limit,
+        page_mode: "has_more",
+        sort: 2,
+      });
+      return {
+        items: payload.list,
+        hasMore: payload.pagination.has_more,
+      };
+    } catch (error) {
+      latestRequestError.value = error;
+      console.error(`[home-latest-articles] request failed: ${formatRequestError(error)}`);
+      return {
+        items: [],
+        hasMore: false,
+      };
+    }
+  },
+});
 
 useSeoMeta({
   title: siteStore.seo?.site_title || "BlogX",
@@ -62,7 +74,16 @@ useSeoMeta({
 
 const banners = computed(() => bannerData.value?.list || []);
 const topArticles = computed(() => topData.value?.list || []);
-const latestArticles = computed(() => latestData.value?.list || []);
+const latestArticles = computed(() => latestPager.currentItems.value);
+const latestPending = computed(() => latestPager.pending.value);
+
+async function handlePreviousLatestPage() {
+  await latestPager.goToPreviousPage();
+}
+
+async function handleNextLatestPage() {
+  await latestPager.goToNextPage();
+}
 </script>
 
 <template>
@@ -105,7 +126,10 @@ const latestArticles = computed(() => latestData.value?.list || []);
               <div class="eyebrow">Latest</div>
               <h2 class="section-title mt-2">最新文章</h2>
             </div>
-            <NuxtLink to="/search" class="glass-badge">进入搜索</NuxtLink>
+            <div class="flex items-center gap-3">
+              <div class="glass-badge">第 {{ latestPager.currentPage }} 页</div>
+              <NuxtLink to="/search" class="glass-badge">进入搜索</NuxtLink>
+            </div>
           </div>
 
           <div v-if="latestArticles.length" class="space-y-4">
@@ -115,6 +139,26 @@ const latestArticles = computed(() => latestData.value?.list || []);
               :article="article"
               compact
             />
+
+            <div class="flex flex-wrap items-center justify-between gap-3 border-t border-white/60 pt-5 text-sm muted">
+              <span>
+                每页 9 篇，已加载 {{ Object.keys(latestPager.pages).length }} 页。未刷新前会直接复用已加载页。
+              </span>
+              <div class="flex items-center gap-3">
+                <NButton quaternary :disabled="!latestPager.hasPreviousPage" @click="handlePreviousLatestPage">
+                  上一页
+                </NButton>
+                <NButton
+                  type="primary"
+                  ghost
+                  :disabled="!latestPager.hasNextPage"
+                  :loading="latestPending"
+                  @click="handleNextLatestPage"
+                >
+                  下一页
+                </NButton>
+              </div>
+            </div>
           </div>
           <div v-else class="surface-section flex min-h-[220px] items-center justify-center p-6 text-sm muted">
             {{

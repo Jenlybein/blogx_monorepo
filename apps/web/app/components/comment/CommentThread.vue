@@ -11,12 +11,18 @@ interface CommentNode extends CommentRootItem {
 const props = defineProps<{
   comments: CommentNode[];
   loadingReplies?: Record<string, boolean>;
+  replyPages?: Record<string, number>;
+  replyHasPrevious?: Record<string, boolean>;
+  replyHasNext?: Record<string, boolean>;
+  replyLoadedPages?: Record<string, number>;
 }>();
 
 const emit = defineEmits<{
   reply: [commentId: string];
   digg: [commentId: string, isDigg: boolean];
   loadReplies: [rootId: string];
+  nextReplies: [rootId: string];
+  previousReplies: [rootId: string];
 }>();
 
 const expanded = ref<Record<string, boolean>>({});
@@ -74,9 +80,27 @@ function toggleReplies(rootId: string) {
               </div>
             </div>
 
-            <div class="mt-2 flex items-center justify-between text-sm muted">
-              <button type="button">← 上一组回复</button>
-              <button type="button" @click="emit('loadReplies', comment.id)">更多回复 →</button>
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm muted">
+              <span>回复第 {{ props.replyPages?.[comment.id] || 1 }} 页，已加载 {{ props.replyLoadedPages?.[comment.id] || 1 }} 页</span>
+              <div class="flex items-center gap-3">
+                <NButton
+                  quaternary
+                  size="small"
+                  :disabled="!props.replyHasPrevious?.[comment.id]"
+                  @click="emit('previousReplies', comment.id)"
+                >
+                  上一页
+                </NButton>
+                <NButton
+                  quaternary
+                  size="small"
+                  :disabled="!props.replyHasNext?.[comment.id]"
+                  :loading="props.loadingReplies?.[comment.id]"
+                  @click="emit('nextReplies', comment.id)"
+                >
+                  下一页
+                </NButton>
+              </div>
             </div>
           </div>
 

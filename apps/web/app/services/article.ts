@@ -28,7 +28,7 @@ export function toggleArticleDigg(id: string | number) {
   });
 }
 
-export function favoriteArticle(articleId: string | number, favorId?: number) {
+export function favoriteArticle(articleId: string | number, favorId?: string | number) {
   return useNuxtApp().$api.request("/api/articles/favorite", {
     method: "POST",
     body: {

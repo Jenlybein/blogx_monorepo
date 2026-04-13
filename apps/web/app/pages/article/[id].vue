@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import MarkdownIt from "markdown-it";
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, shallowRef } from "vue";
 import { IconEye, IconHeart, IconMessageCircle2, IconShare2, IconThumbUp } from "@tabler/icons-vue";
 import { NAvatar, NButton, NTag, useMessage } from "naive-ui";
 import CommentComposer from "~/components/comment/CommentComposer.vue";
 import CommentThread from "~/components/comment/CommentThread.vue";
+import FavoriteFolderModal from "~/components/favorite/FavoriteFolderModal.vue";
 import { ApiBusinessError } from "~/services/http/errors";
-import { favoriteArticle, getArticleDetail, markArticleViewed, toggleArticleDigg } from "~/services/article";
+import { getArticleDetail, markArticleViewed, toggleArticleDigg } from "~/services/article";
 import { createComment, diggComment, getReplyComments, getRootComments } from "~/services/comment";
+import type { CommentReplyItem } from "~/types/api";
 import { formatCount, formatDateTimeLabel } from "~/utils/format";
 
 const route = useRoute();
@@ -22,6 +24,10 @@ const markdown = new MarkdownIt({
   linkify: true,
   html: false,
 });
+
+const ROOT_COMMENT_PAGE_SIZE = 7;
+const REPLY_COMMENT_PAGE_SIZE = 3;
+const favoriteModalOpen = ref(false);
 
 const { data: article, error: articleError, refresh: refreshArticle } = await useAsyncData(
   () => `article-${articleId.value}`,
@@ -44,18 +50,72 @@ const articleLoadError = computed(() => {
   return "文章详情暂时无法加载。";
 });
 
-const {
-  data: rootComments,
-  pending: commentsPending,
-  refresh: refreshComments,
-} = await useAsyncData(
-  () => `article-comments-${articleId.value}`,
-  () => getRootComments(articleId.value).catch(() => ({ list: [], has_more: false })),
-);
+const commentsPager = await usePagedResourceCache({
+  cacheKey: () => `article-comments:${articleId.value}`,
+  pageSize: () => ROOT_COMMENT_PAGE_SIZE,
+  fetchPage: async (page, limit) => {
+    try {
+      const payload = await getRootComments(articleId.value, page, limit);
+      return {
+        items: payload.list,
+        hasMore: payload.has_more,
+      };
+    } catch {
+      return {
+        items: [],
+        hasMore: false,
+      };
+    }
+  },
+});
 
-const replyMap = ref<Record<string, Awaited<ReturnType<typeof getReplyComments>>["list"]>>({});
-const replyLoading = ref<Record<string, boolean>>({});
+interface ReplyPagePayload {
+  items: CommentReplyItem[];
+  hasMore: boolean;
+}
+
+interface ReplyPagerState {
+  currentPage: number;
+  pages: Record<number, ReplyPagePayload>;
+  pending: boolean;
+  replyCount: number;
+}
+
+const replyStates = shallowRef<Record<string, ReplyPagerState>>({});
 const replyTarget = ref<{ id: string; nickname: string } | null>(null);
+
+function ensureReplyState(rootId: string) {
+  const current = replyStates.value[rootId];
+  if (current) {
+    return current;
+  }
+
+  const nextState: ReplyPagerState = {
+    currentPage: 1,
+    pages: {},
+    pending: false,
+    replyCount: 0,
+  };
+
+  replyStates.value = {
+    ...replyStates.value,
+    [rootId]: nextState,
+  };
+
+  return nextState;
+}
+
+function resetReplyState(rootId: string) {
+  const current = ensureReplyState(rootId);
+  current.currentPage = 1;
+  current.pages = {};
+  current.pending = false;
+  current.replyCount = 0;
+  replyStates.value = {
+    ...replyStates.value,
+    [rootId]: current,
+  };
+}
 
 const renderedContent = computed(() =>
   article.value?.content ? markdown.render(article.value.content) : "<p>暂无正文内容。</p>",
@@ -82,15 +142,12 @@ async function handleFavorite() {
     uiStore.openAuthModal();
     return;
   }
+  favoriteModalOpen.value = true;
+}
 
-  try {
-    const wasFavored = Boolean(article.value?.is_favor);
-    await favoriteArticle(articleId.value);
-    message.success(wasFavored ? "已取消收藏" : "已加入收藏");
-    await refreshArticle();
-  } catch (error) {
-    message.error(error instanceof Error ? error.message : "收藏失败");
-  }
+async function resetAndRefreshRootComments() {
+  commentsPager.reset(1);
+  await commentsPager.loadPage(1, true);
 }
 
 async function handleCreateComment(content: string) {
@@ -103,10 +160,10 @@ async function handleCreateComment(content: string) {
     message.success(replyTarget.value ? "回复已发送" : "评论已发送");
     const repliedRootId = replyTarget.value?.id;
     replyTarget.value = null;
-    await refreshComments();
+    await resetAndRefreshRootComments();
     if (repliedRootId) {
-      delete replyMap.value[repliedRootId];
-      await handleLoadReplies(repliedRootId);
+      resetReplyState(repliedRootId);
+      await handleLoadReplies(repliedRootId, true);
     }
     await refreshArticle();
   } catch (error) {
@@ -118,26 +175,81 @@ async function handleCommentDigg(commentId: string, isDigg: boolean) {
   try {
     await diggComment(commentId);
     message.success(isDigg ? "已取消评论点赞" : "评论点赞成功");
-    await refreshComments();
+    await commentsPager.refreshCurrentPage();
   } catch (error) {
     message.error(error instanceof Error ? error.message : "评论点赞失败");
   }
 }
 
-async function handleLoadReplies(rootId: string) {
-  replyLoading.value[rootId] = true;
+async function loadReplyPage(rootId: string, page = 1, force = false) {
+  const state = ensureReplyState(rootId);
+  if (!force && state.pages[page]) {
+    state.currentPage = page;
+    replyStates.value = {
+      ...replyStates.value,
+      [rootId]: state,
+    };
+    return state.pages[page];
+  }
+
+  state.pending = true;
+  replyStates.value = {
+    ...replyStates.value,
+    [rootId]: state,
+  };
+
   try {
-    const data = await getReplyComments(articleId.value, rootId, 1, 10);
-    replyMap.value[rootId] = data.list;
+    const data = await getReplyComments(articleId.value, rootId, page, REPLY_COMMENT_PAGE_SIZE);
+    state.pages = {
+      ...state.pages,
+      [page]: {
+        items: data.list,
+        hasMore: data.has_more,
+      },
+    };
+    state.replyCount = data.reply_count;
+    state.currentPage = page;
+    replyStates.value = {
+      ...replyStates.value,
+      [rootId]: state,
+    };
+    return state.pages[page];
   } catch (error) {
     message.error(error instanceof Error ? error.message : "加载回复失败");
+    return null;
   } finally {
-    replyLoading.value[rootId] = false;
+    state.pending = false;
+    replyStates.value = {
+      ...replyStates.value,
+      [rootId]: state,
+    };
   }
 }
 
+async function handleLoadReplies(rootId: string, force = false) {
+  const state = ensureReplyState(rootId);
+  await loadReplyPage(rootId, state.currentPage || 1, force);
+}
+
+async function handleNextReplies(rootId: string) {
+  const state = ensureReplyState(rootId);
+  const current = state.pages[state.currentPage];
+  if (!current?.hasMore && !state.pages[state.currentPage + 1]) {
+    return;
+  }
+  await loadReplyPage(rootId, state.currentPage + 1);
+}
+
+async function handlePreviousReplies(rootId: string) {
+  const state = ensureReplyState(rootId);
+  if (state.currentPage <= 1) {
+    return;
+  }
+  await loadReplyPage(rootId, state.currentPage - 1);
+}
+
 function handleReply(commentId: string) {
-  const target = (rootComments.value?.list || []).find((item) => item.id === commentId);
+  const target = commentsPager.currentItems.value.find((item) => item.id === commentId);
   if (!target) return;
   replyTarget.value = {
     id: target.id,
@@ -158,12 +270,54 @@ async function handleShare() {
   }
 }
 
+async function handleFavoriteUpdated() {
+  await refreshArticle();
+}
+
 const comments = computed(() =>
-  (rootComments.value?.list || []).map((comment) => ({
+  commentsPager.currentItems.value.map((comment) => {
+    const replyState = replyStates.value[comment.id];
+    const currentReplies = replyState?.pages[replyState.currentPage]?.items || [];
+    return {
     ...comment,
-    replies: replyMap.value[comment.id] || [],
-  })),
+    replies: currentReplies,
+    };
+  }),
 );
+
+const commentsPending = computed(() => commentsPager.pending.value);
+const commentPage = computed(() => commentsPager.currentPage.value);
+const commentPagesLoaded = computed(() => Object.keys(commentsPager.pages.value).length);
+const hasPreviousCommentPage = computed(() => commentsPager.hasPreviousPage.value);
+const hasNextCommentPage = computed(() => commentsPager.hasNextPage.value);
+const replyLoading = computed(() =>
+  Object.fromEntries(Object.entries(replyStates.value).map(([rootId, state]) => [rootId, state.pending])),
+);
+const replyPages = computed(() =>
+  Object.fromEntries(Object.entries(replyStates.value).map(([rootId, state]) => [rootId, state.currentPage])),
+);
+const replyHasPrevious = computed(() =>
+  Object.fromEntries(Object.entries(replyStates.value).map(([rootId, state]) => [rootId, state.currentPage > 1])),
+);
+const replyHasNext = computed(() =>
+  Object.fromEntries(
+    Object.entries(replyStates.value).map(([rootId, state]) => [
+      rootId,
+      Boolean(state.pages[state.currentPage + 1]) || Boolean(state.pages[state.currentPage]?.hasMore),
+    ]),
+  ),
+);
+const replyLoadedPages = computed(() =>
+  Object.fromEntries(Object.entries(replyStates.value).map(([rootId, state]) => [rootId, Object.keys(state.pages).length])),
+);
+
+async function handlePreviousCommentPage() {
+  await commentsPager.goToPreviousPage();
+}
+
+async function handleNextCommentPage() {
+  await commentsPager.goToNextPage();
+}
 
 onMounted(() => {
   markArticleViewed(articleId.value).catch(() => undefined);
@@ -264,10 +418,37 @@ useSeoMeta({
             <CommentThread
               :comments="comments"
               :loading-replies="replyLoading"
+              :reply-pages="replyPages"
+              :reply-has-previous="replyHasPrevious"
+              :reply-has-next="replyHasNext"
+              :reply-loaded-pages="replyLoadedPages"
               @reply="handleReply"
               @digg="handleCommentDigg"
               @load-replies="handleLoadReplies"
+              @next-replies="handleNextReplies"
+              @previous-replies="handlePreviousReplies"
             />
+          </div>
+
+          <div
+            v-if="comments.length"
+            class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/60 pt-5 text-sm muted"
+          >
+            <span>评论第 {{ commentPage }} 页，每页 7 条，已加载 {{ commentPagesLoaded }} 页。</span>
+            <div class="flex items-center gap-3">
+              <NButton quaternary :disabled="!hasPreviousCommentPage" @click="handlePreviousCommentPage">
+                上一页
+              </NButton>
+              <NButton
+                type="primary"
+                ghost
+                :disabled="!hasNextCommentPage"
+                :loading="commentsPending"
+                @click="handleNextCommentPage"
+              >
+                下一页
+              </NButton>
+            </div>
           </div>
         </section>
       </div>
@@ -290,5 +471,12 @@ useSeoMeta({
       </aside>
     </div>
     </template>
+
+    <FavoriteFolderModal
+      v-model:show="favoriteModalOpen"
+      :article-id="String(articleId)"
+      :article-title="article?.title || '当前文章'"
+      @updated="handleFavoriteUpdated"
+    />
   </div>
 </template>

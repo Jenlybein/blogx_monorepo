@@ -67,6 +67,34 @@ export interface OptionItem {
   value: string;
 }
 
+export interface FavoriteFolderItem {
+  id: string;
+  user_id: string;
+  title: string;
+  cover: string;
+  abstract: string;
+  is_default: boolean;
+  article_count: number;
+  nickname?: string;
+  avatar?: string;
+  has_article: boolean;
+}
+
+export interface FavoriteFolderListData {
+  list: FavoriteFolderItem[];
+  count: number;
+}
+
+export interface FavoriteFolderCreatePayload {
+  id: string;
+  user_id: string;
+  title: string;
+  cover: string;
+  abstract: string;
+  is_default: boolean;
+  article_count: number;
+}
+
 export interface SearchTag {
   id: string;
   title: string;

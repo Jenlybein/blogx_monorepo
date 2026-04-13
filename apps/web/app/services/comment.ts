@@ -1,14 +1,16 @@
 import type { CommentReplyListData, CommentRootListData } from "~/types/api";
 
-export function getRootComments(articleId: string | number) {
+export function getRootComments(articleId: string | number, page = 1, limit = 7) {
   return useNuxtApp().$api.request<CommentRootListData>("/api/comments", {
     query: {
       article_id: String(articleId),
+      page,
+      limit,
     },
   });
 }
 
-export function getReplyComments(articleId: string | number, rootId: string, page = 1, limit = 10) {
+export function getReplyComments(articleId: string | number, rootId: string, page = 1, limit = 3) {
   return useNuxtApp().$api.request<CommentReplyListData>("/api/comments/replies", {
     query: {
       article_id: String(articleId),
