@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { NButton, NTag, useMessage } from "naive-ui";
+import ArticleFeedItem from "~/components/article/ArticleFeedItem.vue";
+import ProfileHeroCard from "~/components/profile/ProfileHeroCard.vue";
 import { followUser, unfollowUser } from "~/services/follow";
 import { getUserBaseInfo } from "~/services/user";
 import { formatCount } from "~/utils/format";

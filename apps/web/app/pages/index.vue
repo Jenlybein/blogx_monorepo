@@ -1,24 +1,55 @@
 <script setup lang="ts">
+import ArticleFeedItem from "~/components/article/ArticleFeedItem.vue";
+import BannerCarousel from "~/components/article/BannerCarousel.vue";
+import HomeSidebar from "~/components/home/HomeSidebar.vue";
+import { shallowRef } from "vue";
 import { getTopArticles } from "~/services/article";
 import { searchArticles } from "~/services/search";
 import { getBannerList } from "~/services/site";
 import { formatCount } from "~/utils/format";
+
 const siteStore = useSiteStore();
+const topRequestError = shallowRef<unknown>(null);
+const latestRequestError = shallowRef<unknown>(null);
+
+function formatRequestError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+}
 
 const { data: bannerData } = await useAsyncData("home-banners", () =>
   getBannerList().catch(() => ({ list: [], has_more: false })),
 );
-const { data: topData } = await useAsyncData("home-top-articles", () =>
-  getTopArticles().catch(() => ({ list: [], count: 0 })),
+const { data: topData } = await useAsyncData("home-top-articles", async () => {
+  try {
+    topRequestError.value = null;
+    return await getTopArticles();
+  } catch (error) {
+    topRequestError.value = error;
+    console.error(`[home-top-articles] request failed: ${formatRequestError(error)}`);
+    return { list: [], count: 0 };
+  }
+},
 );
-const { data: latestData, pending: latestPending } = await useAsyncData("home-latest-articles", () =>
-  searchArticles({
-    type: 1,
-    page: 1,
-    limit: 10,
-    page_mode: "count",
-    sort: 2,
-  }).catch(() => ({ list: [], pagination: { mode: "count", page: 1, limit: 10, has_more: false, total: 0, total_pages: 0 } })),
+const { data: latestData, pending: latestPending } = await useAsyncData("home-latest-articles", async () => {
+  try {
+    latestRequestError.value = null;
+    return await searchArticles({
+      type: 1,
+      page: 1,
+      limit: 10,
+      page_mode: "count",
+      sort: 2,
+    });
+  } catch (error) {
+    latestRequestError.value = error;
+    console.error(`[home-latest-articles] request failed: ${formatRequestError(error)}`);
+    return { list: [], pagination: { mode: "count", page: 1, limit: 10, has_more: false, total: 0, total_pages: 0 } };
+  }
+},
 );
 
 useSeoMeta({
@@ -86,47 +117,22 @@ const latestArticles = computed(() => latestData.value?.list || []);
             />
           </div>
           <div v-else class="surface-section flex min-h-[220px] items-center justify-center p-6 text-sm muted">
-            {{ latestPending ? "正在加载文章流..." : "暂时没有可展示的公开文章。" }}
+            {{
+              latestPending
+                ? "正在加载文章流..."
+                : latestRequestError
+                  ? "文章加载失败，请检查前端 API 地址或测试环境状态。"
+                  : "暂时没有可展示的公开文章。"
+            }}
           </div>
         </section>
       </div>
 
-      <aside class="profile-sidebar">
-        <section class="surface-card p-5 md:p-6">
-          <div class="section-title">站点公告</div>
-          <div class="mt-4 space-y-4">
-            <div
-              v-for="(item, index) in siteStore.runtimeConfig?.index_right?.list || []"
-              :key="`${item.title}-${index}`"
-              class="surface-section p-4"
-            >
-              <div class="text-base font-semibold">{{ item.title }}</div>
-              <p class="mt-2 text-sm leading-7 muted">{{ item.abstract || "这里承接站点配置里的右侧公告位内容。" }}</p>
-            </div>
-          </div>
-        </section>
-
-        <section class="surface-card p-5 md:p-6">
-          <div class="section-title">AI 助手</div>
-          <div class="mt-4 flex items-center gap-3">
-            <img
-              v-if="siteStore.aiInfo?.avatar"
-              :src="siteStore.aiInfo.avatar"
-              alt="AI 助手"
-              class="h-14 w-14 rounded-2xl object-cover"
-            />
-            <div>
-              <div class="text-base font-semibold">{{ siteStore.aiInfo?.nickname || "AI 助手" }}</div>
-              <p class="mt-1 text-sm leading-6 muted">
-                {{ siteStore.aiInfo?.abstract || "在搜索、写作和诊断场景里协助作者提高产出效率。" }}
-              </p>
-            </div>
-          </div>
-          <NuxtLink to="/search" class="mt-4 inline-flex text-sm font-medium text-teal-700 dark:text-teal-300">
-            去搜索页体验 AI 搜索
-          </NuxtLink>
-        </section>
-      </aside>
+      <HomeSidebar
+        :runtime-config="siteStore.runtimeConfig"
+        :ai-info="siteStore.aiInfo"
+        :articles="latestArticles"
+      />
     </div>
   </div>
 </template>

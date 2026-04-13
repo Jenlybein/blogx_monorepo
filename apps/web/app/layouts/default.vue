@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import AppFooter from "~/components/layout/AppFooter.vue";
+import AppHeader from "~/components/layout/AppHeader.vue";
+import AuthModal from "~/components/auth/AuthModal.vue";
+
 const siteStore = useSiteStore();
 
 await siteStore.ensurePublicBootstrap();

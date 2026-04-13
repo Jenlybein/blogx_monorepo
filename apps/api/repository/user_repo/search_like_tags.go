@@ -7,6 +7,17 @@ import (
 	"gorm.io/gorm"
 )
 
+func idKeywordValues(ids []ctype.ID) []string {
+	result := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if id == 0 {
+			continue
+		}
+		result = append(result, id.String())
+	}
+	return result
+}
+
 // LoadLikeTagIDs 加载用户偏好标签 ID 列表。
 func LoadLikeTagIDs(db *gorm.DB, userID ctype.ID) ([]ctype.ID, error) {
 	if userID == 0 || db == nil {
@@ -42,7 +53,7 @@ func BuildLikeTagsQuery(query map[string]any, likeTagIDs []ctype.ID) map[string]
 	should, _ := boolQuery["should"].([]any)
 	should = append(should, map[string]any{
 		"terms": map[string]any{
-			"tags.id": likeTagIDs,
+			"tags.id": idKeywordValues(likeTagIDs),
 			"boost":   2,
 		},
 	})

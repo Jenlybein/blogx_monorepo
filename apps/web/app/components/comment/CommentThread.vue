@@ -15,7 +15,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   reply: [commentId: string];
-  digg: [commentId: string];
+  digg: [commentId: string, isDigg: boolean];
   loadReplies: [rootId: string];
 }>();
 
@@ -46,7 +46,9 @@ function toggleReplies(rootId: string) {
             {{ comment.content }}
           </div>
           <div class="mt-4 flex items-center gap-5 text-sm muted">
-            <button type="button" @click="emit('digg', comment.id)">点赞 {{ comment.digg_count }}</button>
+            <button type="button" @click="emit('digg', comment.id, comment.is_digg)">
+              {{ comment.is_digg ? "取消点赞" : "点赞" }} {{ comment.digg_count }}
+            </button>
             <button type="button" @click="emit('reply', comment.id)">回复</button>
             <button v-if="comment.reply_count > 0" type="button" @click="toggleReplies(comment.id)">
               {{ expanded[comment.id] ? "收起回复" : `展开 ${comment.reply_count} 条回复` }}

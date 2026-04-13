@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { NButton, NInput } from "naive-ui";
+import ArticleFeedItem from "~/components/article/ArticleFeedItem.vue";
 import { getTagOptions } from "~/services/search";
 
 const route = useRoute();
@@ -39,7 +40,7 @@ const searchParams = computed(() => ({
   page_mode: "count" as const,
 }));
 
-const { articles, pending, pagination, total } = await useArticleSearch(searchParams, {
+const { articles, pending, pagination, total, requestError } = await useArticleSearch(searchParams, {
   key: computed(() =>
       `search:${JSON.stringify({
         key: key.value,
@@ -155,7 +156,13 @@ function handlePageChange(nextPage: number) {
       </div>
 
       <div v-else class="surface-section flex min-h-[240px] items-center justify-center p-6 text-sm muted">
-        {{ pending ? "正在搜索中..." : "没有匹配结果，换个关键词或筛选条件试试。" }}
+        {{
+          pending
+            ? "正在搜索中..."
+            : requestError
+              ? "文章加载失败，请检查前端 API 地址或测试环境状态。"
+              : "没有匹配结果，换个关键词或筛选条件试试。"
+        }}
       </div>
 
       <div

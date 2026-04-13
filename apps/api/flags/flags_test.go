@@ -235,11 +235,11 @@ func TestBuildArticleESDocument(t *testing.T) {
 		t.Fatalf("tags 同步结果不正确: %#v", doc["tags"])
 	}
 	category, ok := doc["category"].(map[string]any)
-	if !ok || category["id"] != uint64(categoryID) || category["title"] != "后端" {
+	if !ok || category["id"] != categoryID.String() || category["title"] != "后端" {
 		t.Fatalf("分类字段同步结果不正确: %#v", doc["category"])
 	}
 	author, ok := doc["author"].(map[string]any)
-	if !ok || author["id"] != uint64(article.AuthorID) || author["nickname"] != "作者A" || author["avatar"] != "/avatar.png" {
+	if !ok || author["id"] != article.AuthorID.String() || author["nickname"] != "作者A" || author["avatar"] != "/avatar.png" {
 		t.Fatalf("作者字段同步结果不正确: %#v", doc["author"])
 	}
 	if doc["admin_top"] != true || doc["author_top"] != false {
@@ -388,7 +388,7 @@ func TestSyncArticleDocuments(t *testing.T) {
 		t.Fatalf("tags 应以数组写入 ES, got=%#v", first["tags"])
 	}
 	author, ok := first["author"].(map[string]any)
-	if !ok || author["id"] != float64(author1.ID) {
+	if !ok || author["id"] != author1.ID.String() {
 		t.Fatalf("作者字段应正确写入 ES, got=%#v", first["author"])
 	}
 	if first["admin_top"] != true || first["author_top"] != true {

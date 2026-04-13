@@ -166,7 +166,7 @@ func TestBuildCategoryIDQuery(t *testing.T) {
 		t.Fatalf("分类 term 结构错误: %#v", filters[1])
 	}
 	categoryTerm, ok := term["term"].(map[string]any)
-	if !ok || categoryTerm["category_id"] != ctype.ID(12) {
+	if !ok || categoryTerm["category_id"] != ctype.ID(12).String() {
 		t.Fatalf("分类过滤条件错误: %#v", term)
 	}
 }
@@ -191,7 +191,7 @@ func TestBuildUserAndCategoryFilters(t *testing.T) {
 		t.Fatalf("作者过滤结构错误: %#v", filters[1])
 	}
 	authorTerm, ok := authorFilter["term"].(map[string]any)
-	if !ok || authorTerm["author_id"] != ctype.ID(88) {
+	if !ok || authorTerm["author_id"] != ctype.ID(88).String() {
 		t.Fatalf("作者过滤条件错误: %#v", authorFilter)
 	}
 
@@ -200,7 +200,7 @@ func TestBuildUserAndCategoryFilters(t *testing.T) {
 		t.Fatalf("分类过滤结构错误: %#v", filters[2])
 	}
 	categoryTerm, ok := categoryFilter["term"].(map[string]any)
-	if !ok || categoryTerm["category_id"] != ctype.ID(12) {
+	if !ok || categoryTerm["category_id"] != ctype.ID(12).String() {
 		t.Fatalf("分类过滤条件错误: %#v", categoryFilter)
 	}
 }
@@ -224,7 +224,7 @@ func TestBuildUserIDQuery(t *testing.T) {
 		t.Fatalf("作者 term 结构错误: %#v", filters[1])
 	}
 	authorTerm, ok := term["term"].(map[string]any)
-	if !ok || authorTerm["author_id"] != ctype.ID(88) {
+	if !ok || authorTerm["author_id"] != ctype.ID(88).String() {
 		t.Fatalf("作者过滤条件错误: %#v", term)
 	}
 }
@@ -246,7 +246,7 @@ func TestBuildSelfArticleSearchQueryDefaultStatus(t *testing.T) {
 		t.Fatalf("作者 term 结构错误: %#v", filters[0])
 	}
 	authorTerm, ok := term["term"].(map[string]any)
-	if !ok || authorTerm["author_id"] != ctype.ID(99) {
+	if !ok || authorTerm["author_id"] != ctype.ID(99).String() {
 		t.Fatalf("我的文章作者过滤错误: %#v", term)
 	}
 
@@ -495,7 +495,7 @@ func TestExtractArticleSearchResults(t *testing.T) {
 		"hits": []any{
 			map[string]any{
 				"_source": map[string]any{
-					"id":           1,
+					"id":           "1",
 					"created_at":   createdAt.Format(time.RFC3339Nano),
 					"updated_at":   updatedAt.Format(time.RFC3339Nano),
 					"title":        "go search article",
@@ -534,8 +534,8 @@ func TestExtractArticleSearchResults(t *testing.T) {
 						"avatar":   "/avatar.png",
 					},
 					"tags": []any{
-						map[string]any{"id": 1, "title": "Go"},
-						map[string]any{"id": 2, "title": "ES"},
+						map[string]any{"id": "1", "title": "Go"},
+						map[string]any{"id": "2", "title": "ES"},
 					},
 					"author_top": true,
 					"admin_top":  true,
@@ -630,5 +630,47 @@ func TestExtractArticleSearchResults(t *testing.T) {
 	}
 	if list[0].Top == nil || !list[0].Top.User || !list[0].Top.Admin {
 		t.Fatalf("置顶对象解析错误: %+v", list[0].Top)
+	}
+}
+
+func TestExtractArticleSearchResultsKeepsSnowflakeIDPrecision(t *testing.T) {
+	_ = testutil.SetupMiniRedis(t)
+	redisDeps := redis_service.Deps{Client: testutil.Redis(), Logger: testutil.Logger()}
+	data := map[string]any{
+		"hits": []any{
+			map[string]any{
+				"_source": map[string]any{
+					"id":          "301850494807052288",
+					"title":       "precision test",
+					"abstract":    "abstract",
+					"author_id":   "301850494807052289",
+					"category_id": "301850494807052290",
+					"category": map[string]any{
+						"id":    "301850494807052290",
+						"title": "分类",
+					},
+					"author": map[string]any{
+						"id":       "301850494807052289",
+						"nickname": "作者",
+						"avatar":   "/avatar.png",
+					},
+					"status": json.Number("3"),
+				},
+			},
+		},
+	}
+
+	list := extractArticleSearchResults(redisDeps, data)
+	if len(list) != 1 {
+		t.Fatalf("结果数量错误: %d", len(list))
+	}
+	if got := list[0].ID.String(); got != "301850494807052288" {
+		t.Fatalf("文章 ID 不应丢失精度, got=%s", got)
+	}
+	if got := list[0].Author.ID.String(); got != "301850494807052289" {
+		t.Fatalf("作者 ID 不应丢失精度, got=%s", got)
+	}
+	if list[0].Category == nil || list[0].Category.ID.String() != "301850494807052290" {
+		t.Fatalf("分类 ID 不应丢失精度, got=%+v", list[0].Category)
 	}
 }

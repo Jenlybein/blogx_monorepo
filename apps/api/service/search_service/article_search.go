@@ -1,6 +1,7 @@
 package search_service
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -215,8 +216,15 @@ func executeArticleSearch(redisDeps redis_service.Deps, esClient *elasticsearch.
 		}, nil
 	}
 
-	totalRaw, _ := data["value"].(float64)
-	total := int(totalRaw)
+	total := 0
+	switch value := data["value"].(type) {
+	case float64:
+		total = int(value)
+	case json.Number:
+		if parsed, err := value.Int64(); err == nil {
+			total = int(parsed)
+		}
+	}
 	hasMore := page*limit < total
 	totalPages := 0
 	if total > 0 {

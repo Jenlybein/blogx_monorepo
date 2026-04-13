@@ -13,57 +13,6 @@ func sourceIDValue(sourceMap map[string]any, key string) ctype.ID {
 	switch value := sourceMap[key].(type) {
 	case ctype.ID:
 		return value
-	case uint:
-		return ctype.ID(value)
-	case uint8:
-		return ctype.ID(value)
-	case uint16:
-		return ctype.ID(value)
-	case uint32:
-		return ctype.ID(value)
-	case uint64:
-		return ctype.ID(value)
-	case int:
-		if value < 0 {
-			return 0
-		}
-		return ctype.ID(value)
-	case int8:
-		if value < 0 {
-			return 0
-		}
-		return ctype.ID(value)
-	case int16:
-		if value < 0 {
-			return 0
-		}
-		return ctype.ID(value)
-	case int32:
-		if value < 0 {
-			return 0
-		}
-		return ctype.ID(value)
-	case int64:
-		if value < 0 {
-			return 0
-		}
-		return ctype.ID(value)
-	case float32:
-		if value < 0 {
-			return 0
-		}
-		return ctype.ID(value)
-	case float64:
-		if value < 0 {
-			return 0
-		}
-		return ctype.ID(value)
-	case json.Number:
-		intValue, err := value.Int64()
-		if err != nil || intValue < 0 {
-			return 0
-		}
-		return ctype.ID(intValue)
 	case string:
 		var id ctype.ID
 		if err := id.UnmarshalText([]byte(value)); err != nil {

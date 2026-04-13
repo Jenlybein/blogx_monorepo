@@ -1,6 +1,7 @@
 package es_service
 
 import (
+	"encoding/json"
 	"fmt"
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -20,15 +21,15 @@ type articleESTop struct {
 	AuthorTop bool
 }
 
-func toESID(id ctype.ID) uint64 {
-	return uint64(id)
+func toESID(id ctype.ID) string {
+	return id.String()
 }
 
 func toESNullableID(id *ctype.ID) any {
 	if id == nil {
 		return nil
 	}
-	return uint64(*id)
+	return id.String()
 }
 
 // ArticleSearchProjectionEventType 定义文章搜索读模型的变更类型。
@@ -533,9 +534,9 @@ func UpdateESDocsContent(db *gorm.DB, client *elasticsearch.Client, articleIDs [
 				"abstract":      article.Abstract,
 				"content_parts": markdown.MdToContentParts(article.Content),
 				"content_head":  markdown.ExtractText(markdown.MdToTextParagraph(article.Content), 150),
-				"category_id":   article.CategoryID,
+				"category_id":   toESNullableID(article.CategoryID),
 				"category": map[string]any{
-					"id": article.CategoryID,
+					"id": toESNullableID(article.CategoryID),
 					"title": func() string {
 						if article.CategoryModel == nil {
 							return ""
@@ -544,9 +545,9 @@ func UpdateESDocsContent(db *gorm.DB, client *elasticsearch.Client, articleIDs [
 					}(),
 				},
 				"cover":     article.Cover,
-				"author_id": article.AuthorID,
+				"author_id": toESID(article.AuthorID),
 				"author": map[string]any{
-					"id": article.AuthorID,
+					"id": toESID(article.AuthorID),
 					"nickname": func() string {
 						if article.UserModel.ID == 0 {
 							return ""
@@ -829,7 +830,7 @@ func collectArticleBulkFailures(data any, reqs []*BulkRequest, maxItems int) ([]
 			if !ok {
 				continue
 			}
-			status, _ := result["status"].(float64)
+			status := parseBulkStatusValue(result["status"])
 			if status >= 200 && status < 300 {
 				continue
 			}
@@ -872,7 +873,7 @@ func collectArticleBulkFailures(data any, reqs []*BulkRequest, maxItems int) ([]
 			failures = append(failures, articleBulkFailure{
 				Action:    action,
 				ID:        docID,
-				Status:    int(status),
+				Status:    status,
 				ErrorType: errType,
 				Reason:    reason,
 			})
@@ -883,6 +884,40 @@ func collectArticleBulkFailures(data any, reqs []*BulkRequest, maxItems int) ([]
 	}
 
 	return failures, missingUpdateIDs
+}
+
+func parseBulkStatusValue(raw any) int {
+	switch value := raw.(type) {
+	case int:
+		return value
+	case int8:
+		return int(value)
+	case int16:
+		return int(value)
+	case int32:
+		return int(value)
+	case int64:
+		return int(value)
+	case uint:
+		return int(value)
+	case uint8:
+		return int(value)
+	case uint16:
+		return int(value)
+	case uint32:
+		return int(value)
+	case uint64:
+		return int(value)
+	case float32:
+		return int(value)
+	case float64:
+		return int(value)
+	case json.Number:
+		if parsed, err := value.Int64(); err == nil {
+			return int(parsed)
+		}
+	}
+	return 0
 }
 
 func formatArticleBulkFailureSummary(failures []articleBulkFailure) string {

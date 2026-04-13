@@ -3,6 +3,9 @@ import type { ArticleDetail, ArticleTopItem } from "~/types/api";
 export function getTopArticles() {
   return useNuxtApp().$api.request<{ list: ArticleTopItem[]; count: number }>("/api/articles/top", {
     auth: false,
+    query: {
+      type: 2,
+    },
   });
 }
 

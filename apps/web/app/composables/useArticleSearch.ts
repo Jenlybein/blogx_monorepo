@@ -1,4 +1,4 @@
-import { computed, toValue } from "vue";
+import { computed, shallowRef, toValue } from "vue";
 import type { MaybeRefOrGetter } from "vue";
 import { searchArticles, type SearchArticlesParams } from "~/services/search";
 import type { SearchArticleResponse } from "~/types/api";
@@ -8,6 +8,14 @@ interface UseArticleSearchOptions {
   fallback?: MaybeRefOrGetter<SearchArticleResponse>;
   immediate?: boolean;
   watch?: Array<MaybeRefOrGetter<unknown>>;
+}
+
+function formatRequestError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
 }
 
 function createFallback(params: SearchArticlesParams): SearchArticleResponse {
@@ -35,10 +43,20 @@ export async function useArticleSearch(
   const requestFingerprint = computed(() => JSON.stringify(paramsRef.value));
   const fallbackRef = computed(() => toValue(options.fallback) || createFallback(paramsRef.value));
   const externalWatchers = (options.watch || []).map((source) => computed(() => toValue(source)));
+  const requestError = shallowRef<unknown>(null);
 
   const state = await useAsyncData(
     () => toValue(options.key) || `article-search:${requestFingerprint.value}`,
-    () => searchArticles(paramsRef.value).catch(() => fallbackRef.value),
+    async () => {
+      try {
+        requestError.value = null;
+        return await searchArticles(paramsRef.value);
+      } catch (error) {
+        requestError.value = error;
+        console.error(`[useArticleSearch] request failed: ${formatRequestError(error)}`, paramsRef.value);
+        return fallbackRef.value;
+      }
+    },
     {
       immediate: options.immediate ?? true,
       watch: [requestFingerprint, ...externalWatchers],
@@ -54,5 +72,6 @@ export async function useArticleSearch(
     articles,
     pagination,
     total,
+    requestError,
   };
 }

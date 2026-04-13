@@ -87,7 +87,9 @@ func doRequest(client *elasticsearch.Client, req esapi.Request) (res *esapi.Resp
 func decodeResponse(body io.ReadCloser) (map[string]any, error) {
 	var target map[string]any
 	defer body.Close()
-	err := json.NewDecoder(body).Decode(&target)
+	decoder := json.NewDecoder(body)
+	decoder.UseNumber()
+	err := decoder.Decode(&target)
 	return target, err
 }
 
@@ -218,8 +220,13 @@ func SearchBody(client *elasticsearch.Client, index string, body map[string]any)
 
 	totalValue := 0.0
 	if totalObj, ok := hitsObj["total"].(map[string]any); ok {
-		if value, ok := totalObj["value"].(float64); ok {
+		switch value := totalObj["value"].(type) {
+		case float64:
 			totalValue = value
+		case json.Number:
+			if parsed, err := value.Float64(); err == nil {
+				totalValue = parsed
+			}
 		}
 	}
 

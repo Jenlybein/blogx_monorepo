@@ -703,7 +703,7 @@ func TestDecodeResponseAndHandleErrorFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decodeResponse 失败: %v", err)
 	}
-	if v, ok := data["a"].(float64); !ok || v != 1 {
+	if v, ok := data["a"].(json.Number); !ok || v.String() != "1" {
 		t.Fatalf("decodeResponse 结果异常: %#v", data)
 	}
 

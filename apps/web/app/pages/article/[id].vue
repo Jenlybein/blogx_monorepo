@@ -3,11 +3,15 @@ import MarkdownIt from "markdown-it";
 import { computed, onMounted, ref } from "vue";
 import { IconEye, IconHeart, IconMessageCircle2, IconShare2, IconThumbUp } from "@tabler/icons-vue";
 import { NAvatar, NButton, NTag, useMessage } from "naive-ui";
+import CommentComposer from "~/components/comment/CommentComposer.vue";
+import CommentThread from "~/components/comment/CommentThread.vue";
+import { ApiBusinessError } from "~/services/http/errors";
 import { favoriteArticle, getArticleDetail, markArticleViewed, toggleArticleDigg } from "~/services/article";
 import { createComment, diggComment, getReplyComments, getRootComments } from "~/services/comment";
 import { formatCount, formatDateTimeLabel } from "~/utils/format";
 
 const route = useRoute();
+const router = useRouter();
 const articleId = computed(() => route.params.id as string);
 const authStore = useAuthStore();
 const uiStore = useUiStore();
@@ -19,10 +23,26 @@ const markdown = new MarkdownIt({
   html: false,
 });
 
-const { data: article, refresh: refreshArticle } = await useAsyncData(
+const { data: article, error: articleError, refresh: refreshArticle } = await useAsyncData(
   () => `article-${articleId.value}`,
   () => getArticleDetail(articleId.value),
 );
+const articleLoadError = computed(() => {
+  const error = articleError.value;
+  if (!error) {
+    return "";
+  }
+
+  if (error instanceof ApiBusinessError) {
+    return error.message;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "文章详情暂时无法加载。";
+});
 
 const {
   data: rootComments,
@@ -48,8 +68,9 @@ async function handleLike() {
   }
 
   try {
+    const wasDigged = Boolean(article.value?.is_digg);
     await toggleArticleDigg(articleId.value);
-    message.success("已更新点赞状态");
+    message.success(wasDigged ? "已取消点赞" : "点赞成功");
     await refreshArticle();
   } catch (error) {
     message.error(error instanceof Error ? error.message : "点赞失败");
@@ -63,8 +84,9 @@ async function handleFavorite() {
   }
 
   try {
+    const wasFavored = Boolean(article.value?.is_favor);
     await favoriteArticle(articleId.value);
-    message.success("已尝试加入收藏夹");
+    message.success(wasFavored ? "已取消收藏" : "已加入收藏");
     await refreshArticle();
   } catch (error) {
     message.error(error instanceof Error ? error.message : "收藏失败");
@@ -92,10 +114,10 @@ async function handleCreateComment(content: string) {
   }
 }
 
-async function handleCommentDigg(commentId: string) {
+async function handleCommentDigg(commentId: string, isDigg: boolean) {
   try {
     await diggComment(commentId);
-    message.success("评论点赞已更新");
+    message.success(isDigg ? "已取消评论点赞" : "评论点赞成功");
     await refreshComments();
   } catch (error) {
     message.error(error instanceof Error ? error.message : "评论点赞失败");
@@ -158,6 +180,19 @@ useSeoMeta({
 
 <template>
   <div class="page-stack">
+    <section v-if="articleLoadError" class="surface-card p-6 md:p-8">
+      <div class="eyebrow">Article</div>
+      <h1 class="section-title mt-2">文章详情暂不可用</h1>
+      <p class="mt-4 text-sm leading-7 muted">
+        {{ articleLoadError === "文章不存在" ? "当前搜索结果里这篇文章尚未在详情主库同步完成，请稍后重试或返回列表选择其他文章。" : articleLoadError }}
+      </p>
+      <div class="mt-5 flex flex-wrap gap-3">
+        <NButton secondary round @click="router.back()">返回上一页</NButton>
+        <NuxtLink to="/search" class="glass-badge">返回搜索页</NuxtLink>
+      </div>
+    </section>
+
+    <template v-else>
     <section class="surface-card p-6 md:p-8">
       <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div class="max-w-3xl">
@@ -254,5 +289,6 @@ useSeoMeta({
         </section>
       </aside>
     </div>
+    </template>
   </div>
 </template>

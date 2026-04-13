@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { NCard, NModal, NTabPane, NTabs } from "naive-ui";
+import EmailLoginForm from "~/components/auth/EmailLoginForm.vue";
+import EmailRegisterForm from "~/components/auth/EmailRegisterForm.vue";
+import PasswordLoginForm from "~/components/auth/PasswordLoginForm.vue";
 
 const uiStore = useUiStore();
 

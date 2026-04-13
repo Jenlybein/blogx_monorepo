@@ -7,6 +7,17 @@ import (
 	"strings"
 )
 
+func idTermsValues(ids []ctype.ID) []string {
+	result := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if id == 0 {
+			continue
+		}
+		result = append(result, id.String())
+	}
+	return result
+}
+
 // buildDefaultArticleSearchQuery 构建默认文章搜索查询
 func buildDefaultArticleSearchQuery(key string) map[string]any {
 	return buildArticleSearchQuery(key, map[string]any{
@@ -27,7 +38,7 @@ func buildSelfArticleSearchQuery(key string, userID ctype.ID, status enum.Articl
 		"filter": []any{
 			map[string]any{
 				"term": map[string]any{
-					"author_id": userID,
+					"author_id": userID.String(),
 				},
 			},
 		},
@@ -166,7 +177,7 @@ func buildAuthorIDQuery(query map[string]any, authorID ctype.ID) map[string]any 
 	filters, _ := boolQuery["filter"].([]any)
 	boolQuery["filter"] = append(filters, map[string]any{
 		"term": map[string]any{
-			"author_id": authorID,
+			"author_id": authorID.String(),
 		},
 	})
 	return query
@@ -237,7 +248,7 @@ func buildTagIDsQuery(query map[string]any, tagIDs []ctype.ID) map[string]any {
 	filters, _ := boolQuery["filter"].([]any)
 	boolQuery["filter"] = append(filters, map[string]any{
 		"terms": map[string]any{
-			"tags.id": normalized,
+			"tags.id": idTermsValues(normalized),
 		},
 	})
 
@@ -258,7 +269,7 @@ func buildCategoryIDQuery(query map[string]any, categoryID ctype.ID) map[string]
 	filters, _ := boolQuery["filter"].([]any)
 	boolQuery["filter"] = append(filters, map[string]any{
 		"term": map[string]any{
-			"category_id": categoryID,
+			"category_id": categoryID.String(),
 		},
 	})
 	return query

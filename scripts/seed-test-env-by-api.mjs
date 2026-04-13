@@ -31,10 +31,28 @@ function getEnv(name, fallback = "") {
   return process.env[name] ?? envrc[name] ?? fallback;
 }
 
+function parseEnvList(value) {
+  return String(value || "")
+    .split(/[,\s;]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function uniqueList(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
 const config = {
   baseUrl: getEnv("BLOGX_SEED_BASE_URL", "http://106.53.184.85"),
   adminLogin: getEnv("BLOGX_SEED_ADMIN_LOGIN", "testAdmin"),
-  adminPassword: getEnv("BLOGX_SEED_ADMIN_PASSWORD", "123456123"),
+  adminPassword: getEnv("BLOGX_SEED_ADMIN_PASSWORD", "123456"),
+  adminPasswordCandidates: uniqueList([
+    getEnv("BLOGX_SEED_ADMIN_PASSWORD", ""),
+    ...parseEnvList(getEnv("BLOGX_SEED_ADMIN_PASSWORD_CANDIDATES", "")),
+    "123456",
+    "123456123",
+  ]),
+  adminEmail: getEnv("BLOGX_SEED_ADMIN_EMAIL", ""),
   seedEmail: getEnv("BLOGX_SEED_EMAIL", getEnv("BLOGX_SMTP_USERNAME", "")),
   seedEmailPassword: getEnv("BLOGX_SEED_EMAIL_PASSWORD", "BlogxEmail123"),
   imageDomain: getEnv("BLOGX_QINIU_DOMAIN", "https://image.gentlybeing.cn"),
@@ -952,31 +970,46 @@ async function loginByEmail(email) {
 }
 
 async function loginAsAdmin() {
-  const adminByEmail = config.seedEmail ? findUserByEmailFromDb(config.seedEmail) : null;
-  if (adminByEmail?.username === config.adminLogin) {
-    const token = await loginByEmail(config.seedEmail);
-    return { token, mode: "email" };
+  const failedPasswords = [];
+  let rateLimited = false;
+
+  for (const password of config.adminPasswordCandidates) {
+    try {
+      const token = await loginWithPassword(config.adminLogin, password);
+      return { token, mode: "password", password };
+    } catch (error) {
+      if (!(error instanceof ApiError)) {
+        throw error;
+      }
+
+      const message = String(error.payload?.msg || "");
+      if (message.includes("登录失败次数过多")) {
+        failedPasswords.push(`${password}(风控限制)`);
+        rateLimited = true;
+        break;
+      }
+      if (!message.includes("账号或密码错误")) {
+        throw error;
+      }
+      failedPasswords.push(password);
+    }
   }
 
-  try {
-    const token = await request("/api/users/login", {
-      method: "POST",
-      body: {
-        username: config.adminLogin,
-        password: config.adminPassword,
-      },
-    });
-    return { token, mode: "password" };
-  } catch (error) {
-    if (!(error instanceof ApiError) || !String(error.payload?.msg || "").includes("账号或密码错误")) {
-      throw error;
-    }
-    if (!adminByEmail || adminByEmail.username !== config.adminLogin) {
-      throw error;
-    }
-    const token = await loginByEmail(config.seedEmail);
-    return { token, mode: "email" };
+  const fallbackEmail = config.adminEmail.trim();
+
+  if (!fallbackEmail) {
+    throw new Error(
+      `管理员密码登录失败，且没有显式配置 BLOGX_SEED_ADMIN_EMAIL 用于邮箱回退。已尝试密码：${failedPasswords.join(", ") || "无"}${rateLimited ? "；当前账号已触发登录风控，请稍后再试" : ""}`,
+    );
   }
+
+  const owner = findUserByEmailFromDb(fallbackEmail);
+  if (owner?.username !== config.adminLogin) {
+    throw new Error(`管理员密码登录失败，邮箱 ${fallbackEmail} 当前不属于 ${config.adminLogin}`);
+  }
+
+  const token = await loginByEmail(fallbackEmail);
+  return { token, mode: "email", email: fallbackEmail };
 }
 
 async function ensureSiteRuntime(token) {
@@ -1406,7 +1439,13 @@ async function main() {
   await ensureAdminTopArticles(token, adminArticles);
   await ensureBanners(token);
   await ensureGlobalNotifs(token);
-  const emailSeedUser = (await ensureEmailSeedUser(tagMap)) ?? (await ensureFallbackSeedViewer(token, tagMap));
+  let emailSeedUser = null;
+  try {
+    emailSeedUser = await ensureEmailSeedUser(tagMap);
+  } catch (error) {
+    console.log(`邮箱注册 / 登录链路执行失败，改用兜底联调用户继续：${error.message}`);
+  }
+  emailSeedUser = emailSeedUser ?? (await ensureFallbackSeedViewer(token, tagMap));
   const createdUsers = await ensureAdminCreatedUsers(token, tagMap);
 
   const seedUsersByKey = new Map([
