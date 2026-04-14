@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import { NButton, NCard, NInput, NSelect, NSwitch, NTag, useMessage } from "naive-ui";
 import { sendEmailCode } from "~/services/auth";
 import { uploadImageByTask } from "~/services/image";
@@ -95,6 +95,17 @@ watch(
 );
 
 const likeTagItems = computed(() => profile.value?.like_tag_items ?? []);
+const enabledTagIdSet = computed(() => {
+  const set = new Set<string>();
+  for (const option of tagOptions.value ?? []) {
+    const raw = option?.value;
+    if (raw == null) continue;
+    const id = String(raw).trim();
+    if (!id) continue;
+    set.add(id);
+  }
+  return set;
+});
 
 async function saveProfile() {
   if (avatarUploading.pending) {
@@ -103,19 +114,35 @@ async function saveProfile() {
   }
 
   try {
+    const trimmedAvatarImageId = (profileForm.avatar_image_id ?? "").trim();
+    const hasAvatarImageId = Boolean(trimmedAvatarImageId);
+    if (hasAvatarImageId && !/^\d+$/.test(trimmedAvatarImageId)) {
+      message.error("头像标识格式不合法，请重新上传头像后再保存。");
+      return;
+    }
+
+    const normalizedLikeTagIds = profileForm.like_tag_ids
+      .map((id) => String(id).trim())
+      .filter((id) => Boolean(id) && enabledTagIdSet.value.has(id));
+    if (normalizedLikeTagIds.length !== profileForm.like_tag_ids.length) {
+      profileForm.like_tag_ids = normalizedLikeTagIds;
+      message.warning("已自动移除不存在或停用的偏好标签，请确认后再次保存。");
+      return;
+    }
+
     const payload: Parameters<typeof updateUserProfile>[0] = {
       username: profileForm.username.trim() || null,
       nickname: profileForm.nickname.trim() || null,
       abstract: profileForm.abstract.trim() || null,
-      like_tag_ids: profileForm.like_tag_ids,
+      like_tag_ids: normalizedLikeTagIds,
       favorites_visibility: profileForm.favorites_visibility,
       followers_visibility: profileForm.followers_visibility,
       fans_visibility: profileForm.fans_visibility,
       home_style_id: profileForm.home_style_id || null,
     };
 
-    if (profileForm.avatar_image_id) {
-      payload.avatar_image_id = profileForm.avatar_image_id;
+    if (hasAvatarImageId) {
+      payload.avatar_image_id = trimmedAvatarImageId;
     } else if (avatarDirty.value) {
       payload.avatar_image_id = null;
     }

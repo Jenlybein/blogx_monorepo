@@ -44,6 +44,7 @@ func (h ProfileApi) UserInfoUpdateView(c *gin.Context) {
 		res.FailWithError(err, c)
 		return
 	}
+	normalizeUserConfUpdateMap(confMap)
 
 	if cr.LikeTagIDs != nil {
 		likeTagIDs := *cr.LikeTagIDs
@@ -170,4 +171,16 @@ func normalizeIDs(ids []ctype.ID) []ctype.ID {
 		result = append(result, id)
 	}
 	return result
+}
+
+func normalizeUserConfUpdateMap(confMap map[string]any) {
+	if confMap == nil {
+		return
+	}
+	// UserConfModel 的数据库列名是 follow_visibility，前端入参是 followers_visibility。
+	// 这里统一做一次 key 归一化，避免直接透传 json tag 导致列名不匹配。
+	if value, ok := confMap["followers_visibility"]; ok {
+		confMap["follow_visibility"] = value
+		delete(confMap, "followers_visibility")
+	}
 }

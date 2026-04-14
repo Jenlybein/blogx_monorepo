@@ -294,6 +294,31 @@ func TestProfileHandlers(t *testing.T) {
 
 	{
 		c, w := newCtx()
+		favoritesVisibility := false
+		followersVisibility := false
+		fansVisibility := false
+		c.Set("claims", &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: user.Role}})
+		c.Set("requestJson", profile_api.UserInfoUpdateRequest{
+			FavoritesVisibility: &favoritesVisibility,
+			FollowVisibility:    &followersVisibility,
+			FansVisibility:      &fansVisibility,
+		})
+		api.UserInfoUpdateView(c)
+		if code := readCode(t, w); code != 0 {
+			t.Fatalf("可见性配置更新失败, code=%d body=%s", code, w.Body.String())
+		}
+
+		var conf models.UserConfModel
+		if err := db.Take(&conf, "user_id = ?", user.ID).Error; err != nil {
+			t.Fatalf("查询更新后的用户配置失败: %v", err)
+		}
+		if conf.FavoritesVisibility || conf.FollowVisibility || conf.FansVisibility {
+			t.Fatalf("可见性配置更新结果异常: %+v", conf)
+		}
+	}
+
+	{
+		c, w := newCtx()
 		likeTags := []ctype.ID{tag.ID, tag.ID, 0}
 		c.Set("claims", &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: user.Role}})
 		c.Set("requestJson", profile_api.UserInfoUpdateRequest{

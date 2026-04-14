@@ -616,11 +616,9 @@ export interface ChatSocketOutgoingMessage {
 export interface UserProfileUpdatePayload {
   username?: string | null;
   nickname?: string | null;
-  avatar?: string | null;
   avatar_image_id?: string | null;
   abstract?: string | null;
   like_tag_ids?: string[];
-  like_tags?: number[];
   favorites_visibility?: boolean | null;
   followers_visibility?: boolean | null;
   fans_visibility?: boolean | null;
