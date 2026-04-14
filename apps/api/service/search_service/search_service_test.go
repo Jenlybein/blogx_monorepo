@@ -30,20 +30,14 @@ func TestBuildDefaultArticleSearchQueryOnlyPublished(t *testing.T) {
 	}
 
 	filters, ok := boolQuery["filter"].([]any)
-	if !ok || len(filters) != 1 {
+	if !ok || len(filters) != 2 {
 		t.Fatalf("过滤条件异常: %#v", boolQuery["filter"])
 	}
-
-	term, ok := filters[0].(map[string]any)
-	if !ok {
-		t.Fatalf("term 过滤结构错误: %#v", filters[0])
+	if _, ok := filters[0].(map[string]any)["bool"]; !ok {
+		t.Fatalf("发布状态过滤结构错误: %#v", filters[0])
 	}
-	statusTerm, ok := term["term"].(map[string]any)
-	if !ok {
-		t.Fatalf("status term 结构错误: %#v", term)
-	}
-	if statusTerm["status"] != enum.ArticleStatusPublished {
-		t.Fatalf("搜索应只查询已发布文章，当前状态条件=%#v", statusTerm["status"])
+	if _, ok := filters[1].(map[string]any)["bool"]; !ok {
+		t.Fatalf("可见性过滤结构错误: %#v", filters[1])
 	}
 
 	functions, ok := functionScore["functions"].([]any)
@@ -129,13 +123,13 @@ func TestBuildTagListQueryWithTags(t *testing.T) {
 	}
 
 	filters, ok := boolQuery["filter"].([]any)
-	if !ok || len(filters) != 2 {
+	if !ok || len(filters) != 3 {
 		t.Fatalf("标签匹配过滤条件异常: %#v", boolQuery["filter"])
 	}
 
-	terms, ok := filters[1].(map[string]any)
+	terms, ok := filters[2].(map[string]any)
 	if !ok {
-		t.Fatalf("标签 terms 结构错误: %#v", filters[1])
+		t.Fatalf("标签 terms 结构错误: %#v", filters[2])
 	}
 	tagTerms, ok := terms["terms"].(map[string]any)
 	if !ok {
@@ -157,13 +151,13 @@ func TestBuildCategoryIDQuery(t *testing.T) {
 	}
 
 	filters, ok := boolQuery["filter"].([]any)
-	if !ok || len(filters) != 2 {
+	if !ok || len(filters) != 3 {
 		t.Fatalf("分类过滤条件异常: %#v", boolQuery["filter"])
 	}
 
-	term, ok := filters[1].(map[string]any)
+	term, ok := filters[2].(map[string]any)
 	if !ok {
-		t.Fatalf("分类 term 结构错误: %#v", filters[1])
+		t.Fatalf("分类 term 结构错误: %#v", filters[2])
 	}
 	categoryTerm, ok := term["term"].(map[string]any)
 	if !ok || categoryTerm["category_id"] != ctype.ID(12).String() {
@@ -182,22 +176,22 @@ func TestBuildUserAndCategoryFilters(t *testing.T) {
 	}
 
 	filters, ok := boolQuery["filter"].([]any)
-	if !ok || len(filters) != 3 {
+	if !ok || len(filters) != 4 {
 		t.Fatalf("作者和分类联合过滤条件异常: %#v", boolQuery["filter"])
 	}
 
-	authorFilter, ok := filters[1].(map[string]any)
+	authorFilter, ok := filters[2].(map[string]any)
 	if !ok {
-		t.Fatalf("作者过滤结构错误: %#v", filters[1])
+		t.Fatalf("作者过滤结构错误: %#v", filters[2])
 	}
 	authorTerm, ok := authorFilter["term"].(map[string]any)
 	if !ok || authorTerm["author_id"] != ctype.ID(88).String() {
 		t.Fatalf("作者过滤条件错误: %#v", authorFilter)
 	}
 
-	categoryFilter, ok := filters[2].(map[string]any)
+	categoryFilter, ok := filters[3].(map[string]any)
 	if !ok {
-		t.Fatalf("分类过滤结构错误: %#v", filters[2])
+		t.Fatalf("分类过滤结构错误: %#v", filters[3])
 	}
 	categoryTerm, ok := categoryFilter["term"].(map[string]any)
 	if !ok || categoryTerm["category_id"] != ctype.ID(12).String() {
@@ -215,13 +209,13 @@ func TestBuildUserIDQuery(t *testing.T) {
 	}
 
 	filters, ok := boolQuery["filter"].([]any)
-	if !ok || len(filters) != 2 {
+	if !ok || len(filters) != 3 {
 		t.Fatalf("作者过滤条件异常: %#v", boolQuery["filter"])
 	}
 
-	term, ok := filters[1].(map[string]any)
+	term, ok := filters[2].(map[string]any)
 	if !ok {
-		t.Fatalf("作者 term 结构错误: %#v", filters[1])
+		t.Fatalf("作者 term 结构错误: %#v", filters[2])
 	}
 	authorTerm, ok := term["term"].(map[string]any)
 	if !ok || authorTerm["author_id"] != ctype.ID(88).String() {

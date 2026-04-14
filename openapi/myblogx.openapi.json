@@ -2679,98 +2679,6 @@
         ]
       }
     },
-    "/api/articles/{id}/examine": {
-      "post": {
-        "summary": "审核文章",
-        "deprecated": false,
-        "description": "管理员审核文章，通过或驳回。需要管理员权限。",
-        "tags": [
-          "文章管理/文章"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "主键 ID",
-            "required": true,
-            "example": "0",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "",
-            "required": true,
-            "example": "Bearer {{bearerToken}}",
-            "schema": {
-              "type": "string",
-              "default": "Bearer {{bearerToken}}"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "type": "integer",
-                    "enum": [
-                      3,
-                      4
-                    ]
-                  },
-                  "reason": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "status"
-                ]
-              },
-              "example": {
-                "status": 3,
-                "reason": ""
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "integer"
-                    },
-                    "msg": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "msg"
-                  ]
-                }
-              }
-            },
-            "headers": {}
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
     "/api/articles/favorite": {
       "post": {
         "summary": "文章收藏",
@@ -9136,6 +9044,217 @@
           }
         ]
       }
+    },
+    "/api/article-review": {
+      "get": {
+        "summary": "审核任务列表",
+        "deprecated": false,
+        "description": "管理员查询文章审核任务列表。当前为单版本审核模型，同一时刻只维护一份待审核内容。",
+        "tags": [
+          "文章管理/文章"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "approved",
+                "rejected",
+                "canceled"
+              ]
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": true,
+            "example": "Bearer {{bearerToken}}",
+            "schema": {
+              "type": "string",
+              "default": "Bearer {{bearerToken}}"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiMessageResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ArticleReviewTaskListResponseData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/article-review-tasks/{id}/review": {
+      "post": {
+        "summary": "处理审核任务",
+        "deprecated": false,
+        "description": "管理员统一处理审核任务，通过或驳回。驳回原因会写入审核任务/审核日志，并向作者发送站点通知。",
+        "tags": [
+          "文章管理/文章"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "审核任务 ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": true,
+            "example": "Bearer {{bearerToken}}",
+            "schema": {
+              "type": "string",
+              "default": "Bearer {{bearerToken}}"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArticleReviewHandleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiEmptyDataResponse"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/articles/{id}/admin/{visibility}": {
+      "post": {
+        "summary": "管理员隐藏或恢复文章",
+        "deprecated": false,
+        "description": "管理员快捷切换文章可见性。visibility 仅允许 hide 或 show。",
+        "tags": [
+          "文章管理/文章"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "文章 ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "visibility",
+            "in": "path",
+            "description": "hide=管理员隐藏，show=恢复可见",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hide",
+                "show"
+              ]
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "",
+            "required": true,
+            "example": "Bearer {{bearerToken}}",
+            "schema": {
+              "type": "string",
+              "default": "Bearer {{bearerToken}}"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiEmptyDataResponse"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -10241,6 +10360,14 @@
               2
             ],
             "description": "文章状态，如草稿、待审核或已发布。"
+          },
+          "visibility_status": {
+            "type": "string",
+            "enum": [
+              "visible",
+              "user_hidden"
+            ],
+            "description": "作者侧可见性状态；不传时默认为 visible。"
           }
         },
         "required": [
@@ -10279,6 +10406,19 @@
           "status": {
             "type": "integer",
             "description": "文章状态。"
+          },
+          "publish_status": {
+            "type": "integer",
+            "description": "文章发布态。"
+          },
+          "visibility_status": {
+            "type": "string",
+            "enum": [
+              "visible",
+              "user_hidden",
+              "admin_hidden"
+            ],
+            "description": "文章可见性状态。"
           }
         },
         "required": [
@@ -10286,7 +10426,9 @@
           "title",
           "tag_ids",
           "comments_toggle",
-          "status"
+          "status",
+          "publish_status",
+          "visibility_status"
         ]
       },
       "ArticleUpdateRequest": {
@@ -10328,6 +10470,24 @@
             "type": "boolean",
             "description": "是否开启评论。",
             "nullable": true
+          },
+          "status": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ],
+            "nullable": true,
+            "description": "作者侧编辑时的目标发布动作：1=草稿，2=提交发布/提审。"
+          },
+          "visibility_status": {
+            "type": "string",
+            "enum": [
+              "visible",
+              "user_hidden"
+            ],
+            "nullable": true,
+            "description": "作者侧可见性状态。"
           }
         }
       },
@@ -10431,6 +10591,19 @@
           "is_favor": {
             "type": "boolean",
             "description": "当前登录用户是否已收藏该文章。"
+          },
+          "publish_status": {
+            "type": "integer",
+            "description": "文章发布态。"
+          },
+          "visibility_status": {
+            "type": "string",
+            "enum": [
+              "visible",
+              "user_hidden",
+              "admin_hidden"
+            ],
+            "description": "文章可见性状态。"
           }
         },
         "required": [
@@ -10456,7 +10629,9 @@
           "author_username",
           "category_name",
           "is_digg",
-          "is_favor"
+          "is_favor",
+          "publish_status",
+          "visibility_status"
         ]
       },
       "ArticleListItem": {
@@ -13958,6 +14133,119 @@
           "role",
           "status",
           "register_source"
+        ]
+      },
+      "ArticleReviewTaskItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "article_id": {
+            "type": "string"
+          },
+          "author_id": {
+            "type": "string"
+          },
+          "article_title": {
+            "type": "string"
+          },
+          "author_name": {
+            "type": "string"
+          },
+          "publish_status": {
+            "type": "integer"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "manual"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "create",
+              "edit",
+              "resubmit"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected",
+              "canceled"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reviewed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "reviewed_by": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "article_id",
+          "author_id",
+          "article_title",
+          "author_name",
+          "publish_status",
+          "stage",
+          "source",
+          "status",
+          "reason",
+          "created_at"
+        ]
+      },
+      "ArticleReviewTaskListResponseData": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "list": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArticleReviewTaskItem"
+            }
+          }
+        },
+        "required": [
+          "count",
+          "list"
+        ]
+      },
+      "ArticleReviewHandleRequest": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "enum": [
+              3,
+              4
+            ],
+            "description": "3=审核通过，4=审核驳回。"
+          },
+          "reason": {
+            "type": "string",
+            "description": "驳回原因；驳回时必填。"
+          }
+        },
+        "required": [
+          "status"
         ]
       }
     },

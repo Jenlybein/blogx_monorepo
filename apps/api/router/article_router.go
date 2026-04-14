@@ -16,8 +16,12 @@ import (
 
 func ArticleRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtime) {
 	group := r.Group("articles")
+	reviewGroup := r.Group("article-review")
+	reviewTaskGroup := r.Group("article-review-tasks")
 	authGroup := group.Group("", runtimeMw.AuthMiddleware)
 	adminGroup := authGroup.Group("", mw.AdminMiddleware)
+	reviewAdminGroup := reviewGroup.Group("", runtimeMw.AuthMiddleware, mw.AdminMiddleware)
+	reviewTaskAdminGroup := reviewTaskGroup.Group("", runtimeMw.AuthMiddleware, mw.AdminMiddleware)
 
 	app := appContainer.ArticleApi
 
@@ -28,10 +32,12 @@ func ArticleRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtim
 	authGroup.PUT(":id", mw.BindUri[models.IDRequest], mw.BindJson[article_api.ArticleUpdateRequest], app.ArticleUpdateView)
 	authGroup.DELETE(":id", mw.BindUri[models.IDRequest], app.ArticleRemoveUserView)
 	adminGroup.DELETE("", mw.CaptureLog(mw.ReqBody|mw.ReqHeader), mw.BindJson[models.IDListRequest], app.ArticleRemoveView)
+	adminGroup.POST(":id/admin/:visibility", mw.CaptureLog(mw.ReqHeader), mw.BindUri[article_api.ArticleAdminVisibilityURI], app.ArticleAdminVisibilityView)
 
 	group.POST("view", mw.BindJson[article_api.ArticleViewCountRequest], app.ArticleVisitView)
 	authGroup.PUT(":id/digg", mw.BindUri[models.IDRequest], app.ArticleDiggView)
-	adminGroup.POST(":id/examine", mw.CaptureLog(mw.ReqBody|mw.ReqHeader), mw.BindUri[models.IDRequest], mw.BindJson[article_api.ArticleExamineRequest], app.ArticleExamineView)
+	reviewAdminGroup.GET("", mw.BindQuery[article_api.ArticleReviewTaskListRequest], app.ArticleReviewTaskListView)
+	reviewTaskAdminGroup.POST(":id/review", mw.CaptureLog(mw.ReqBody|mw.ReqHeader), mw.BindUri[models.IDRequest], mw.BindJson[article_api.ArticleReviewHandleRequest], app.ArticleReviewTaskHandleView)
 
 	// 收藏
 	group.GET("favorite", mw.BindQuery[favorite.FavoriteListRequest], app.FavoriteListView)

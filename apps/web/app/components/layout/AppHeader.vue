@@ -3,6 +3,7 @@ import { computed, h, ref, watch } from "vue";
 import {
   IconHome2,
   IconLogin2,
+  IconPencilPlus,
   IconMoonStars,
   IconSearch,
   IconSunHigh,
@@ -17,6 +18,7 @@ const siteStore = useSiteStore();
 const uiStore = useUiStore();
 
 const searchKeyword = ref("");
+const authActionWidthClass = "w-[132px] md:w-[148px]";
 
 watch(
   () => route.query.key,
@@ -92,6 +94,10 @@ async function handleUserMenuSelect(key: string | number) {
           <IconSearch :size="16" />
           <span>搜索</span>
         </NuxtLink>
+        <NuxtLink to="/studio/write" class="soft-tab" :class="{ 'is-active': route.path.startsWith('/studio/write') }">
+          <IconPencilPlus :size="16" />
+          <span>创作</span>
+        </NuxtLink>
       </nav>
 
       <div class="ml-auto flex w-full items-center justify-end gap-3 md:w-auto">
@@ -114,24 +120,41 @@ async function handleUserMenuSelect(key: string | number) {
           </NInput>
         </div>
 
-        <template v-if="authStore.isLoggedIn && authStore.currentUser">
-          <NDropdown :options="userMenuOptions" @select="handleUserMenuSelect">
-            <button
-              type="button"
-              aria-label="打开个人菜单"
-              class="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/70 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-teal-200 hover:text-teal-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100"
-            >
-              <NAvatar round :size="30" :src="authStore.currentUser.avatar || undefined">
-                {{ authStore.profileName.slice(0, 1).toUpperCase() }}
-              </NAvatar>
-              <span class="hidden md:inline">{{ authStore.profileName }}</span>
-            </button>
-          </NDropdown>
-        </template>
+        <ClientOnly>
+          <template #fallback>
+            <div :class="['flex shrink-0 justify-end', authActionWidthClass]">
+              <div
+                class="h-[42px] w-full animate-pulse rounded-full border border-slate-200/70 bg-white/60 dark:border-slate-700 dark:bg-slate-900/60"
+                aria-hidden="true"
+              />
+            </div>
+          </template>
 
-        <template v-else>
-          <NButton quaternary @click="uiStore.openAuthModal()">登录 / 注册</NButton>
-        </template>
+          <div :class="['flex shrink-0 justify-end', authActionWidthClass]">
+            <div
+              v-if="(!authStore.initialized && !authStore.currentUser) || (authStore.isLoggedIn && !authStore.currentUser)"
+              class="h-[42px] w-full animate-pulse rounded-full border border-slate-200/70 bg-white/60 dark:border-slate-700 dark:bg-slate-900/60"
+              aria-hidden="true"
+            />
+
+            <NDropdown v-else-if="authStore.isLoggedIn" :options="userMenuOptions" @select="handleUserMenuSelect">
+              <button
+                type="button"
+                aria-label="打开个人菜单"
+                class="inline-flex w-full min-w-0 flex-nowrap items-center justify-center gap-2 rounded-full border border-slate-200/80 bg-white/70 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-teal-200 hover:text-teal-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100"
+              >
+                <NAvatar class="shrink-0" round :size="30" :src="authStore.currentUser?.avatar || undefined">
+                  {{ (authStore.profileName || "我").slice(0, 1).toUpperCase() }}
+                </NAvatar>
+                <span class="hidden min-w-0 max-w-[96px] truncate whitespace-nowrap leading-none md:inline">
+                  {{ authStore.profileName }}
+                </span>
+              </button>
+            </NDropdown>
+
+            <NButton v-else quaternary class="w-full" @click="uiStore.openAuthModal()">登录 / 注册</NButton>
+          </div>
+        </ClientOnly>
 
         <NButton quaternary circle aria-label="切换明暗主题" @click="uiStore.toggleTheme()">
           <template #icon>

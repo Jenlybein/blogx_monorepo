@@ -9,6 +9,7 @@ const props = defineProps<{
   isSelf?: boolean;
   relationText?: string;
   actionDisabled?: boolean;
+  actionActive?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -39,7 +40,8 @@ const emit = defineEmits<{
 
     <NButton
       v-if="!isSelf"
-      secondary
+      :type="actionActive ? 'default' : 'primary'"
+      :secondary="actionActive"
       round
       :disabled="actionDisabled"
       @click="emit('follow')"

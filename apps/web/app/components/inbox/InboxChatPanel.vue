@@ -3,6 +3,7 @@ import { IconLoader2, IconPlugConnected, IconPlugConnectedX } from "@tabler/icon
 import { NAvatar, NButton, NInput, NSpace, NTag } from "naive-ui";
 import type { ChatMessageItem, ChatSessionItem } from "~/types/api";
 import { formatDateTimeLabel } from "~/utils/format";
+import { getRelationLabel } from "~/utils/relation";
 
 defineProps<{
   sessions: ChatSessionItem[];
@@ -27,12 +28,6 @@ const emit = defineEmits<{
   reconnect: [];
 }>();
 
-function relationLabel(relation: number) {
-  if (relation === 3) return "互相关注";
-  if (relation === 2) return "对方关注";
-  if (relation === 1) return "已关注";
-  return "陌生人";
-}
 </script>
 
 <template>
@@ -85,7 +80,7 @@ function relationLabel(relation: number) {
           <div v-if="currentSession">
             <div class="flex items-center gap-2">
               <h2 class="section-title">{{ currentSession.receiver_nickname }}</h2>
-              <NTag size="small">{{ relationLabel(currentSession.relation) }}</NTag>
+              <NTag size="small">{{ getRelationLabel(currentSession.relation) }}</NTag>
             </div>
             <p class="muted mt-1">当前会话会自动拉取历史消息，并尝试连接实时推送。</p>
           </div>

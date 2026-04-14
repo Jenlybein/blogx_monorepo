@@ -6,7 +6,6 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
-	"myblogx/models/enum"
 	dbservice "myblogx/service/db_service"
 	"myblogx/service/message_service"
 	"myblogx/service/read_service"
@@ -24,8 +23,12 @@ func (h ArticleApi) ArticleFavoriteSaveView(c *gin.Context) {
 	claims := jwts.MustGetClaimsByGin(c)
 
 	var article models.ArticleModel
-	if err := app.DB.Select("id", "author_id", "title", "abstract", "cover", "status").
-		Take(&article, "id = ? and status = ?", cr.ArticleID, enum.ArticleStatusPublished).Error; err != nil {
+	if err := app.DB.Select("id", "author_id", "title", "abstract", "cover", "status", "publish_status", "visibility_status").
+		Take(&article, "id = ?", cr.ArticleID).Error; err != nil {
+		res.FailWithMsg("查询文章失败", c)
+		return
+	}
+	if !article.IsPublicVisible() {
 		res.FailWithMsg("查询文章失败", c)
 		return
 	}
@@ -140,7 +143,7 @@ func switchArticleFavorite(tx *gorm.DB, article models.ArticleModel, userID, fav
 		ArticleTitle:          article.Title,
 		ArticleAbstract:       article.Abstract,
 		ArticleCover:          article.Cover,
-		ArticleStatus:         article.Status,
+		ArticleStatus:         article.EffectivePublishStatus(),
 		ArticleAuthorID:       article.AuthorID,
 		ArticleAuthorNickname: author.Nickname,
 		ArticleAuthorAvatar:   author.Avatar,
@@ -157,7 +160,7 @@ func switchArticleFavorite(tx *gorm.DB, article models.ArticleModel, userID, fav
 			"article_title":           article.Title,
 			"article_abstract":        article.Abstract,
 			"article_cover":           article.Cover,
-			"article_status":          article.Status,
+			"article_status":          article.EffectivePublishStatus(),
 			"article_author_id":       article.AuthorID,
 			"article_author_nickname": author.Nickname,
 			"article_author_avatar":   author.Avatar,

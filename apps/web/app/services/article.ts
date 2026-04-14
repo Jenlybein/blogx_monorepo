@@ -1,4 +1,4 @@
-import type { ArticleAuthorInfo, ArticleDetail, ArticleListResponse, ArticleTopItem } from "~/types/api";
+import type { ArticleAuthorInfo, ArticleCreateResult, ArticleDetail, ArticleListResponse, ArticleTopItem, ArticleWritePayload } from "~/types/api";
 
 export function getTopArticles() {
   return useNuxtApp().$api.request<{ list: ArticleTopItem[]; count: number }>("/api/articles/top", {
@@ -58,6 +58,23 @@ export function getOwnArticles(params: {
       limit: params.limit ?? 12,
       ...(params.status ? { status: String(params.status) } : {}),
     },
+  });
+}
+
+export function createArticle(payload: ArticleWritePayload) {
+  return useNuxtApp().$api.request<ArticleCreateResult>("/api/articles", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export function updateArticle(
+  id: string | number,
+  payload: Omit<ArticleWritePayload, "status">,
+) {
+  return useNuxtApp().$api.request(`/api/articles/${id}`, {
+    method: "PUT",
+    body: payload,
   });
 }
 

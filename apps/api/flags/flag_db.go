@@ -20,6 +20,8 @@ func FlagDB(db *gorm.DB, logger *logrus.Logger) error {
 		&models.UserSessionModel{},
 		&models.UserViewDailyModel{},
 		&models.ArticleModel{},
+		&models.ArticleReviewTaskModel{},
+		&models.ArticleReviewLogModel{},
 		&models.TagModel{},
 		&models.ArticleTagModel{},
 		&models.ArticleDiggModel{},

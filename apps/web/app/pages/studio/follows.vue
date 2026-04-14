@@ -3,6 +3,7 @@ import { NButton, NList, NListItem, NThing, NTag, useMessage } from "naive-ui";
 import { unfollowUser } from "~/services/follow";
 import { getFollowUsers } from "~/services/studio";
 import { formatDateTimeLabel } from "~/utils/format";
+import { isMutualFollow } from "~/utils/relation";
 
 definePageMeta({
   layout: "studio",
@@ -40,7 +41,7 @@ useSeoMeta({
         <NListItem v-for="item in data?.list" :key="item.followed_user_id">
           <NThing :title="item.followed_nickname" :description="item.followed_abstract || '这个用户还没有填写简介。'">
             <template #header-extra>
-              <NTag size="small">{{ item.relation === 3 ? "互相关注" : "已关注" }}</NTag>
+              <NTag size="small">{{ isMutualFollow(item.relation) ? "互相关注" : "已关注" }}</NTag>
             </template>
             <template #footer>
               <div class="studio-list-meta">

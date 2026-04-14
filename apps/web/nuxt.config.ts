@@ -48,13 +48,13 @@ export default defineNuxtConfig({
   telemetry: false,
   devtools: { enabled: true },
   modules: ["@pinia/nuxt", "@vueuse/nuxt", "@nuxtjs/tailwindcss"],
-  css: ["~/assets/css/tailwind.css"],
+  css: ["~/assets/css/fonts.css", "~/assets/css/tailwind.css"],
   build: {
     transpile: ["naive-ui", "vueuc", "date-fns"],
   },
   vite: {
     optimizeDeps: {
-      include: ["@vee-validate/zod", "vee-validate", "zod"],
+      include: ["@vee-validate/zod", "vee-validate", "zod", "@tabler/icons-vue"],
     },
     ssr: {
       noExternal: ["naive-ui", "vueuc", "date-fns"],
@@ -66,14 +66,16 @@ export default defineNuxtConfig({
       apiBase: process.env.NUXT_PUBLIC_API_BASE || "/_backend",
     },
   },
-  routeRules: process.env.NODE_ENV === "production"
-    ? {
-        "/": { swr: 60 },
-        "/search": { swr: 30 },
-        "/article/**": { swr: 30 },
-        "/users/**": { swr: 30 },
-      }
-    : {},
+  routeRules: {
+    "/search": { ssr: false },
+    "/studio/**": { ssr: false },
+    ...(process.env.NODE_ENV === "production"
+      ? {
+          "/article/**": { swr: 30 },
+          "/users/**": { swr: 30 },
+        }
+      : {}),
+  },
   devServer: {
     port: 3000,
   },

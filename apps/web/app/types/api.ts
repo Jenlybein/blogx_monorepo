@@ -67,6 +67,19 @@ export interface OptionItem {
   value: string;
 }
 
+export interface AiArticleMetainfo {
+  title: string;
+  abstract: string;
+  category?: {
+    id: string;
+    title: string;
+  } | null;
+  tags: Array<{
+    id: string;
+    title: string;
+  }>;
+}
+
 export interface FavoriteFolderItem {
   id: string;
   user_id: string;
@@ -160,6 +173,26 @@ export interface ArticleTopItem {
   user_nickname: string;
   user_avatar: string;
   category_title: string;
+}
+
+export interface ArticleWritePayload {
+  title: string;
+  abstract?: string;
+  content: string;
+  category_id?: string | null;
+  tag_ids?: string[];
+  cover?: string;
+  comments_toggle?: boolean;
+  status: 1 | 2;
+}
+
+export interface ArticleCreateResult {
+  id: string;
+  title: string;
+  category_id?: string | null;
+  tag_ids?: string[];
+  comments_toggle: boolean;
+  status: number;
 }
 
 export interface ArticleDetail {
@@ -275,8 +308,14 @@ export interface UserSelfDetail {
   followers_visibility?: boolean;
   fans_visibility?: boolean;
   home_style_id?: string | null;
-  like_tags?: string | null;
+  like_tag_ids?: string[];
+  like_tag_items?: UserLikeTagItem[];
   updated_username_date?: string | null;
+}
+
+export interface UserLikeTagItem {
+  id: string;
+  title: string;
 }
 
 export interface EmailVerifyPayload {
@@ -539,6 +578,7 @@ export interface UserProfileUpdatePayload {
   nickname?: string | null;
   avatar?: string | null;
   abstract?: string | null;
+  like_tag_ids?: string[];
   like_tags?: number[];
   favorites_visibility?: boolean | null;
   followers_visibility?: boolean | null;

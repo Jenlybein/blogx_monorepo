@@ -16,7 +16,24 @@ const key = ref("");
 const sort = ref("1");
 const tagId = ref("");
 const page = ref(1);
+const totalPages = ref(1);
+const totalResults = ref(0);
 const requestError = shallowRef<unknown>(null);
+
+function parsePage(value: unknown) {
+  const parsed = typeof value === "string" && value ? Number(value) : 1;
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return 1;
+  }
+  return Math.floor(parsed);
+}
+
+const committedQuery = computed(() => ({
+  key: typeof route.query.key === "string" ? route.query.key : "",
+  sort: typeof route.query.sort === "string" ? route.query.sort : "1",
+  tagId: typeof route.query.tag_ids === "string" ? route.query.tag_ids : "",
+  page: parsePage(route.query.page),
+}));
 
 watch(
   () => route.query,
@@ -24,7 +41,7 @@ watch(
     key.value = typeof query.key === "string" ? query.key : "";
     sort.value = typeof query.sort === "string" ? query.sort : "1";
     tagId.value = typeof query.tag_ids === "string" ? query.tag_ids : "";
-    page.value = typeof query.page === "string" && query.page ? Number(query.page) : 1;
+    page.value = parsePage(query.page);
   },
   { immediate: true },
 );
@@ -41,31 +58,35 @@ function formatRequestError(error: unknown) {
 const searchPager = await usePagedResourceCache({
   cacheKey: () =>
     `search:${JSON.stringify({
-      key: key.value.trim(),
-      sort: sort.value,
-      tag_ids: tagId.value,
+      key: committedQuery.value.key.trim(),
+      sort: committedQuery.value.sort,
+      tag_ids: committedQuery.value.tagId,
     })}`,
   pageSize: () => 9,
-  initialPage: () => page.value,
+  initialPage: () => committedQuery.value.page,
   fetchPage: async (nextPage, limit) => {
     try {
       requestError.value = null;
       const payload = await searchArticles({
-        key: key.value || undefined,
+        key: committedQuery.value.key || undefined,
         type: 1,
-        sort: Number(sort.value || "1") as 1 | 2 | 3 | 4 | 5 | 6,
-        tag_ids: tagId.value || undefined,
+        sort: Number(committedQuery.value.sort || "1") as 1 | 2 | 3 | 4 | 5 | 6,
+        tag_ids: committedQuery.value.tagId || undefined,
         page: nextPage,
         limit,
-        page_mode: "has_more",
+        page_mode: "count",
       });
+      totalPages.value = Math.max(payload.pagination.total_pages ?? 1, 1);
+      totalResults.value = Math.max(payload.pagination.total ?? 0, 0);
 
       return {
         items: payload.list,
-        hasMore: payload.pagination.has_more,
+        hasMore: nextPage < Math.max(payload.pagination.total_pages ?? 1, 1),
       };
     } catch (error) {
       requestError.value = error;
+      totalPages.value = 1;
+      totalResults.value = 0;
       console.error(`[search-articles] request failed: ${formatRequestError(error)}`);
       return {
         items: [],
@@ -104,6 +125,7 @@ const articles = computed(() => searchPager.currentItems.value);
 const pending = computed(() => searchPager.pending.value);
 const cachedPageCount = computed(() => Object.keys(searchPager.pages.value).length);
 const currentSearchPage = computed(() => searchPager.currentPage.value);
+const showPager = computed(() => totalResults.value > 0 || currentSearchPage.value > 1);
 
 function handleReset() {
   key.value = "";
@@ -136,11 +158,32 @@ function buildQuery(targetPage = 1) {
 }
 
 function handlePageChange(nextPage: number) {
+  const targetPage = Math.min(Math.max(nextPage, 1), Math.max(totalPages.value, 1));
   router.push({
     path: "/search",
-    query: buildQuery(nextPage),
+    query: buildQuery(targetPage),
   });
 }
+
+watch(
+  [currentSearchPage, totalPages, pending],
+  async ([current, total, isPending]) => {
+    if (isPending) {
+      return;
+    }
+
+    const safeTotalPages = Math.max(total, 1);
+    if (current <= safeTotalPages) {
+      return;
+    }
+
+    await router.replace({
+      path: "/search",
+      query: buildQuery(safeTotalPages),
+    });
+  },
+  { flush: "post" },
+);
 </script>
 
 <template>
@@ -192,7 +235,10 @@ function handlePageChange(nextPage: number) {
     <section class="surface-card p-5 md:p-6">
       <div class="mb-5 flex items-center justify-between">
         <div class="section-title">搜索结果</div>
-        <div class="text-sm muted">每页 9 篇，当前第 {{ currentSearchPage }} 页，本次已缓存 {{ cachedPageCount }} 页。</div>
+        <div class="text-sm muted">
+          共 {{ totalResults }} 条结果，每页 9 篇，当前第 {{ currentSearchPage }} / {{ Math.max(totalPages, 1) }} 页，本次已缓存
+          {{ cachedPageCount }} 页。
+        </div>
       </div>
 
       <div v-if="articles.length" class="space-y-4">
@@ -214,10 +260,7 @@ function handlePageChange(nextPage: number) {
         }}
       </div>
 
-      <div
-        v-if="articles.length"
-        class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/60 pt-5 text-sm muted"
-      >
+      <div v-if="showPager" class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/60 pt-5 text-sm muted">
         <span>未刷新前，已访问页会直接复用缓存。</span>
         <div class="flex items-center gap-3">
           <NButton quaternary :disabled="!searchPager.hasPreviousPage" @click="handlePageChange(currentSearchPage - 1)">
@@ -226,7 +269,7 @@ function handlePageChange(nextPage: number) {
           <NButton
             type="primary"
             ghost
-            :disabled="!searchPager.hasNextPage"
+            :disabled="!searchPager.hasNextPage || currentSearchPage >= totalPages"
             :loading="pending"
             @click="handlePageChange(currentSearchPage + 1)"
           >

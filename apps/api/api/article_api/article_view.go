@@ -29,12 +29,14 @@ func (h ArticleApi) ArticleVisitView(c *gin.Context) {
 	redisDeps := redis_service.NewDeps(h.App.Redis, h.App.Logger)
 
 	var articleMeta struct {
-		ID       ctype.ID
-		AuthorID ctype.ID
-		Status   enum.ArticleStatus
+		ID               ctype.ID
+		AuthorID         ctype.ID
+		Status           enum.ArticleStatus
+		PublishStatus    enum.ArticleStatus
+		VisibilityStatus enum.ArticleVisibilityStatus
 	}
 	if err := h.App.DB.Model(&models.ArticleModel{}).
-		Select("id", "author_id", "status").
+		Select("id", "author_id", "status", "publish_status", "visibility_status").
 		Take(&articleMeta, "id = ?", cr.ArticleID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			res.FailWithMsg("文章不存在", c)
@@ -44,7 +46,12 @@ func (h ArticleApi) ArticleVisitView(c *gin.Context) {
 		res.FailWithMsg("服务器内部错误", c)
 		return
 	}
-	if articleMeta.Status != enum.ArticleStatusPublished {
+	articleVisible := models.ArticleModel{
+		Status:           articleMeta.Status,
+		PublishStatus:    articleMeta.PublishStatus,
+		VisibilityStatus: articleMeta.VisibilityStatus,
+	}
+	if !articleVisible.IsPublicVisible() {
 		res.FailWithMsg("文章不存在或未发布", c)
 		return
 	}

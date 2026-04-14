@@ -47,6 +47,8 @@ func (h ArticleApi) ArticleCreateView(c *gin.Context) {
 		TagIDs:         append([]ctype.ID(nil), tagIDs...),
 		CommentsToggle: article.CommentsToggle,
 		Status:         article.Status,
+		PublishStatus:  article.EffectivePublishStatus(),
+		VisibilityStatus: article.EffectiveVisibilityStatus(),
 	}, c)
 
 	middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{

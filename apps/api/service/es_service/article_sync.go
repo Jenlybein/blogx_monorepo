@@ -77,6 +77,8 @@ type ArticleRowSnapshot struct {
 	FavorCount     int
 	CommentsToggle bool
 	Status         enum.ArticleStatus
+	PublishStatus  enum.ArticleStatus
+	VisibilityStatus enum.ArticleVisibilityStatus
 }
 
 type articleProjectionDeps struct {
@@ -233,6 +235,14 @@ func UpdateESDocsByArticleDeltas(db *gorm.DB, client *elasticsearch.Client, delt
 				if value, ok := scanIntValue(raw); ok {
 					data["status"] = enum.ArticleStatus(value)
 				}
+			case "publish_status":
+				if value, ok := scanIntValue(raw); ok {
+					data["publish_status"] = enum.ArticleStatus(value)
+				}
+			case "visibility_status":
+				if value, ok := scanStringValue(raw); ok {
+					data["visibility_status"] = enum.ArticleVisibilityStatus(value)
+				}
 			}
 		}
 
@@ -285,6 +295,8 @@ func BuildArticleESDocument(article models.ArticleModel, adminTop, authorTop boo
 		FavorCount:     article.FavorCount,
 		CommentsToggle: article.CommentsToggle,
 		Status:         article.Status,
+		PublishStatus:  article.EffectivePublishStatus(),
+		VisibilityStatus: article.EffectiveVisibilityStatus(),
 	}
 
 	deps := articleProjectionDeps{
@@ -348,6 +360,8 @@ func buildArticleESDocumentFromSnapshot(snapshot ArticleRowSnapshot, deps articl
 		"comment_count":   snapshot.CommentCount,
 		"favor_count":     snapshot.FavorCount,
 		"status":          snapshot.Status,
+		"publish_status":  snapshot.PublishStatus,
+		"visibility_status": snapshot.VisibilityStatus,
 		"comments_toggle": snapshot.CommentsToggle,
 		"tags":            tags,
 		"top": map[string]any{
@@ -562,6 +576,8 @@ func UpdateESDocsContent(db *gorm.DB, client *elasticsearch.Client, articleIDs [
 					}(),
 				},
 				"status":          article.Status,
+				"publish_status":  article.EffectivePublishStatus(),
+				"visibility_status": article.EffectiveVisibilityStatus(),
 				"comments_toggle": article.CommentsToggle,
 			},
 		})
@@ -1171,6 +1187,8 @@ func loadArticleSnapshotsByIDs(db *gorm.DB, articleIDs []ctype.ID) ([]ArticleRow
 		"comment_count",
 		"favor_count",
 		"status",
+		"publish_status",
+		"visibility_status",
 		"comments_toggle",
 	).
 		Where("id IN ?", articleIDs).
@@ -1307,6 +1325,8 @@ func loadArticlesForESContentUpdate(db *gorm.DB, articleIDs []ctype.ID) ([]model
 		"cover",
 		"author_id",
 		"status",
+		"publish_status",
+		"visibility_status",
 		"comments_toggle",
 	).
 		Where("id IN ?", articleIDs).

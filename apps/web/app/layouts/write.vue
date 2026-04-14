@@ -1,9 +1,6 @@
 <template>
-  <div class="min-h-screen">
-    <AppHeader />
-    <main class="page-shell">
-      <slot />
-    </main>
+  <div class="min-h-screen bg-[linear-gradient(180deg,#fefcf8_0%,#f7fbff_100%)] text-slate-900">
+    <slot />
     <AuthModal />
   </div>
 </template>

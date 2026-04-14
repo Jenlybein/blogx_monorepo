@@ -1,6 +1,7 @@
 package article_api
 
 import (
+	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
 	"time"
@@ -15,6 +16,7 @@ type ArticleCreateRequest struct {
 	Cover          string             `json:"cover"`
 	CommentsToggle bool               `json:"comments_toggle"`
 	Status         enum.ArticleStatus `json:"status" binding:"required,oneof=1 2"`
+	VisibilityStatus enum.ArticleVisibilityStatus `json:"visibility_status" binding:"omitempty,oneof=visible user_hidden"`
 }
 
 type ArticleCreateResponse struct {
@@ -24,6 +26,8 @@ type ArticleCreateResponse struct {
 	TagIDs         []ctype.ID         `json:"tag_ids"`
 	CommentsToggle bool               `json:"comments_toggle"`
 	Status         enum.ArticleStatus `json:"status"`
+	PublishStatus  enum.ArticleStatus `json:"publish_status"`
+	VisibilityStatus enum.ArticleVisibilityStatus `json:"visibility_status"`
 }
 
 type ArticleDetailResponse struct {
@@ -40,6 +44,8 @@ type ArticleDetailResponse struct {
 	FavorCount      int                `json:"favor_count"`
 	CommentsToggle  bool               `json:"comments_toggle"`
 	Status          enum.ArticleStatus `json:"status"`
+	PublishStatus   enum.ArticleStatus `json:"publish_status"`
+	VisibilityStatus enum.ArticleVisibilityStatus `json:"visibility_status"`
 	Tags            []string           `json:"tags"`
 	AuthorID        ctype.ID           `json:"author_id"`
 	AuthorAvatar    string             `json:"author_avatar"`
@@ -70,6 +76,45 @@ type ArticleUpdateRequest struct {
 	TagIDs         *[]ctype.ID `json:"tag_ids"`
 	Cover          *string     `json:"cover"`
 	CommentsToggle *bool       `json:"comments_toggle"`
+	Status         *enum.ArticleStatus `json:"status" binding:"omitempty,oneof=1 2"`
+	VisibilityStatus *enum.ArticleVisibilityStatus `json:"visibility_status" binding:"omitempty,oneof=visible user_hidden"`
+}
+
+type ArticleReviewTaskListRequest struct {
+	Page  int                         `form:"page"`
+	Limit int                         `form:"limit"`
+	Status models.ArticleReviewTaskStatus `form:"status"`
+}
+
+type ArticleReviewTaskItem struct {
+	ID            ctype.ID                     `json:"id"`
+	ArticleID     ctype.ID                     `json:"article_id"`
+	AuthorID      ctype.ID                     `json:"author_id"`
+	ArticleTitle  string                       `json:"article_title"`
+	AuthorName    string                       `json:"author_name"`
+	PublishStatus enum.ArticleStatus           `json:"publish_status"`
+	Stage         models.ArticleReviewTaskStage `json:"stage"`
+	Source        models.ArticleReviewTaskSource `json:"source"`
+	Status        models.ArticleReviewTaskStatus `json:"status"`
+	Reason        string                       `json:"reason"`
+	CreatedAt     time.Time                    `json:"created_at"`
+	ReviewedAt    *time.Time                   `json:"reviewed_at"`
+	ReviewedBy    *ctype.ID                    `json:"reviewed_by"`
+}
+
+type ArticleReviewTaskListResponse struct {
+	Count int64                   `json:"count"`
+	List  []ArticleReviewTaskItem `json:"list"`
+}
+
+type ArticleReviewHandleRequest struct {
+	Status enum.ArticleStatus `json:"status" binding:"required,oneof=3 4"`
+	Reason string             `json:"reason"`
+}
+
+type ArticleAdminVisibilityURI struct {
+	ID         ctype.ID `uri:"id" binding:"required"`
+	Visibility string   `uri:"visibility" binding:"required,oneof=hide show"`
 }
 
 type ArticleViewCountRequest struct {

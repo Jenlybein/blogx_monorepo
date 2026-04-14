@@ -3,6 +3,7 @@ import { NButton, NList, NListItem, NThing, NTag, useMessage } from "naive-ui";
 import { followUser, unfollowUser } from "~/services/follow";
 import { getFanUsers } from "~/services/studio";
 import { formatDateTimeLabel } from "~/utils/format";
+import { isFollowing, isMutualFollow } from "~/utils/relation";
 
 definePageMeta({
   layout: "studio",
@@ -14,7 +15,7 @@ const { data, pending, refresh } = await useAsyncData("studio-fans", () => getFa
 
 async function toggleFollow(id: string, relation: number) {
   try {
-    if (relation === 1 || relation === 3) {
+    if (isFollowing(relation)) {
       await unfollowUser(id);
       message.success("已取消回关");
     } else {
@@ -45,7 +46,7 @@ useSeoMeta({
         <NListItem v-for="item in data?.list" :key="item.fans_user_id">
           <NThing :title="item.fans_nickname" :description="item.fans_abstract || '这个用户还没有填写简介。'">
             <template #header-extra>
-              <NTag size="small">{{ item.relation === 3 ? "互相关注" : "关注了你" }}</NTag>
+              <NTag size="small">{{ isMutualFollow(item.relation) ? "互相关注" : "关注了你" }}</NTag>
             </template>
             <template #footer>
               <div class="studio-list-meta">
@@ -57,7 +58,7 @@ useSeoMeta({
             <div class="flex flex-wrap gap-2">
               <NuxtLink :to="`/users/${item.fans_user_id}`" class="glass-badge">查看主页</NuxtLink>
               <NButton quaternary size="small" @click="toggleFollow(item.fans_user_id, item.relation)">
-                {{ item.relation === 3 ? "取消回关" : "回关" }}
+                {{ isMutualFollow(item.relation) ? "取消回关" : "回关" }}
               </NButton>
             </div>
           </template>

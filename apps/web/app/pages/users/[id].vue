@@ -9,6 +9,7 @@ import { getPublicFavoriteFolders, getOwnFavoriteFolders, getFavoriteFolderArtic
 import { getFansList, getFollowList, followUser, unfollowUser } from "~/services/follow";
 import { getUserBaseInfo } from "~/services/user";
 import { formatCount } from "~/utils/format";
+import { getAuthorButtonLabel, getRelationLabel, isFollowing } from "~/utils/relation";
 
 type UserTab = "articles" | "favorites" | "follow" | "fans";
 const USER_TABS: UserTab[] = ["articles", "favorites", "follow", "fans"];
@@ -83,18 +84,7 @@ const { data: profile, refresh: refreshProfile } = await useAsyncData(
 );
 
 const isSelf = computed(() => authStore.profileId != null && String(authStore.profileId) === profile.value?.id);
-const relationText = computed(() => {
-  switch (profile.value?.relation) {
-    case 1:
-      return "已关注";
-    case 2:
-      return "对方关注了你";
-    case 3:
-      return "互相关注";
-    default:
-      return "关注作者";
-  }
-});
+const relationText = computed(() => getAuthorButtonLabel(profile.value?.relation));
 
 const articleQuery = computed(() => ({
   type: 3 as const,
@@ -221,7 +211,7 @@ async function handleFollow() {
   }
 
   try {
-    if (profile.value.relation === 1 || profile.value.relation === 3) {
+    if (isFollowing(profile.value.relation)) {
       await unfollowUser(profile.value.id);
       message.success("已取消关注");
     } else {
@@ -241,7 +231,7 @@ async function handleRelationToggle(targetId: string, relation: number) {
   }
 
   try {
-    if (relation === 1 || relation === 3) {
+    if (isFollowing(relation)) {
       await unfollowUser(targetId);
       message.success("已取消关注");
     } else {
@@ -277,6 +267,7 @@ useSeoMeta({
           :is-self="isSelf"
           :relation-text="relationText"
           :action-disabled="profileLoadFailed"
+          :action-active="isFollowing(profile?.relation)"
           @follow="handleFollow"
         />
 

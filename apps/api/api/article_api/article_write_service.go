@@ -2,6 +2,7 @@ package article_api
 
 import (
 	"errors"
+	"time"
 
 	"myblogx/models"
 	"myblogx/models/ctype"
@@ -70,6 +71,14 @@ func (h *articleWriteService) CreateArticle(claims *jwts.MyClaims, cr ArticleCre
 		cr.Abstract = markdown.ExtractText(textContent, 200)
 	}
 
+	publishStatus := resolvePublishStatus(cr.Status, runtimeSite.Article.SkipExamining)
+	visibilityStatus := normalizeArticleVisibilityStatus(cr.VisibilityStatus)
+	var submittedAt *time.Time
+	if publishStatus == enum.ArticleStatusExamining || publishStatus == enum.ArticleStatusPublished && cr.Status == enum.ArticleStatusExamining {
+		now := time.Now()
+		submittedAt = &now
+	}
+
 	article := &models.ArticleModel{
 		AuthorID:       claims.UserID,
 		Title:          cr.Title,
@@ -78,11 +87,10 @@ func (h *articleWriteService) CreateArticle(claims *jwts.MyClaims, cr ArticleCre
 		CategoryID:     cr.CategoryID,
 		Cover:          cr.Cover,
 		CommentsToggle: cr.CommentsToggle,
-		Status:         cr.Status,
-	}
-
-	if runtimeSite.Article.SkipExamining && cr.Status == enum.ArticleStatusExamining {
-		article.Status = enum.ArticleStatusPublished
+		Status:         publishStatus,
+		PublishStatus:  publishStatus,
+		VisibilityStatus: visibilityStatus,
+		SubmittedAt:    submittedAt,
 	}
 
 	tagIDs := extractTagIDs(tagList)
@@ -92,6 +100,11 @@ func (h *articleWriteService) CreateArticle(claims *jwts.MyClaims, cr ArticleCre
 		}
 		if err := syncArticleTags(tx, article.ID, tagIDs); err != nil {
 			return err
+		}
+		if article.PublishStatus == enum.ArticleStatusExamining {
+			if _, err := createReviewTask(tx, *article, models.ArticleReviewTaskSourceCreate, claims.UserID); err != nil {
+				return err
+			}
 		}
 		return user_service.StatApplyArticleDelta(tx, article.AuthorID, 1, 0)
 	}); err != nil {
@@ -147,6 +160,9 @@ func (h *articleWriteService) UpdateArticle(articleID ctype.ID, claims *jwts.MyC
 	if cr.CommentsToggle != nil {
 		updateMap["comments_toggle"] = *cr.CommentsToggle
 	}
+	if cr.VisibilityStatus != nil {
+		updateMap["visibility_status"] = normalizeArticleVisibilityStatus(*cr.VisibilityStatus)
+	}
 
 	result := articleUpdateResult{
 		UpdateMap:  updateMap,
@@ -176,8 +192,37 @@ func (h *articleWriteService) UpdateArticle(articleID ctype.ID, claims *jwts.MyC
 	if h.RuntimeSite == nil {
 		return nil, articleUpdateResult{}, errors.New("运行时配置服务未初始化")
 	}
-	if !h.RuntimeSite.GetRuntimeArticle().SkipExamining && article.Status == enum.ArticleStatusPublished {
-		updateMap["status"] = enum.ArticleStatusExamining
+	nextPublishStatus := article.EffectivePublishStatus()
+	submitRequested := cr.Status != nil && *cr.Status == enum.ArticleStatusExamining
+	draftRequested := cr.Status != nil && *cr.Status == enum.ArticleStatusDraft
+	shouldReSubmitAfterEdit := !h.RuntimeSite.GetRuntimeArticle().SkipExamining &&
+		(cr.Content != nil || cr.Title != nil || cr.Abstract != nil || cr.CategoryID != nil || cr.TagIDs != nil || cr.Cover != nil || cr.CommentsToggle != nil) &&
+		(article.EffectivePublishStatus() == enum.ArticleStatusPublished || article.EffectivePublishStatus() == enum.ArticleStatusExamining)
+
+	switch {
+	case draftRequested:
+		nextPublishStatus = enum.ArticleStatusDraft
+		updateMap["status"] = nextPublishStatus
+		updateMap["publish_status"] = nextPublishStatus
+		updateMap["submitted_at"] = nil
+		updateMap["reviewed_at"] = nil
+		updateMap["reviewed_by"] = nil
+	case submitRequested:
+		nextPublishStatus = resolvePublishStatus(enum.ArticleStatusExamining, h.RuntimeSite.GetRuntimeArticle().SkipExamining)
+		updateMap["status"] = nextPublishStatus
+		updateMap["publish_status"] = nextPublishStatus
+		now := time.Now()
+		updateMap["submitted_at"] = &now
+		updateMap["reviewed_at"] = nil
+		updateMap["reviewed_by"] = nil
+	case shouldReSubmitAfterEdit:
+		nextPublishStatus = enum.ArticleStatusExamining
+		updateMap["status"] = nextPublishStatus
+		updateMap["publish_status"] = nextPublishStatus
+		now := time.Now()
+		updateMap["submitted_at"] = &now
+		updateMap["reviewed_at"] = nil
+		updateMap["reviewed_by"] = nil
 	}
 
 	if err := h.DB.Transaction(func(tx *gorm.DB) error {
@@ -187,7 +232,28 @@ func (h *articleWriteService) UpdateArticle(articleID ctype.ID, claims *jwts.MyC
 			}
 		}
 		if result.TagChanged {
-			return syncArticleTags(tx, article.ID, result.NewTagIDs)
+			if err := syncArticleTags(tx, article.ID, result.NewTagIDs); err != nil {
+				return err
+			}
+		}
+		if nextPublishStatus == enum.ArticleStatusDraft {
+			if err := cancelPendingReviewTasks(tx, article.ID, claims.UserID, "作者改回草稿"); err != nil {
+				return err
+			}
+		}
+		if nextPublishStatus == enum.ArticleStatusExamining {
+			reason := "作者重新提交审核"
+			if submitRequested && article.EffectivePublishStatus() == enum.ArticleStatusDraft {
+				reason = "作者提交审核"
+			}
+			if err := cancelPendingReviewTasks(tx, article.ID, claims.UserID, reason); err != nil {
+				return err
+			}
+			updatedArticle := article
+			updatedArticle.PublishStatus = nextPublishStatus
+			if _, err := createReviewTask(tx, updatedArticle, models.ArticleReviewTaskSourceEdit, claims.UserID); err != nil {
+				return err
+			}
 		}
 		return nil
 	}); err != nil {

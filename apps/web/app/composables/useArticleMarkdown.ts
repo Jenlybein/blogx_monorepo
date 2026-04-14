@@ -78,7 +78,7 @@ function renderArticleMarkdown(source: string): RenderedArticleMarkdown {
     const id = createHeadingId(title, headingSerial, usedIds);
     token.attrSet("id", id);
 
-    if (level >= 2 && level <= 4) {
+    if (level >= 1 && level <= 4) {
       headings.push({
         id,
         href: `#${id}`,

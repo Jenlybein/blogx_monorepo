@@ -22,13 +22,69 @@ func idTermsValues(ids []ctype.ID) []string {
 func buildDefaultArticleSearchQuery(key string) map[string]any {
 	return buildArticleSearchQuery(key, map[string]any{
 		"filter": []any{
-			map[string]any{
-				"term": map[string]any{
-					"status": enum.ArticleStatusPublished,
-				},
-			},
+			buildPublishedArticleFilter(),
+			buildVisibleArticleFilter(),
 		},
 	})
+}
+
+func buildPublishedArticleFilter() map[string]any {
+	return map[string]any{
+		"bool": map[string]any{
+			"should": []any{
+				map[string]any{
+					"term": map[string]any{
+						"publish_status": enum.ArticleStatusPublished,
+					},
+				},
+				map[string]any{
+					"bool": map[string]any{
+						"must": []any{
+							map[string]any{
+								"term": map[string]any{
+									"status": enum.ArticleStatusPublished,
+								},
+							},
+						},
+						"must_not": []any{
+							map[string]any{
+								"exists": map[string]any{
+									"field": "publish_status",
+								},
+							},
+						},
+					},
+				},
+			},
+			"minimum_should_match": 1,
+		},
+	}
+}
+
+func buildVisibleArticleFilter() map[string]any {
+	return map[string]any{
+		"bool": map[string]any{
+			"should": []any{
+				map[string]any{
+					"term": map[string]any{
+						"visibility_status": enum.ArticleVisibilityVisible,
+					},
+				},
+				map[string]any{
+					"bool": map[string]any{
+						"must_not": []any{
+							map[string]any{
+								"exists": map[string]any{
+									"field": "visibility_status",
+								},
+							},
+						},
+					},
+				},
+			},
+			"minimum_should_match": 1,
+		},
+	}
 }
 
 // buildSelfArticleSearchQuery 构建“我的文章”搜索查询。
@@ -305,6 +361,8 @@ func buildArticleSearchExtraBody(sortField, key string) map[string]any {
 		"favor_count",
 		"comments_toggle",
 		"status",
+		"publish_status",
+		"visibility_status",
 		"tags",
 		"author_id",
 		"author",

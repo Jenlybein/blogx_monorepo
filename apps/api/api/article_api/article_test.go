@@ -61,6 +61,8 @@ func setupArticleEnv(t *testing.T) *models.UserModel {
 		&models.RuntimeSiteConfigModel{},
 		&models.CategoryModel{},
 		&models.ArticleModel{},
+		&models.ArticleReviewTaskModel{},
+		&models.ArticleReviewLogModel{},
 		&models.TagModel{},
 		&models.ArticleTagModel{},
 		&models.ArticleDiggModel{},
@@ -137,7 +139,7 @@ func waitArticleMessageCount(t *testing.T, want int) []models.ArticleMessageMode
 	return nil
 }
 
-func TestArticleCreateUpdateExamineAndRemove(t *testing.T) {
+func TestArticleCreateUpdateReviewAndRemove(t *testing.T) {
 	user := setupArticleEnv(t)
 	db := testutil.DB()
 
@@ -224,13 +226,20 @@ func TestArticleCreateUpdateExamineAndRemove(t *testing.T) {
 		t.Fatalf("更新文章后标签关系未正确写入: %+v", created.Tags)
 	}
 
+	var task models.ArticleReviewTaskModel
+	if err := db.Order("id desc").Take(&task, "article_id = ?", created.ID).Error; err != nil {
+		t.Fatalf("查询审核任务失败: %v", err)
+	}
+
+	admin := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: enum.RoleAdmin, Username: "admin"}}
 	{
 		c, w := newCtx()
-		c.Set("requestUri", models.IDRequest{ID: created.ID})
-		c.Set("requestJson", ArticleExamineRequest{Status: enum.ArticleStatusPublished})
-		api.ArticleExamineView(c)
+		c.Set("claims", admin)
+		c.Set("requestUri", models.IDRequest{ID: task.ID})
+		c.Set("requestJson", ArticleReviewHandleRequest{Status: enum.ArticleStatusPublished})
+		api.ArticleReviewTaskHandleView(c)
 		if code := readCode(t, w); code != 0 {
-			t.Fatalf("审核文章失败, code=%d body=%s", code, w.Body.String())
+			t.Fatalf("处理审核任务失败, code=%d body=%s", code, w.Body.String())
 		}
 	}
 
@@ -241,7 +250,7 @@ func TestArticleCreateUpdateExamineAndRemove(t *testing.T) {
 	if messages[0].ReceiverID != user.ID {
 		t.Fatalf("文章审核消息接收者错误: %+v", messages[0])
 	}
-	if messages[0].Content != fmt.Sprintf("您的文章《%s》审核通过!", "t1-updated") {
+	if messages[0].Content != fmt.Sprintf("您的文章《%s》审核通过！", "t1-updated") {
 		t.Fatalf("文章审核消息内容错误: %+v", messages[0])
 	}
 	if messages[0].LinkHerf != fmt.Sprintf("/article/%d", created.ID) {
@@ -582,5 +591,55 @@ func TestArticleAuthorInfoView(t *testing.T) {
 	}
 	if int(data["article_count"].(float64)) != 3 || int(data["article_visited_count"].(float64)) != 17 || int(data["fans_count"].(float64)) != 8 {
 		t.Fatalf("作者统计返回异常: body=%s", w.Body.String())
+	}
+}
+
+func TestArticleAdminVisibilityView(t *testing.T) {
+	user := setupArticleEnv(t)
+	db := testutil.DB()
+	api := setupArticleAPI(t)
+
+	article := models.ArticleModel{
+		Title:            "visible article",
+		Content:          "content",
+		AuthorID:         user.ID,
+		Status:           enum.ArticleStatusPublished,
+		PublishStatus:    enum.ArticleStatusPublished,
+		VisibilityStatus: enum.ArticleVisibilityVisible,
+	}
+	if err := db.Create(&article).Error; err != nil {
+		t.Fatalf("创建文章失败: %v", err)
+	}
+
+	{
+		c, w := newCtx()
+		c.Set("requestUri", ArticleAdminVisibilityURI{ID: article.ID, Visibility: "hide"})
+		api.ArticleAdminVisibilityView(c)
+		if code := readCode(t, w); code != 0 {
+			t.Fatalf("管理员隐藏文章失败, code=%d body=%s", code, w.Body.String())
+		}
+	}
+
+	if err := db.Take(&article, article.ID).Error; err != nil {
+		t.Fatalf("回查隐藏后的文章失败: %v", err)
+	}
+	if article.EffectiveVisibilityStatus() != enum.ArticleVisibilityAdminHidden {
+		t.Fatalf("隐藏后可见性状态异常: %+v", article)
+	}
+
+	{
+		c, w := newCtx()
+		c.Set("requestUri", ArticleAdminVisibilityURI{ID: article.ID, Visibility: "show"})
+		api.ArticleAdminVisibilityView(c)
+		if code := readCode(t, w); code != 0 {
+			t.Fatalf("管理员恢复文章失败, code=%d body=%s", code, w.Body.String())
+		}
+	}
+
+	if err := db.Take(&article, article.ID).Error; err != nil {
+		t.Fatalf("回查恢复后的文章失败: %v", err)
+	}
+	if article.EffectiveVisibilityStatus() != enum.ArticleVisibilityVisible {
+		t.Fatalf("恢复后可见性状态异常: %+v", article)
 	}
 }

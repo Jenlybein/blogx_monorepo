@@ -2,6 +2,7 @@
 import { NAvatar, NButton, NTag } from "naive-ui";
 import type { FanUserItem, FollowUserItem } from "~/types/api";
 import { formatDateTimeLabel } from "~/utils/format";
+import { getRelationActionLabel, getRelationLabel } from "~/utils/relation";
 
 type RelationRow = {
   id: string;
@@ -47,12 +48,6 @@ const normalizedItems = computed<RelationRow[]>(() =>
   ),
 );
 
-function relationLabel(relation: number) {
-  if (relation === 3) return "互相关注";
-  if (relation === 2) return "对方关注";
-  if (relation === 1) return "已关注";
-  return "未关注";
-}
 </script>
 
 <template>
@@ -72,7 +67,7 @@ function relationLabel(relation: number) {
             <NuxtLink :to="`/users/${item.id}`" class="text-lg font-semibold">
               {{ item.nickname }}
             </NuxtLink>
-            <NTag size="small">{{ relationLabel(item.relation) }}</NTag>
+            <NTag size="small">{{ getRelationLabel(item.relation) }}</NTag>
           </div>
           <p class="mt-2 break-words text-sm leading-7 muted">{{ item.abstract || "这个用户还没有填写简介。" }}</p>
           <p class="mt-2 text-xs muted">{{ formatDateTimeLabel(item.time) }}</p>
@@ -82,7 +77,7 @@ function relationLabel(relation: number) {
       <div class="flex flex-wrap gap-2">
         <NuxtLink :to="`/users/${item.id}`" class="glass-badge">查看主页</NuxtLink>
         <NButton quaternary size="small" @click="emit('toggleFollow', item.id, item.relation)">
-          {{ item.relation === 1 || item.relation === 3 ? "取消关注" : "回关" }}
+          {{ getRelationActionLabel(item.relation) }}
         </NButton>
       </div>
     </article>

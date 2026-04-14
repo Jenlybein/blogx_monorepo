@@ -3,20 +3,103 @@ import { getSelfUserDetail } from "~/services/user";
 import type { UserSelfDetail } from "~/types/api";
 
 export const useAuthStore = defineStore("auth", () => {
-  const accessToken = shallowRef("");
+  const tokenStorageKey = "blogx_access_token";
+  const profileStorageKey = "blogx_profile_snapshot";
+  function isValidUserSnapshot(input: unknown): input is UserSelfDetail {
+    if (!input || typeof input !== "object") {
+      return false;
+    }
+
+    const candidate = input as Partial<UserSelfDetail>;
+    return typeof candidate.id === "string" && (typeof candidate.nickname === "string" || typeof candidate.username === "string");
+  }
+
+  const initialToken = import.meta.client ? localStorage.getItem(tokenStorageKey) || "" : "";
+  const initialProfile = (() => {
+    if (!import.meta.client) {
+      return null;
+    }
+
+    const raw = localStorage.getItem(profileStorageKey);
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (isValidUserSnapshot(parsed)) {
+        return parsed;
+      }
+      localStorage.removeItem(profileStorageKey);
+      return null;
+    } catch {
+      localStorage.removeItem(profileStorageKey);
+      return null;
+    }
+  })();
+
+  const accessToken = shallowRef(initialToken);
   const initialized = shallowRef(false);
   const pending = shallowRef(false);
-  const currentUser = ref<UserSelfDetail | null>(null);
+  const currentUser = ref<UserSelfDetail | null>(initialProfile);
   let initPromise: Promise<boolean> | null = null;
   let refreshPromise: Promise<boolean> | null = null;
 
+  function persistCurrentUser(user: UserSelfDetail | null) {
+    if (!import.meta.client) {
+      return;
+    }
+
+    if (user) {
+      localStorage.setItem(profileStorageKey, JSON.stringify(user));
+      return;
+    }
+
+    localStorage.removeItem(profileStorageKey);
+  }
+
+  function restoreCachedProfile() {
+    if (!import.meta.client) {
+      return null;
+    }
+
+    const raw = localStorage.getItem(profileStorageKey);
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (!isValidUserSnapshot(parsed)) {
+        localStorage.removeItem(profileStorageKey);
+        return null;
+      }
+      currentUser.value = parsed;
+      return parsed;
+    } catch {
+      localStorage.removeItem(profileStorageKey);
+      return null;
+    }
+  }
+
   function setAccessToken(token: string) {
     accessToken.value = token;
+    if (import.meta.client) {
+      if (token) {
+        localStorage.setItem(tokenStorageKey, token);
+      } else {
+        localStorage.removeItem(tokenStorageKey);
+      }
+    }
   }
 
   function clearSession() {
     accessToken.value = "";
     currentUser.value = null;
+    if (import.meta.client) {
+      localStorage.removeItem(tokenStorageKey);
+      localStorage.removeItem(profileStorageKey);
+    }
     useMessageStore().clear();
     useChatStore().resetSocketState();
   }
@@ -29,9 +112,9 @@ export const useAuthStore = defineStore("auth", () => {
 
     try {
       currentUser.value = await getSelfUserDetail();
+      persistCurrentUser(currentUser.value);
       return currentUser.value;
     } catch {
-      currentUser.value = null;
       return null;
     }
   }
@@ -76,10 +159,32 @@ export const useAuthStore = defineStore("auth", () => {
     if (initPromise) return initPromise;
 
     initPromise = (async () => {
-      const restored = await refreshSession();
+      if (import.meta.client) {
+        if (!accessToken.value) {
+          const cached = localStorage.getItem(tokenStorageKey) || "";
+          if (cached) {
+            setAccessToken(cached);
+          }
+        }
+        if (accessToken.value && !currentUser.value) {
+          restoreCachedProfile();
+        }
+      }
+
+      if (!accessToken.value) {
+        initialized.value = true;
+        initPromise = null;
+        return false;
+      }
+
+      const restored = await fetchCurrentUser();
+      if (!restored) {
+        clearSession();
+      }
+
       initialized.value = true;
       initPromise = null;
-      return restored;
+      return !!restored;
     })();
 
     return initPromise;
@@ -140,7 +245,12 @@ export const useAuthStore = defineStore("auth", () => {
 
   const isLoggedIn = computed(() => !!accessToken.value);
   const profileId = computed(() => currentUser.value?.id ?? null);
-  const profileName = computed(() => currentUser.value?.nickname || currentUser.value?.username || "未登录");
+  const profileName = computed(() => {
+    if (!currentUser.value) {
+      return "未登录";
+    }
+    return currentUser.value.nickname || currentUser.value.username || "";
+  });
 
   return {
     accessToken,

@@ -10,12 +10,38 @@ import {
   type GlobalTheme,
   type GlobalThemeOverrides,
 } from "naive-ui";
+import sora400Woff2 from "@fontsource/sora/files/sora-latin-400-normal.woff2";
+import sora600Woff2 from "@fontsource/sora/files/sora-latin-600-normal.woff2";
+import sora700Woff2 from "@fontsource/sora/files/sora-latin-700-normal.woff2";
 
 const uiStore = useUiStore();
 
 const theme = computed<GlobalTheme | null>(() => (uiStore.theme === "dark" ? darkTheme : null));
 
 useHead(() => ({
+  link: [
+    {
+      rel: "preload",
+      as: "font",
+      type: "font/woff2",
+      href: sora400Woff2,
+      crossorigin: "anonymous",
+    },
+    {
+      rel: "preload",
+      as: "font",
+      type: "font/woff2",
+      href: sora600Woff2,
+      crossorigin: "anonymous",
+    },
+    {
+      rel: "preload",
+      as: "font",
+      type: "font/woff2",
+      href: sora700Woff2,
+      crossorigin: "anonymous",
+    },
+  ],
   bodyAttrs: {
     class: uiStore.theme === "dark" ? "theme-dark dark" : "theme-light",
   },
@@ -28,7 +54,7 @@ const themeOverrides: GlobalThemeOverrides = {
     primaryColorPressed: "#0b5b55",
     borderRadius: "18px",
     borderRadiusSmall: "12px",
-    fontFamily: '"Sora", "Noto Sans SC", sans-serif',
+    fontFamily: '"Sora", "Sora Fallback", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif',
     fontFamilyMono: '"Cascadia Code", "JetBrains Mono", monospace',
   },
   Card: {

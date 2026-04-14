@@ -35,6 +35,8 @@ func (h ArticleApi) ArticleDetailView(c *gin.Context) {
 		"FavorCount",
 		"CommentsToggle",
 		"Status",
+		"PublishStatus",
+		"VisibilityStatus",
 	).Preload("UserModel").
 		Preload("CategoryModel").
 		Preload("Tags", func(db *gorm.DB) *gorm.DB {
@@ -59,11 +61,11 @@ func (h ArticleApi) ArticleDetailView(c *gin.Context) {
 		}
 	}
 	if claims == nil {
-		if article.Status != enum.ArticleStatusPublished {
+		if !article.IsPublicVisible() {
 			res.FailWithMsg("文章不存在", c)
 			return
 		}
-	} else if claims.Role == enum.RoleUser && article.AuthorID != claims.UserID && article.Status != enum.ArticleStatusPublished {
+	} else if claims.Role == enum.RoleUser && article.AuthorID != claims.UserID && !article.IsPublicVisible() {
 		res.FailWithMsg("文章不存在", c)
 		return
 	}
@@ -108,6 +110,8 @@ func (h ArticleApi) ArticleDetailView(c *gin.Context) {
 		FavorCount:      article.FavorCount,
 		CommentsToggle:  article.CommentsToggle,
 		Status:          article.Status,
+		PublishStatus:   article.EffectivePublishStatus(),
+		VisibilityStatus: article.EffectiveVisibilityStatus(),
 		AuthorID:        article.AuthorID,
 		AuthorAvatar:    article.UserModel.Avatar,
 		AuthorAbstract:  article.UserModel.Abstract,

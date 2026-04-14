@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { reactive } from "vue";
-import { NButton, NCard, NInput, NSwitch, NTag, useMessage } from "naive-ui";
+import { NButton, NCard, NInput, NSelect, NSwitch, NTag, useMessage } from "naive-ui";
 import { sendEmailCode } from "~/services/auth";
+import { getTagOptions } from "~/services/search";
 import {
   bindUserEmail,
   getMessagePreference,
@@ -21,11 +22,14 @@ const authStore = useAuthStore();
 
 const { data: profile, refresh: refreshProfile } = await useAsyncData("studio-settings-profile", () => getSelfUserDetail());
 const { data: preference, refresh: refreshPreference } = await useAsyncData("studio-settings-preference", () => getMessagePreference());
+const { data: tagOptions } = await useAsyncData("studio-settings-tag-options", () => getTagOptions().catch(() => []));
 
 const profileForm = reactive({
   username: "",
   nickname: "",
+  avatar: "",
   abstract: "",
+  like_tag_ids: [] as string[],
   favorites_visibility: true,
   followers_visibility: true,
   fans_visibility: true,
@@ -56,7 +60,9 @@ watch(
     if (!value) return;
     profileForm.username = value.username ?? "";
     profileForm.nickname = value.nickname ?? "";
+    profileForm.avatar = value.avatar ?? "";
     profileForm.abstract = value.abstract ?? "";
+    profileForm.like_tag_ids = [...(value.like_tag_ids ?? [])];
     profileForm.favorites_visibility = value.favorites_visibility ?? true;
     profileForm.followers_visibility = value.followers_visibility ?? true;
     profileForm.fans_visibility = value.fans_visibility ?? true;
@@ -77,19 +83,16 @@ watch(
   { immediate: true },
 );
 
-const likeTags = computed(() =>
-  String(profile.value?.like_tags || "")
-    .split(/[，,]/u)
-    .map((item) => item.trim())
-    .filter(Boolean),
-);
+const likeTagItems = computed(() => profile.value?.like_tag_items ?? []);
 
 async function saveProfile() {
   try {
     await updateUserProfile({
       username: profileForm.username.trim() || null,
       nickname: profileForm.nickname.trim() || null,
+      avatar: profileForm.avatar.trim() || null,
       abstract: profileForm.abstract.trim() || null,
+      like_tag_ids: profileForm.like_tag_ids,
       favorites_visibility: profileForm.favorites_visibility,
       followers_visibility: profileForm.followers_visibility,
       fans_visibility: profileForm.fans_visibility,
@@ -161,7 +164,7 @@ useSeoMeta({
   <div class="page-stack">
     <StudioPageHeader
       title="账号设置"
-      description="设置页只接当前后端已经明确给出的资料、邮箱、密码和消息偏好接口。头像上传、QQ 绑定和 like_tags 的正式编辑能力暂不伪造。"
+      description="设置页现在已经跟随后端新契约同步：偏好标签走 like_tag_ids，头像字段支持正式写回，消息偏好、邮箱和密码也都继续保持真实接口对接。"
       eyebrow="Settings"
     />
 
@@ -186,6 +189,13 @@ useSeoMeta({
               <NInput v-model:value="profileForm.nickname" maxlength="20" placeholder="输入昵称…" />
             </label>
             <label class="space-y-2 md:col-span-2">
+              <span class="text-sm font-medium">头像地址</span>
+              <NInput
+                v-model:value="profileForm.avatar"
+                placeholder="先通过 /api/images/upload-tasks 获取最终图片 URL，再写回这里"
+              />
+            </label>
+            <label class="space-y-2 md:col-span-2">
               <span class="text-sm font-medium">个人简介</span>
               <NInput
                 v-model:value="profileForm.abstract"
@@ -193,6 +203,18 @@ useSeoMeta({
                 :autosize="{ minRows: 4, maxRows: 6 }"
                 maxlength="120"
                 placeholder="介绍你的创作方向、关注主题或个人偏好…"
+              />
+            </label>
+            <label class="space-y-2 md:col-span-2">
+              <span class="text-sm font-medium">偏好标签</span>
+              <NSelect
+                v-model:value="profileForm.like_tag_ids"
+                multiple
+                filterable
+                clearable
+                max-tag-count="responsive"
+                :options="tagOptions || []"
+                placeholder="选择你感兴趣的标签，提交时会走 like_tag_ids"
               />
             </label>
             <label class="space-y-2">
@@ -294,14 +316,14 @@ useSeoMeta({
           <div class="eyebrow">Contract</div>
           <h2 class="section-title mt-2">当前接口约束</h2>
           <div class="mt-4 space-y-3 text-sm leading-7 muted">
-            <p>头像上传 API 还没进入当前 web 端 Phase3 范围，所以这里只展示现有头像，不做伪上传。</p>
+            <p>头像字段现在已经允许正式写回；当前页面先支持“上传后回填 URL”的工作流，不再把 avatar 当成只读字段。</p>
             <p>QQ 绑定也没有单独的用户侧绑定接口，当前只能保留说明，不做假按钮行为。</p>
-            <p>`like_tags` 在详情里是字符串，在更新 schema 里又是 `number[]`，现在先只读展示。</p>
+            <p>`like_tag_ids` 已经成为主字段，详情展示走 `like_tag_items`，不再继续扩散旧的 `like_tags` 字段。</p>
           </div>
 
           <div class="mt-4 flex flex-wrap gap-2">
-            <NTag v-for="tag in likeTags" :key="tag">{{ tag }}</NTag>
-            <NTag v-if="!likeTags.length" type="default">暂无标签</NTag>
+            <NTag v-for="tag in likeTagItems" :key="tag.id">{{ tag.title }}</NTag>
+            <NTag v-if="!likeTagItems.length" type="default">暂无标签</NTag>
           </div>
         </NCard>
       </section>

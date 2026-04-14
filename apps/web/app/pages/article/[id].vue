@@ -15,6 +15,7 @@ import { createComment, diggComment, getReplyComments, getRootComments } from "~
 import { getUserBaseInfo } from "~/services/user";
 import type { CommentReplyItem } from "~/types/api";
 import { formatCount, formatDateTimeLabel } from "~/utils/format";
+import { getAuthorButtonLabel, isFollowing } from "~/utils/relation";
 
 const route = useRoute();
 const router = useRouter();
@@ -135,18 +136,7 @@ function resetReplyState(rootId: string) {
 const { renderedHtml: renderedContent, headings: articleHeadings } = useArticleMarkdown(computed(() => article.value?.content));
 const { activeHeadingId, progressPercent } = useReadingProgress(computed(() => articleHeadings.value.map((heading) => heading.id)));
 const authorInitial = computed(() => article.value?.author_name?.slice(0, 1).toUpperCase() || "A");
-const authorRelationText = computed(() => {
-  switch (authorProfile.value?.relation) {
-    case 1:
-      return "已关注";
-    case 2:
-      return "对方关注了你";
-    case 3:
-      return "互相关注";
-    default:
-      return "关注";
-  }
-});
+const authorRelationText = computed(() => getAuthorButtonLabel(authorProfile.value?.relation));
 const isSelfAuthor = computed(() => authStore.profileId != null && String(authStore.profileId) === authorId.value);
 
 async function handleLike() {
@@ -318,7 +308,7 @@ async function handleAuthorFollow() {
   }
 
   try {
-    if (authorProfile.value?.relation === 1 || authorProfile.value?.relation === 3) {
+    if (isFollowing(authorProfile.value?.relation)) {
       await unfollowUser(authorId.value);
       message.success("已取消关注");
     } else {
@@ -571,7 +561,7 @@ useSeoMeta({
             </div>
 
             <div class="mt-5 grid grid-cols-2 gap-3">
-              <NButton type="primary" round block @click="handleAuthorFollow">
+              <NButton :type="isFollowing(authorProfile?.relation) ? 'default' : 'primary'" :secondary="isFollowing(authorProfile?.relation)" round block @click="handleAuthorFollow">
                 {{ isSelfAuthor ? "这是你" : authorRelationText }}
               </NButton>
               <NButton secondary round block @click="handlePrivateMessage">
