@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { reactive } from "vue";
+import { reactive, ref } from "vue";
 import { NButton, NCard, NInput, NSelect, NSwitch, NTag, useMessage } from "naive-ui";
 import { sendEmailCode } from "~/services/auth";
+import { uploadImageByTask } from "~/services/image";
 import { getTagOptions } from "~/services/search";
 import {
   bindUserEmail,
@@ -28,6 +29,7 @@ const profileForm = reactive({
   username: "",
   nickname: "",
   avatar: "",
+  avatar_image_id: null as string | null,
   abstract: "",
   like_tag_ids: [] as string[],
   favorites_visibility: true,
@@ -54,6 +56,13 @@ const preferenceForm = reactive({
   private_chat_notice_enabled: true,
 });
 
+const avatarFileInputRef = ref<HTMLInputElement | null>(null);
+const avatarUploading = reactive({
+  pending: false,
+  stage: "",
+});
+const avatarDirty = ref(false);
+
 watch(
   () => profile.value,
   (value) => {
@@ -61,6 +70,8 @@ watch(
     profileForm.username = value.username ?? "";
     profileForm.nickname = value.nickname ?? "";
     profileForm.avatar = value.avatar ?? "";
+    profileForm.avatar_image_id = value.avatar_image_id ?? null;
+    avatarDirty.value = false;
     profileForm.abstract = value.abstract ?? "";
     profileForm.like_tag_ids = [...(value.like_tag_ids ?? [])];
     profileForm.favorites_visibility = value.favorites_visibility ?? true;
@@ -86,22 +97,98 @@ watch(
 const likeTagItems = computed(() => profile.value?.like_tag_items ?? []);
 
 async function saveProfile() {
+  if (avatarUploading.pending) {
+    message.warning("头像仍在上传中，请稍后再保存资料。");
+    return;
+  }
+
   try {
-    await updateUserProfile({
+    const payload: Parameters<typeof updateUserProfile>[0] = {
       username: profileForm.username.trim() || null,
       nickname: profileForm.nickname.trim() || null,
-      avatar: profileForm.avatar.trim() || null,
       abstract: profileForm.abstract.trim() || null,
       like_tag_ids: profileForm.like_tag_ids,
       favorites_visibility: profileForm.favorites_visibility,
       followers_visibility: profileForm.followers_visibility,
       fans_visibility: profileForm.fans_visibility,
       home_style_id: profileForm.home_style_id || null,
-    });
+    };
+
+    if (profileForm.avatar_image_id) {
+      payload.avatar_image_id = profileForm.avatar_image_id;
+    } else if (avatarDirty.value) {
+      payload.avatar_image_id = null;
+    }
+
+    await updateUserProfile(payload);
     await Promise.all([refreshProfile(), authStore.fetchCurrentUser()]);
+    avatarDirty.value = false;
     message.success("个人资料已更新");
   } catch (error) {
     message.error(error instanceof Error ? error.message : "保存资料失败");
+  }
+}
+
+function openAvatarPicker() {
+  if (avatarUploading.pending) {
+    return;
+  }
+  avatarFileInputRef.value?.click();
+}
+
+function clearAvatar() {
+  profileForm.avatar = "";
+  profileForm.avatar_image_id = null;
+  avatarDirty.value = true;
+  avatarUploading.stage = "";
+  if (avatarFileInputRef.value) {
+    avatarFileInputRef.value.value = "";
+  }
+}
+
+function mapAvatarUploadStage(stage: "hashing" | "creating_task" | "uploading_to_qiniu" | "polling_status") {
+  const stageMap = {
+    hashing: "正在计算文件指纹…",
+    creating_task: "正在创建上传任务…",
+    uploading_to_qiniu: "正在上传头像…",
+    polling_status: "正在确认上传状态…",
+  } as const;
+  avatarUploading.stage = stageMap[stage];
+}
+
+async function handleAvatarFileChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) {
+    return;
+  }
+
+  if (!file.type.startsWith("image/")) {
+    message.warning("请选择图片文件作为头像");
+    input.value = "";
+    return;
+  }
+
+  avatarUploading.pending = true;
+  avatarUploading.stage = "开始上传头像…";
+  try {
+    const uploadResult = await uploadImageByTask(file, {
+      onStage: mapAvatarUploadStage,
+    });
+    if (!uploadResult.image_id || !uploadResult.url) {
+      throw new Error("上传成功但缺少图片标识");
+    }
+    profileForm.avatar = uploadResult.url;
+    profileForm.avatar_image_id = uploadResult.image_id;
+    avatarDirty.value = true;
+    avatarUploading.stage = "头像上传完成";
+    message.success("头像上传成功");
+  } catch (error) {
+    avatarUploading.stage = "";
+    message.error(error instanceof Error ? error.message : "头像上传失败");
+  } finally {
+    avatarUploading.pending = false;
+    input.value = "";
   }
 }
 
@@ -164,7 +251,7 @@ useSeoMeta({
   <div class="page-stack">
     <StudioPageHeader
       title="账号设置"
-      description="设置页现在已经跟随后端新契约同步：偏好标签走 like_tag_ids，头像字段支持正式写回，消息偏好、邮箱和密码也都继续保持真实接口对接。"
+      description="设置页已对齐新契约：偏好标签走 like_tag_ids，头像走上传任务并提交 avatar_image_id，消息偏好、邮箱和密码保持真实接口对接。"
       eyebrow="Settings"
     />
 
@@ -176,7 +263,7 @@ useSeoMeta({
               <div class="eyebrow">Profile</div>
               <h2 class="section-title mt-2">个人资料</h2>
             </div>
-            <NButton type="primary" @click="saveProfile()">保存资料</NButton>
+            <NButton type="primary" :disabled="avatarUploading.pending" @click="saveProfile()">保存资料</NButton>
           </div>
 
           <div class="mt-5 grid gap-4 md:grid-cols-2">
@@ -189,11 +276,30 @@ useSeoMeta({
               <NInput v-model:value="profileForm.nickname" maxlength="20" placeholder="输入昵称…" />
             </label>
             <label class="space-y-2 md:col-span-2">
-              <span class="text-sm font-medium">头像地址</span>
-              <NInput
-                v-model:value="profileForm.avatar"
-                placeholder="先通过 /api/images/upload-tasks 获取最终图片 URL，再写回这里"
-              />
+              <span class="text-sm font-medium">头像上传</span>
+              <div class="rounded-[18px] border px-4 py-4">
+                <input
+                  ref="avatarFileInputRef"
+                  type="file"
+                  accept="image/*"
+                  class="hidden"
+                  @change="handleAvatarFileChange" />
+
+                <div class="flex flex-wrap items-center gap-3">
+                  <NButton quaternary :loading="avatarUploading.pending" @click="openAvatarPicker()">
+                    {{ profileForm.avatar ? "重新上传头像" : "选择头像图片" }}
+                  </NButton>
+                  <NButton v-if="profileForm.avatar || profileForm.avatar_image_id" quaternary @click="clearAvatar()">
+                    移除头像
+                  </NButton>
+                  <span v-if="avatarUploading.stage" class="text-xs muted">{{ avatarUploading.stage }}</span>
+                </div>
+
+                <div v-if="profileForm.avatar" class="mt-3 flex items-center gap-3">
+                  <img :src="profileForm.avatar" alt="头像预览" class="h-12 w-12 rounded-full object-cover border" />
+                  <span class="text-xs muted">预览 URL 仅用于显示，提交时只发送 avatar_image_id。</span>
+                </div>
+              </div>
             </label>
             <label class="space-y-2 md:col-span-2">
               <span class="text-sm font-medium">个人简介</span>
@@ -316,7 +422,7 @@ useSeoMeta({
           <div class="eyebrow">Contract</div>
           <h2 class="section-title mt-2">当前接口约束</h2>
           <div class="mt-4 space-y-3 text-sm leading-7 muted">
-            <p>头像字段现在已经允许正式写回；当前页面先支持“上传后回填 URL”的工作流，不再把 avatar 当成只读字段。</p>
+            <p>头像现在走上传任务链路，提交资料时优先传 `avatar_image_id`，而不是头像 URL。</p>
             <p>QQ 绑定也没有单独的用户侧绑定接口，当前只能保留说明，不做假按钮行为。</p>
             <p>`like_tag_ids` 已经成为主字段，详情展示走 `like_tag_items`，不再继续扩散旧的 `like_tags` 字段。</p>
           </div>

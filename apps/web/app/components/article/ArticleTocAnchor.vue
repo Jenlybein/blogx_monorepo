@@ -9,7 +9,15 @@ const props = defineProps<{
   progressPercent: number;
 }>();
 
+const emit = defineEmits<{
+  jump: [id: string];
+}>();
+
 const tocBodyRef = ref<HTMLElement | null>(null);
+
+function handleJump(id: string) {
+  emit("jump", id);
+}
 
 watch(
   () => props.activeHeadingId,
@@ -57,6 +65,7 @@ watch(
             'ml-3': heading.level === 3,
             'ml-6': heading.level >= 4,
           }"
+          @click.prevent="handleJump(heading.id)"
         />
       </NAnchor>
     </div>

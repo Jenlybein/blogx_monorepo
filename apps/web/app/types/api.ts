@@ -213,7 +213,7 @@ export interface ArticleWritePayload {
   content: string;
   category_id?: string | null;
   tag_ids?: string[];
-  cover?: string;
+  cover_image_id?: string | null;
   comments_toggle?: boolean;
   status: 1 | 2;
 }
@@ -223,6 +223,7 @@ export interface ArticleCreateResult {
   title: string;
   category_id?: string | null;
   tag_ids?: string[];
+  cover_image_id?: string | null;
   comments_toggle: boolean;
   status: number;
 }
@@ -235,6 +236,7 @@ export interface ArticleDetail {
   abstract: string;
   content: string;
   cover: string;
+  cover_image_id?: string | null;
   view_count: number;
   digg_count: number;
   comment_count: number;
@@ -243,6 +245,7 @@ export interface ArticleDetail {
   status: number;
   tags: string[];
   author_id: string;
+  author_avatar_image_id?: string | null;
   author_avatar: string;
   author_abstract: string;
   author_created_time: string;
@@ -337,6 +340,7 @@ export interface UserSelfDetail {
   username: string;
   nickname: string;
   avatar: string;
+  avatar_image_id?: string | null;
   abstract: string;
   register_source: number;
   code_age: number;
@@ -613,6 +617,7 @@ export interface UserProfileUpdatePayload {
   username?: string | null;
   nickname?: string | null;
   avatar?: string | null;
+  avatar_image_id?: string | null;
   abstract?: string | null;
   like_tag_ids?: string[];
   like_tags?: number[];

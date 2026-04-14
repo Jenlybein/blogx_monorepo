@@ -28,6 +28,7 @@ import { NAvatar, NButton, NCard, NInput, NModal, NPopover, NSelect, NSwitch, NT
 import { useArticleMarkdown } from "~/composables/useArticleMarkdown";
 import { generateArticleMetainfo } from "~/services/ai";
 import { createArticle, getArticleDetail, updateArticle } from "~/services/article";
+import { uploadImageByTask } from "~/services/image";
 import { getCategoryOptions, getTagOptions } from "~/services/search";
 import katexCssUrl from "katex/dist/katex.min.css?url";
 import highlightCssUrl from "highlight.js/styles/github.min.css?url";
@@ -67,6 +68,7 @@ const route = useRoute();
 const authStore = useAuthStore();
 const message = useMessage();
 const editorTextareaRef = ref<HTMLTextAreaElement | null>(null);
+const coverFileInputRef = ref<HTMLInputElement | null>(null);
 const shadowPreviewRef = ref<{ scrollToHeading: (id: string) => boolean } | null>(null);
 
 if (!authStore.profileId) {
@@ -79,7 +81,7 @@ const form = reactive({
   content: "",
   category_id: null as string | null,
   tag_ids: [] as string[],
-  cover: "",
+  cover_image_id: null as string | null,
   comments_toggle: true,
 });
 
@@ -87,11 +89,16 @@ const pendingState = reactive({
   draft: false,
   publish: false,
   ai: false,
+  cover: false,
 });
+
+const coverPreviewUrl = ref("");
+const coverUploadStage = ref("");
 
 const showToc = ref(true);
 const viewMode = ref<"split" | "editor" | "preview">("split");
 const publishVisible = ref(false);
+const coverDirty = ref(false);
 const selectedMarkdownTheme = ref<
   | "github"
   | "github-dark"
@@ -149,6 +156,9 @@ watch(
   ([articleId, article]) => {
     if (!articleId) {
       hydratedArticleId.value = "";
+      coverPreviewUrl.value = "";
+      form.cover_image_id = null;
+      coverDirty.value = false;
       return;
     }
     if (!article || hydratedArticleId.value === articleId) {
@@ -158,7 +168,9 @@ watch(
     form.title = article.title || "";
     form.abstract = article.abstract || "";
     form.content = article.content || "";
-    form.cover = article.cover || "";
+    form.cover_image_id = article.cover_image_id ?? null;
+    coverPreviewUrl.value = article.cover || "";
+    coverDirty.value = false;
     form.comments_toggle = article.comments_toggle ?? true;
     form.category_id = article.category_id ?? null;
     form.tag_ids = Array.isArray(article.tag_ids) ? [...article.tag_ids] : [];
@@ -193,6 +205,7 @@ const tocItems = computed(() => {
 const canSubmit = computed(() => Boolean(form.title.trim() && form.content.trim()));
 const draftActionLabel = computed(() => (isEditMode.value ? "更新草稿" : "保存草稿"));
 const publishActionLabel = computed(() => (isEditMode.value ? "更新并发布" : "确定并发布"));
+const isPublishingLocked = computed(() => pendingState.publish || pendingState.draft || pendingState.ai || pendingState.cover);
 
 const markdownThemeOptions: ToolOption[] = [
   { key: "github", label: "GitHub Light" },
@@ -869,9 +882,77 @@ async function handleAiAssist() {
   }
 }
 
+function openCoverFilePicker() {
+  if (pendingState.cover) {
+    return;
+  }
+  coverFileInputRef.value?.click();
+}
+
+function clearCoverSelection() {
+  form.cover_image_id = null;
+  coverPreviewUrl.value = "";
+  coverUploadStage.value = "";
+  coverDirty.value = true;
+  if (coverFileInputRef.value) {
+    coverFileInputRef.value.value = "";
+  }
+}
+
+function mapCoverUploadStage(stage: "hashing" | "creating_task" | "uploading_to_qiniu" | "polling_status") {
+  const textMap = {
+    hashing: "正在计算文件指纹…",
+    creating_task: "正在创建上传任务…",
+    uploading_to_qiniu: "正在上传到对象存储…",
+    polling_status: "正在确认图片状态…",
+  } as const;
+  coverUploadStage.value = textMap[stage];
+}
+
+async function handleCoverFileChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) {
+    return;
+  }
+
+  if (!file.type.startsWith("image/")) {
+    message.warning("请选择图片文件作为封面。");
+    input.value = "";
+    return;
+  }
+
+  pendingState.cover = true;
+  coverUploadStage.value = "开始上传封面…";
+  try {
+    const uploadResult = await uploadImageByTask(file, {
+      onStage: mapCoverUploadStage,
+    });
+    if (!uploadResult.image_id || !uploadResult.url) {
+      throw new Error("上传成功但未返回可用图片标识");
+    }
+    form.cover_image_id = uploadResult.image_id;
+    coverPreviewUrl.value = uploadResult.url;
+    coverDirty.value = true;
+    coverUploadStage.value = "封面上传完成";
+    message.success("封面上传成功");
+  } catch (error) {
+    coverUploadStage.value = "";
+    message.error(error instanceof Error ? error.message : "封面上传失败");
+  } finally {
+    pendingState.cover = false;
+    input.value = "";
+  }
+}
+
 async function submitArticle(status: 1 | 2) {
   if (!canSubmit.value) {
     message.warning("标题和正文是必填项。");
+    return;
+  }
+
+  if (pendingState.cover) {
+    message.warning("封面仍在上传中，请稍后再提交。");
     return;
   }
 
@@ -879,16 +960,30 @@ async function submitArticle(status: 1 | 2) {
   pendingState[key] = true;
 
   try {
-    const payload = {
+    const payload: {
+      title: string;
+      abstract?: string;
+      content: string;
+      category_id: string | null;
+      tag_ids: string[];
+      comments_toggle: boolean;
+      status: 1 | 2;
+      cover_image_id?: string | null;
+    } = {
       title: form.title.trim(),
       abstract: form.abstract.trim() || undefined,
       content: form.content,
       category_id: form.category_id || null,
       tag_ids: form.tag_ids,
-      cover: form.cover.trim() || undefined,
       comments_toggle: form.comments_toggle,
       status,
     };
+
+    if (form.cover_image_id) {
+      payload.cover_image_id = form.cover_image_id;
+    } else if (isEditMode.value && coverDirty.value) {
+      payload.cover_image_id = null;
+    }
 
     if (isEditMode.value && editArticleId.value) {
       await updateArticle(editArticleId.value, payload);
@@ -1049,7 +1144,7 @@ useSeoMeta({
       <span>视图: {{ viewMode === 'split' ? '双栏' : viewMode === 'editor' ? '仅编辑区' : '仅预览区' }}</span>
     </footer>
 
-    <NModal v-model:show="publishVisible" :mask-closable="!(pendingState.publish || pendingState.draft || pendingState.ai)">
+    <NModal v-model:show="publishVisible" :mask-closable="!isPublishingLocked">
       <div class="publish-modal-shell">
         <NCard title="发布文章" :bordered="false" closable class="publish-modal-card" @close="publishVisible = false">
           <div class="publish-form">
@@ -1068,13 +1163,38 @@ useSeoMeta({
             <div class="publish-form__row publish-form__row--top">
               <label class="publish-form__label">文章封面</label>
               <div class="publish-cover">
-                <div class="publish-cover__picker">
-                  <span class="publish-cover__plus">+</span>
-                  <span>封面 URL</span>
+                <input
+                  ref="coverFileInputRef"
+                  type="file"
+                  accept="image/*"
+                  class="publish-cover__file-input"
+                  @change="handleCoverFileChange" />
+
+                <button
+                  type="button"
+                  class="publish-cover__picker"
+                  :class="{ 'publish-cover__picker--busy': pendingState.cover }"
+                  @click="openCoverFilePicker">
+                  <img
+                    v-if="coverPreviewUrl"
+                    :src="coverPreviewUrl"
+                    alt="文章封面预览"
+                    class="publish-cover__preview-image" />
+                  <template v-else>
+                    <span class="publish-cover__plus">+</span>
+                    <span>上传封面</span>
+                  </template>
+                </button>
+
+                <div class="publish-cover__actions">
+                  <NButton quaternary size="small" :loading="pendingState.cover" @click="openCoverFilePicker">
+                    {{ coverPreviewUrl ? "重新上传" : "选择图片" }}
+                  </NButton>
+                  <NButton v-if="coverPreviewUrl || form.cover_image_id" quaternary size="small" @click="clearCoverSelection">
+                    移除封面
+                  </NButton>
                 </div>
-                <p class="muted">当前正式链路先支持写入封面 URL，文件上传任务链会再补齐。</p>
-                <NInput v-model:value="form.cover" placeholder="https://example.com/article-cover.png"
-                  class="publish-form__control" />
+                <p v-if="coverUploadStage" class="publish-cover__stage">{{ coverUploadStage }}</p>
               </div>
             </div>
 
@@ -1095,17 +1215,18 @@ useSeoMeta({
               </div>
             </div>
 
-            <div class="publish-form__note">
-              <p>当前优先打通新建文章主链路，编辑态的 `status/category/tag` 完整回填仍依赖后端补齐契约。</p>
-            </div>
           </div>
 
           <template #footer>
             <div class="publish-modal__footer">
               <NButton quaternary @click="publishVisible = false">取消</NButton>
               <NButton secondary :loading="pendingState.ai" @click="handleAiAssist()">AI 填入</NButton>
-              <NButton quaternary :loading="pendingState.draft" @click="submitArticle(1)">{{ draftActionLabel }}</NButton>
-              <NButton type="primary" :loading="pendingState.publish" @click="submitArticle(2)">{{ publishActionLabel }}</NButton>
+              <NButton quaternary :loading="pendingState.draft" :disabled="pendingState.cover" @click="submitArticle(1)">
+                {{ draftActionLabel }}
+              </NButton>
+              <NButton type="primary" :loading="pendingState.publish" :disabled="pendingState.cover" @click="submitArticle(2)">
+                {{ publishActionLabel }}
+              </NButton>
             </div>
           </template>
         </NCard>
@@ -1444,6 +1565,10 @@ useSeoMeta({
   gap: 12px;
 }
 
+.publish-cover__file-input {
+  display: none;
+}
+
 .publish-cover__picker {
   width: 194px;
   height: 130px;
@@ -1456,11 +1581,36 @@ useSeoMeta({
   border-radius: 16px;
   color: #64748b;
   background: rgba(248, 250, 252, 0.8);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.publish-cover__picker--busy {
+  opacity: 0.72;
+  cursor: wait;
+}
+
+.publish-cover__preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .publish-cover__plus {
   font-size: 28px;
   line-height: 1;
+}
+
+.publish-cover__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.publish-cover__stage {
+  margin: 0;
+  font-size: 12px;
+  color: #0f766e;
 }
 
 .publish-summary {
@@ -1484,19 +1634,6 @@ useSeoMeta({
   border: 1px solid rgba(217, 226, 236, 0.82);
   border-radius: 16px;
   background: rgba(248, 250, 252, 0.8);
-}
-
-.publish-form__note {
-  padding: 16px 18px;
-  border-radius: 18px;
-  background: rgba(255, 247, 237, 0.92);
-  color: #9a3412;
-  font-size: 13px;
-  line-height: 1.8;
-}
-
-.publish-form__note p {
-  margin: 0;
 }
 
 .publish-modal__footer {

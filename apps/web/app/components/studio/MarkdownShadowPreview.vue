@@ -209,8 +209,16 @@ function scrollToHeading(id: string) {
   return true;
 }
 
+function getHeadingElement(id: string) {
+  if (!shadowRootRef || !id) {
+    return null;
+  }
+  return shadowRootRef.getElementById(id) as HTMLElement | null;
+}
+
 defineExpose({
   scrollToHeading,
+  getHeadingElement,
 });
 
 onMounted(() => {

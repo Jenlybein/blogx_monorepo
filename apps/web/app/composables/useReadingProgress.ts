@@ -1,7 +1,9 @@
 import { onBeforeUnmount, onMounted, ref, toRef, toValue, watch } from "vue";
 import type { MaybeRefOrGetter } from "vue";
 
-export function useReadingProgress(headingIds: MaybeRefOrGetter<string[]>) {
+type HeadingResolver = (id: string) => HTMLElement | null;
+
+export function useReadingProgress(headingIds: MaybeRefOrGetter<string[]>, resolveHeadingElement?: HeadingResolver) {
   const headingIdsRef = toRef(headingIds);
   const activeHeadingId = ref("");
   const progressPercent = ref(0);
@@ -23,7 +25,7 @@ export function useReadingProgress(headingIds: MaybeRefOrGetter<string[]>) {
     let currentActive = ids[0] || "";
 
     for (const id of ids) {
-      const element = document.getElementById(id);
+      const element = resolveHeadingElement?.(id) || document.getElementById(id);
       if (!element) {
         continue;
       }

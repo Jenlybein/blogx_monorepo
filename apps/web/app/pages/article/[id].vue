@@ -16,6 +16,10 @@ import { getUserBaseInfo } from "~/services/user";
 import type { CommentReplyItem } from "~/types/api";
 import { formatCount, formatDateTimeLabel } from "~/utils/format";
 import { getAuthorButtonLabel, isFollowing } from "~/utils/relation";
+import katexCssUrl from "katex/dist/katex.min.css?url";
+import highlightCssUrl from "highlight.js/styles/github.min.css?url";
+import githubMarkdownCssUrl from "github-markdown-css/github-markdown-light.css?url";
+import githubMarkdownDarkCssUrl from "github-markdown-css/github-markdown-dark.css?url";
 
 const route = useRoute();
 const router = useRouter();
@@ -23,6 +27,10 @@ const articleId = computed(() => route.params.id as string);
 const authStore = useAuthStore();
 const uiStore = useUiStore();
 const message = useMessage();
+const shadowPreviewRef = ref<{
+  scrollToHeading: (id: string) => boolean;
+  getHeadingElement: (id: string) => HTMLElement | null;
+} | null>(null);
 
 const ROOT_COMMENT_PAGE_SIZE = 7;
 const REPLY_COMMENT_PAGE_SIZE = 3;
@@ -134,7 +142,12 @@ function resetReplyState(rootId: string) {
 }
 
 const { renderedHtml: renderedContent, headings: articleHeadings } = useArticleMarkdown(computed(() => article.value?.content));
-const { activeHeadingId, progressPercent } = useReadingProgress(computed(() => articleHeadings.value.map((heading) => heading.id)));
+const articleThemeHref = computed(() => (uiStore.theme === "dark" ? githubMarkdownDarkCssUrl : githubMarkdownCssUrl));
+const markdownSupportStyleHrefs = [katexCssUrl, highlightCssUrl];
+const { activeHeadingId, progressPercent } = useReadingProgress(
+  computed(() => articleHeadings.value.map((heading) => heading.id)),
+  (id) => shadowPreviewRef.value?.getHeadingElement(id) ?? null,
+);
 const authorInitial = computed(() => article.value?.author_name?.slice(0, 1).toUpperCase() || "A");
 const authorRelationText = computed(() => getAuthorButtonLabel(authorProfile.value?.relation));
 const isSelfAuthor = computed(() => authStore.profileId != null && String(authStore.profileId) === authorId.value);
@@ -336,6 +349,26 @@ function handlePrivateMessage() {
   message.info("私信页面接入中，后续会直接跳转到与该作者的会话。");
 }
 
+function handleTocJump(id: string) {
+  if (!id) {
+    return;
+  }
+
+  const scrolled = shadowPreviewRef.value?.scrollToHeading(id);
+  if (scrolled) {
+    return;
+  }
+
+  if (!import.meta.client) {
+    return;
+  }
+
+  document.getElementById(id)?.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+}
+
 const comments = computed(() =>
   commentsPager.currentItems.value.map((comment) => {
     const replyState = replyStates.value[comment.id];
@@ -462,7 +495,13 @@ useSeoMeta({
         <section class="surface-card overflow-hidden">
           <img v-if="article?.cover" :src="article.cover" :alt="article.title" class="h-[320px] w-full object-cover md:h-[420px]" />
           <div class="p-6 md:p-8">
-            <div class="content-prose" v-html="renderedContent" />
+            <StudioMarkdownShadowPreview
+              ref="shadowPreviewRef"
+              :html="renderedContent"
+              :theme-href="articleThemeHref"
+              :extra-style-hrefs="markdownSupportStyleHrefs"
+              article-class="markdown-body"
+            />
           </div>
         </section>
 
@@ -574,6 +613,7 @@ useSeoMeta({
             :headings="articleHeadings"
             :active-heading-id="activeHeadingId"
             :progress-percent="progressPercent"
+            @jump="handleTocJump"
           />
         </div>
       </aside>
