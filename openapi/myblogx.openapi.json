@@ -9660,7 +9660,12 @@
           },
           "avatar": {
             "type": "string",
-            "description": "头像图片地址。当前推荐先复用 `/api/images/upload-tasks` 上传图片，再把最终图片 url 写入该字段。",
+            "description": "头像图片地址。兼容旧版本保留；新调用优先使用 `avatar_image_id`，由服务端根据图片 ID 回填真实 URL。",
+            "nullable": true
+          },
+          "avatar_image_id": {
+            "type": "string",
+            "description": "头像图片 ID。推荐优先使用该字段，服务端会校验图片存在且可用后写入头像 URL。",
             "nullable": true
           },
           "abstract": {
@@ -9723,7 +9728,12 @@
           },
           "avatar": {
             "type": "string",
-            "description": "头像图片地址。",
+            "description": "头像图片地址。兼容旧版本保留；新调用优先使用 `avatar_image_id`。",
+            "nullable": true
+          },
+          "avatar_image_id": {
+            "type": "string",
+            "description": "头像图片 ID。推荐优先使用该字段。",
             "nullable": true
           },
           "abstract": {
@@ -9884,6 +9894,11 @@
           "nickname": {
             "type": "string",
             "description": "昵称。"
+          },
+          "avatar_image_id": {
+            "type": "string",
+            "description": "头像图片 ID；如果头像来自图片上传链路，这里会回填对应 image_id。",
+            "nullable": true
           },
           "avatar": {
             "type": "string",
@@ -10129,9 +10144,10 @@
       "BannerCreateRequest": {
         "type": "object",
         "properties": {
-          "cover": {
+          "cover_image_id": {
             "type": "string",
-            "description": "封面图片地址。"
+            "description": "封面图片 ID。推荐优先使用该字段，服务端会校验图片存在且可用后写入封面 URL。",
+            "nullable": true
           },
           "href": {
             "type": "string",
@@ -10143,7 +10159,6 @@
           }
         },
         "required": [
-          "cover"
         ]
       },
       "BannerModel": {
@@ -10399,6 +10414,11 @@
             },
             "description": "标签 ID 列表。"
           },
+          "cover_image_id": {
+            "type": "string",
+            "description": "封面图片 ID；如果封面来自图片上传链路，这里会回填对应 image_id。",
+            "nullable": true
+          },
           "comments_toggle": {
             "type": "boolean",
             "description": "是否开启评论。"
@@ -10461,9 +10481,9 @@
             },
             "description": "标签 ID 列表，需传入已存在标签的主键。"
           },
-          "cover": {
+          "cover_image_id": {
             "type": "string",
-            "description": "封面图片地址。",
+            "description": "封面图片 ID。推荐优先使用该字段。",
             "nullable": true
           },
           "comments_toggle": {
@@ -10520,6 +10540,11 @@
             "type": "string",
             "description": "正文内容，通常为 Markdown 或富文本内容。"
           },
+          "cover_image_id": {
+            "type": "string",
+            "description": "封面图片 ID；如果封面来自图片上传链路，这里会回填对应 image_id。",
+            "nullable": true
+          },
           "cover": {
             "type": "string",
             "description": "封面图片地址。"
@@ -10558,6 +10583,11 @@
           "author_id": {
             "type": "string",
             "description": "作者 ID。"
+          },
+          "author_avatar_image_id": {
+            "type": "string",
+            "description": "作者头像图片 ID；如果头像来自图片上传链路，这里会回填对应 image_id。",
+            "nullable": true
           },
           "author_avatar": {
             "type": "string",

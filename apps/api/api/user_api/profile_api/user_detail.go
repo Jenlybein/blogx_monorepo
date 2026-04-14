@@ -5,6 +5,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
+	"myblogx/service/image_service"
 	"myblogx/utils/jwts"
 	"time"
 
@@ -22,6 +23,7 @@ type UserDetailResponse struct {
 	CreatedAt                time.Time               `json:"created_at"`
 	Username                 string                  `gorm:"size:32" json:"username"`
 	Nickname                 string                  `gorm:"size:32" json:"nickname"`
+	AvatarImageID            *ctype.ID               `json:"avatar_image_id,omitempty"`
 	Avatar                   string                  `gorm:"size:256" json:"avatar"`
 	Abstract                 string                  `gorm:"size:256" json:"abstract"`
 	Email                    *string                 `json:"email"`
@@ -89,6 +91,7 @@ func (h ProfileApi) UserDetailView(c *gin.Context) {
 		data.PrivateChatNoticeEnabled = user.UserConfModel.PrivateChatNoticeEnabled
 		data.StrangerChatEnabled = user.UserConfModel.StrangerChatEnabled
 	}
+	data.AvatarImageID, _ = image_service.FindImageIDByURL(app.DB, user.Avatar)
 
 	res.OkWithData(data, c)
 }

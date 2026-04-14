@@ -6,6 +6,7 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
+	"myblogx/service/image_service"
 	"myblogx/service/read_service"
 	"myblogx/service/redis_service"
 	"myblogx/utils/jwts"
@@ -22,7 +23,7 @@ func (h ArticleApi) ArticleUpdateView(c *gin.Context) {
 	article, result, err := writer.UpdateArticle(id.ID, claims, cr)
 	if err != nil {
 		switch {
-		case errors.Is(err, errArticleUserNotFound), errors.Is(err, errArticleNotFound), errors.Is(err, errArticleCategoryNotFound), errors.Is(err, errArticleTagInvalid):
+		case errors.Is(err, errArticleUserNotFound), errors.Is(err, errArticleNotFound), errors.Is(err, errArticleCategoryNotFound), errors.Is(err, errArticleTagInvalid), errors.Is(err, image_service.ErrImageUnavailable):
 			res.FailWithMsg(err.Error(), c)
 		default:
 			res.FailWithMsg("更新文章失败", c)
@@ -51,7 +52,7 @@ func (h ArticleApi) ArticleUpdateView(c *gin.Context) {
 		RequestBody: map[string]any{
 			"title":           cr.Title,
 			"abstract":        cr.Abstract,
-			"cover":           cr.Cover,
+			"cover_image_id":  cr.CoverImageID,
 			"category_id":     cr.CategoryID,
 			"status":          result.UpdateMap["status"],
 			"comments_toggle": cr.CommentsToggle,

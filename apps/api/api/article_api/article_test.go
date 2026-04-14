@@ -58,6 +58,7 @@ func setupArticleEnv(t *testing.T) *models.UserModel {
 		&models.UserModel{},
 		&models.UserConfModel{},
 		&models.UserStatModel{},
+		&models.ImageModel{},
 		&models.RuntimeSiteConfigModel{},
 		&models.CategoryModel{},
 		&models.ArticleModel{},
@@ -94,6 +95,24 @@ func setupArticleEnv(t *testing.T) *models.UserModel {
 	}
 	if err := db.Create(user).Error; err != nil {
 		t.Fatalf("创建用户失败: %v", err)
+	}
+	user.Avatar = "https://image.gentlybeing.cn/avatar-u1.png"
+	if err := db.Save(user).Error; err != nil {
+		t.Fatalf("更新用户头像失败: %v", err)
+	}
+	if err := db.Create(&models.ImageModel{
+		UserID:    user.ID,
+		Provider:  enum.ImageProviderQiNiu,
+		Bucket:    "myblogx",
+		ObjectKey: "myblogx/images/avatar-u1",
+		FileName:  "avatar-u1.png",
+		URL:       user.Avatar,
+		MimeType:  "image/png",
+		Size:      1,
+		Hash:      "hash-avatar-u1",
+		Status:    enum.ImageStatusPass,
+	}).Error; err != nil {
+		t.Fatalf("创建头像图片失败: %v", err)
 	}
 	return user
 }
@@ -154,6 +173,21 @@ func TestArticleCreateUpdateReviewAndRemove(t *testing.T) {
 
 	api := setupArticleAPI(t)
 	claims := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: enum.RoleUser, Username: user.Username}}
+	coverImage := models.ImageModel{
+		UserID:    user.ID,
+		Provider:  enum.ImageProviderQiNiu,
+		Bucket:    "myblogx",
+		ObjectKey: "myblogx/images/cover-t1",
+		FileName:  "cover-t1.png",
+		URL:       "https://image.gentlybeing.cn/cover-t1.png",
+		MimeType:  "image/png",
+		Size:      1,
+		Hash:      "hash-cover-t1",
+		Status:    enum.ImageStatusPass,
+	}
+	if err := db.Create(&coverImage).Error; err != nil {
+		t.Fatalf("创建封面图片失败: %v", err)
+	}
 
 	{
 		c, w := newCtx()
@@ -163,6 +197,7 @@ func TestArticleCreateUpdateReviewAndRemove(t *testing.T) {
 			Content:        "content",
 			CategoryID:     &cat.ID,
 			TagIDs:         []ctype.ID{tag.ID},
+			CoverImageID:   &coverImage.ID,
 			CommentsToggle: true,
 			Status:         enum.ArticleStatusExamining,
 		})
@@ -183,6 +218,9 @@ func TestArticleCreateUpdateReviewAndRemove(t *testing.T) {
 	}
 	if len(created.Tags) != 1 || created.Tags[0].Title != tag.Title {
 		t.Fatalf("创建文章后标签关系未正确写入: %+v", created.Tags)
+	}
+	if created.Cover != coverImage.URL {
+		t.Fatalf("创建文章后封面 URL 异常: got=%s want=%s", created.Cover, coverImage.URL)
 	}
 
 	var relationCount int64
@@ -307,13 +345,29 @@ func TestArticleUpdateViewOnlyUpdatesProvidedFields(t *testing.T) {
 
 	api := setupArticleAPI(t)
 	claims := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: enum.RoleUser, Username: user.Username}}
+	coverImage := models.ImageModel{
+		UserID:    user.ID,
+		Provider:  enum.ImageProviderQiNiu,
+		Bucket:    "myblogx",
+		ObjectKey: "myblogx/images/cover-update",
+		FileName:  "cover-update.png",
+		URL:       "https://image.gentlybeing.cn/cover-update.png",
+		MimeType:  "image/png",
+		Size:      1,
+		Hash:      "hash-cover-update",
+		Status:    enum.ImageStatusPass,
+	}
+	if err := db.Create(&coverImage).Error; err != nil {
+		t.Fatalf("创建更新封面图片失败: %v", err)
+	}
 
 	{
 		c, w := newCtx()
 		c.Set("claims", claims)
 		c.Set("requestUri", models.IDRequest{ID: article.ID})
 		c.Set("requestJson", ArticleUpdateRequest{
-			Content: ptrOf("new content"),
+			Content:      ptrOf("new content"),
+			CoverImageID: &coverImage.ID,
 		})
 		api.ArticleUpdateView(c)
 		if code := readCode(t, w); code != 0 {
@@ -333,8 +387,8 @@ func TestArticleUpdateViewOnlyUpdatesProvidedFields(t *testing.T) {
 	if article.Content != markdown.MdToSafe("new content") {
 		t.Fatalf("已传 content 应更新为安全 Markdown, got=%q", article.Content)
 	}
-	if article.Cover != "old-cover" {
-		t.Fatalf("未传 cover 不应更新, got=%s", article.Cover)
+	if article.Cover != coverImage.URL {
+		t.Fatalf("传 cover_image_id 应更新封面, got=%s want=%s", article.Cover, coverImage.URL)
 	}
 	if !article.CommentsToggle {
 		t.Fatal("未传 comments_toggle 不应更新")
@@ -421,11 +475,27 @@ func TestArticleDiggFavoriteVisitDetailRemoveUser(t *testing.T) {
 		Title:      "a1",
 		Content:    "content",
 		CategoryID: &category.ID,
+		Cover:      "https://image.gentlybeing.cn/cover-a1.png",
 		AuthorID:   user.ID,
 		Status:     enum.ArticleStatusPublished,
 	}
 	if err := db.Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)
+	}
+	coverImage := models.ImageModel{
+		UserID:    user.ID,
+		Provider:  enum.ImageProviderQiNiu,
+		Bucket:    "myblogx",
+		ObjectKey: "myblogx/images/cover-a1",
+		FileName:  "cover-a1.png",
+		URL:       article.Cover,
+		MimeType:  "image/png",
+		Size:      1,
+		Hash:      "hash-cover-a1",
+		Status:    enum.ImageStatusPass,
+	}
+	if err := db.Create(&coverImage).Error; err != nil {
+		t.Fatalf("创建详情封面图片失败: %v", err)
 	}
 	if err := db.Create(&models.ArticleTagModel{ArticleID: article.ID, TagID: tag.ID}).Error; err != nil {
 		t.Fatalf("创建文章标签关系失败: %v", err)
@@ -481,9 +551,15 @@ func TestArticleDiggFavoriteVisitDetailRemoveUser(t *testing.T) {
 		if data["category_id"] != category.ID.String() {
 			t.Fatalf("文章详情分类 id 异常, body=%s", w.Body.String())
 		}
+		if data["cover_image_id"] != coverImage.ID.String() {
+			t.Fatalf("文章详情封面 image id 异常, body=%s", w.Body.String())
+		}
 		tagIDs, ok := data["tag_ids"].([]any)
 		if !ok || len(tagIDs) != 1 || tagIDs[0] != tag.ID.String() {
 			t.Fatalf("文章详情标签 id 列表异常, body=%s", w.Body.String())
+		}
+		if data["author_avatar_image_id"] == nil {
+			t.Fatalf("文章详情作者头像 image id 异常, body=%s", w.Body.String())
 		}
 		if data["category_name"] != category.Title {
 			t.Fatalf("文章详情分类名异常, body=%s", w.Body.String())

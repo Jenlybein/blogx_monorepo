@@ -7,6 +7,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
+	"myblogx/service/image_service"
 	"myblogx/service/site_service"
 	"myblogx/service/user_service"
 	"myblogx/utils/jwts"
@@ -59,6 +60,10 @@ func (h *articleWriteService) CreateArticle(claims *jwts.MyClaims, cr ArticleCre
 	if err := validateArticleCategory(h.DB, claims.UserID, cr.CategoryID); err != nil {
 		return nil, nil, errArticleCategoryNotFound
 	}
+	coverURL, err := resolveArticleCoverURL(h.DB, cr.CoverImageID)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	tagList, err := loadEnabledTagsByIDs(h.DB, cr.TagIDs)
 	if err != nil {
@@ -80,17 +85,17 @@ func (h *articleWriteService) CreateArticle(claims *jwts.MyClaims, cr ArticleCre
 	}
 
 	article := &models.ArticleModel{
-		AuthorID:       claims.UserID,
-		Title:          cr.Title,
-		Abstract:       cr.Abstract,
-		Content:        safeContent,
-		CategoryID:     cr.CategoryID,
-		Cover:          cr.Cover,
-		CommentsToggle: cr.CommentsToggle,
-		Status:         publishStatus,
-		PublishStatus:  publishStatus,
+		AuthorID:         claims.UserID,
+		Title:            cr.Title,
+		Abstract:         cr.Abstract,
+		Content:          safeContent,
+		CategoryID:       cr.CategoryID,
+		Cover:            coverURL,
+		CommentsToggle:   cr.CommentsToggle,
+		Status:           publishStatus,
+		PublishStatus:    publishStatus,
 		VisibilityStatus: visibilityStatus,
-		SubmittedAt:    submittedAt,
+		SubmittedAt:      submittedAt,
 	}
 
 	tagIDs := extractTagIDs(tagList)
@@ -154,8 +159,12 @@ func (h *articleWriteService) UpdateArticle(articleID ctype.ID, claims *jwts.MyC
 			updateMap["category_id"] = cr.CategoryID
 		}
 	}
-	if cr.Cover != nil {
-		updateMap["cover"] = *cr.Cover
+	if cr.CoverImageID != nil {
+		coverURL, err := resolveArticleCoverURL(h.DB, cr.CoverImageID)
+		if err != nil {
+			return nil, articleUpdateResult{}, err
+		}
+		updateMap["cover"] = coverURL
 	}
 	if cr.CommentsToggle != nil {
 		updateMap["comments_toggle"] = *cr.CommentsToggle
@@ -196,7 +205,7 @@ func (h *articleWriteService) UpdateArticle(articleID ctype.ID, claims *jwts.MyC
 	submitRequested := cr.Status != nil && *cr.Status == enum.ArticleStatusExamining
 	draftRequested := cr.Status != nil && *cr.Status == enum.ArticleStatusDraft
 	shouldReSubmitAfterEdit := !h.RuntimeSite.GetRuntimeArticle().SkipExamining &&
-		(cr.Content != nil || cr.Title != nil || cr.Abstract != nil || cr.CategoryID != nil || cr.TagIDs != nil || cr.Cover != nil || cr.CommentsToggle != nil) &&
+		(cr.Content != nil || cr.Title != nil || cr.Abstract != nil || cr.CategoryID != nil || cr.TagIDs != nil || cr.CoverImageID != nil || cr.CommentsToggle != nil) &&
 		(article.EffectivePublishStatus() == enum.ArticleStatusPublished || article.EffectivePublishStatus() == enum.ArticleStatusExamining)
 
 	switch {
@@ -261,4 +270,11 @@ func (h *articleWriteService) UpdateArticle(articleID ctype.ID, claims *jwts.MyC
 	}
 
 	return &article, result, nil
+}
+
+func resolveArticleCoverURL(db *gorm.DB, imageID *ctype.ID) (string, error) {
+	if imageID == nil {
+		return "", nil
+	}
+	return image_service.ResolveImageURLByID(db, *imageID)
 }

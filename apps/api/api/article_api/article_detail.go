@@ -6,6 +6,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
+	"myblogx/service/image_service"
 	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_article"
 	"myblogx/service/user_service"
@@ -97,31 +98,33 @@ func (h ArticleApi) ArticleDetailView(c *gin.Context) {
 	}
 
 	response := ArticleDetailResponse{
-		ID:              article.ID,
-		CreatedAt:       article.CreatedAt,
-		UpdatedAt:       article.UpdatedAt,
-		Title:           article.Title,
-		Abstract:        article.Abstract,
-		Content:         article.Content,
-		CategoryID:      article.CategoryID,
-		Cover:           article.Cover,
-		ViewCount:       article.ViewCount,
-		DiggCount:       article.DiggCount,
-		CommentCount:    article.CommentCount,
-		FavorCount:      article.FavorCount,
-		CommentsToggle:  article.CommentsToggle,
-		Status:          article.Status,
-		PublishStatus:   article.EffectivePublishStatus(),
+		ID:               article.ID,
+		CreatedAt:        article.CreatedAt,
+		UpdatedAt:        article.UpdatedAt,
+		Title:            article.Title,
+		Abstract:         article.Abstract,
+		Content:          article.Content,
+		CategoryID:       article.CategoryID,
+		Cover:            article.Cover,
+		ViewCount:        article.ViewCount,
+		DiggCount:        article.DiggCount,
+		CommentCount:     article.CommentCount,
+		FavorCount:       article.FavorCount,
+		CommentsToggle:   article.CommentsToggle,
+		Status:           article.Status,
+		PublishStatus:    article.EffectivePublishStatus(),
 		VisibilityStatus: article.EffectiveVisibilityStatus(),
-		AuthorID:        article.AuthorID,
-		AuthorAvatar:    article.UserModel.Avatar,
-		AuthorAbstract:  article.UserModel.Abstract,
-		AuthorCreatedAt: article.UserModel.CreatedAt,
-		AuthorNickname:  article.UserModel.Nickname,
-		AuthorUsername:  article.UserModel.Username,
-		IsDigg:          isDigg,
-		IsFavor:         isFavor,
+		AuthorID:         article.AuthorID,
+		AuthorAvatar:     article.UserModel.Avatar,
+		AuthorAbstract:   article.UserModel.Abstract,
+		AuthorCreatedAt:  article.UserModel.CreatedAt,
+		AuthorNickname:   article.UserModel.Nickname,
+		AuthorUsername:   article.UserModel.Username,
+		IsDigg:           isDigg,
+		IsFavor:          isFavor,
 	}
+	response.CoverImageID, _ = image_service.FindImageIDByURL(h.App.DB, article.Cover)
+	response.AuthorAvatarImageID, _ = image_service.FindImageIDByURL(h.App.DB, article.UserModel.Avatar)
 	if article.CategoryModel != nil {
 		response.CategoryName = article.CategoryModel.Title
 	}

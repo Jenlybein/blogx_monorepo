@@ -67,6 +67,38 @@ export interface OptionItem {
   value: string;
 }
 
+export interface CreateImageUploadTaskRequest {
+  file_name: string;
+  size: number;
+  mime_type: string;
+  hash: string;
+}
+
+export interface CreateImageUploadTaskResponseData {
+  skip_upload: boolean;
+  upload_id?: string;
+  provider?: string;
+  bucket?: string;
+  object_key?: string;
+  upload_token?: string;
+  region?: string;
+  expire_at?: string;
+  max_size?: number;
+  image_id?: string;
+  status?: string;
+  url?: string;
+  hash?: string;
+}
+
+export interface UploadTaskStatusResponseData {
+  upload_id: string;
+  image_id?: string;
+  status: string;
+  url?: string;
+  error_msg?: string;
+  hash?: string;
+}
+
 export interface AiArticleMetainfo {
   title: string;
   abstract: string;

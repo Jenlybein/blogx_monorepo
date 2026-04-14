@@ -6,6 +6,7 @@ import (
 	"myblogx/middleware"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
+	"myblogx/service/image_service"
 	"myblogx/service/redis_service"
 	"myblogx/utils/jwts"
 	"strconv"
@@ -30,7 +31,7 @@ func (h ArticleApi) ArticleCreateView(c *gin.Context) {
 	article, tagIDs, err := writer.CreateArticle(claims, cr)
 	if err != nil {
 		switch {
-		case errors.Is(err, errArticleUserNotFound), errors.Is(err, errArticleCategoryNotFound), errors.Is(err, errArticleTagInvalid):
+		case errors.Is(err, errArticleUserNotFound), errors.Is(err, errArticleCategoryNotFound), errors.Is(err, errArticleTagInvalid), errors.Is(err, image_service.ErrImageUnavailable):
 			res.FailWithMsg(err.Error(), c)
 		default:
 			res.FailWithMsg("创建文章失败", c)
@@ -39,15 +40,17 @@ func (h ArticleApi) ArticleCreateView(c *gin.Context) {
 	}
 
 	applyTagArticleCountDelta(redis_service.NewDeps(h.App.Redis, h.App.Logger), buildTagArticleCountDelta(nil, tagIDs))
+	coverImageID, _ := image_service.FindImageIDByURL(h.App.DB, article.Cover)
 
 	res.OkWithData(ArticleCreateResponse{
-		ID:             article.ID,
-		Title:          article.Title,
-		CategoryID:     article.CategoryID,
-		TagIDs:         append([]ctype.ID(nil), tagIDs...),
-		CommentsToggle: article.CommentsToggle,
-		Status:         article.Status,
-		PublishStatus:  article.EffectivePublishStatus(),
+		ID:               article.ID,
+		Title:            article.Title,
+		CategoryID:       article.CategoryID,
+		TagIDs:           append([]ctype.ID(nil), tagIDs...),
+		CoverImageID:     coverImageID,
+		CommentsToggle:   article.CommentsToggle,
+		Status:           article.Status,
+		PublishStatus:    article.EffectivePublishStatus(),
 		VisibilityStatus: article.EffectiveVisibilityStatus(),
 	}, c)
 
@@ -60,7 +63,7 @@ func (h ArticleApi) ArticleCreateView(c *gin.Context) {
 		RequestBody: map[string]any{
 			"title":           cr.Title,
 			"abstract":        cr.Abstract,
-			"cover":           cr.Cover,
+			"cover_image_id":  cr.CoverImageID,
 			"category_id":     cr.CategoryID,
 			"status":          cr.Status,
 			"comments_toggle": cr.CommentsToggle,

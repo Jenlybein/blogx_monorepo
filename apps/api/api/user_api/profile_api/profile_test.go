@@ -43,7 +43,7 @@ func newProfileAPI() profile_api.ProfileApi {
 }
 
 func TestProfileHandlers(t *testing.T) {
-	db := testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{}, &models.UserStatModel{}, &models.UserViewDailyModel{}, &models.UserFollowModel{}, &models.TagModel{}, &models.UserSessionModel{}, &models.ArticleModel{})
+	db := testutil.SetupSQLite(t, &models.UserModel{}, &models.UserConfModel{}, &models.UserStatModel{}, &models.UserViewDailyModel{}, &models.UserFollowModel{}, &models.TagModel{}, &models.UserSessionModel{}, &models.ArticleModel{}, &models.ImageModel{})
 	_ = testutil.SetupMiniRedis(t)
 	email := "u1@example.com"
 	user := models.UserModel{
@@ -55,6 +55,25 @@ func TestProfileHandlers(t *testing.T) {
 	}
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("创建用户失败: %v", err)
+	}
+	user.Avatar = "https://image.gentlybeing.cn/profile-u1.png"
+	if err := db.Save(&user).Error; err != nil {
+		t.Fatalf("更新用户头像失败: %v", err)
+	}
+	avatarImage := models.ImageModel{
+		UserID:    user.ID,
+		Provider:  enum.ImageProviderQiNiu,
+		Bucket:    "myblogx",
+		ObjectKey: "myblogx/images/profile-u1",
+		FileName:  "profile-u1.png",
+		URL:       user.Avatar,
+		MimeType:  "image/png",
+		Size:      1,
+		Hash:      "hash-profile-u1",
+		Status:    enum.ImageStatusPass,
+	}
+	if err := db.Create(&avatarImage).Error; err != nil {
+		t.Fatalf("创建头像图片失败: %v", err)
 	}
 	viewer := models.UserModel{
 		Username: "viewer",
@@ -113,10 +132,11 @@ func TestProfileHandlers(t *testing.T) {
 		var body struct {
 			Code int `json:"code"`
 			Data struct {
-				Email        *string  `json:"email"`
-				HasPassword  bool     `json:"has_password"`
-				LikeTagIDs   []string `json:"like_tag_ids"`
-				LikeTagItems []struct {
+				Email         *string  `json:"email"`
+				HasPassword   bool     `json:"has_password"`
+				AvatarImageID string   `json:"avatar_image_id"`
+				LikeTagIDs    []string `json:"like_tag_ids"`
+				LikeTagItems  []struct {
 					ID    string `json:"id"`
 					Title string `json:"title"`
 				} `json:"like_tag_items"`
@@ -130,6 +150,9 @@ func TestProfileHandlers(t *testing.T) {
 		}
 		if !body.Data.HasPassword {
 			t.Fatalf("用户详情应返回已绑定密码")
+		}
+		if body.Data.AvatarImageID != avatarImage.ID.String() {
+			t.Fatalf("用户详情返回头像 image id 错误: %+v", body.Data.AvatarImageID)
 		}
 		if len(body.Data.LikeTagIDs) != 0 || len(body.Data.LikeTagItems) != 0 {
 			t.Fatalf("初始偏好标签应为空: %+v", body.Data)
@@ -235,14 +258,37 @@ func TestProfileHandlers(t *testing.T) {
 
 	{
 		c, w := newCtx()
+		newAvatar := models.ImageModel{
+			UserID:    user.ID,
+			Provider:  enum.ImageProviderQiNiu,
+			Bucket:    "myblogx",
+			ObjectKey: "myblogx/images/profile-u1-new",
+			FileName:  "profile-u1-new.png",
+			URL:       "https://image.gentlybeing.cn/profile-u1-new.png",
+			MimeType:  "image/png",
+			Size:      1,
+			Hash:      "hash-profile-u1-new",
+			Status:    enum.ImageStatusPass,
+		}
+		if err := db.Create(&newAvatar).Error; err != nil {
+			t.Fatalf("创建新头像图片失败: %v", err)
+		}
 		newNick := "new-nick"
 		c.Set("claims", &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: user.Role}})
 		c.Set("requestJson", profile_api.UserInfoUpdateRequest{
-			Nickname: &newNick,
+			Nickname:      &newNick,
+			AvatarImageID: &newAvatar.ID,
 		})
 		api.UserInfoUpdateView(c)
 		if code := readCode(t, w); code != 0 {
 			t.Fatalf("用户信息更新失败, code=%d body=%s", code, w.Body.String())
+		}
+		var updated models.UserModel
+		if err := db.Take(&updated, user.ID).Error; err != nil {
+			t.Fatalf("查询更新后的用户失败: %v", err)
+		}
+		if updated.Avatar != newAvatar.URL {
+			t.Fatalf("头像应按 avatar_image_id 更新, got=%s want=%s", updated.Avatar, newAvatar.URL)
 		}
 	}
 

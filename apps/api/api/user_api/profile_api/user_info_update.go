@@ -7,6 +7,7 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
+	"myblogx/service/image_service"
 	"myblogx/service/read_service"
 	"myblogx/utils/info_check"
 	"myblogx/utils/jwts"
@@ -20,7 +21,8 @@ import (
 type UserInfoUpdateRequest struct {
 	Username            *string     `json:"username"`
 	Nickname            *string     `json:"nickname"`
-	Avatar              *string     `json:"avatar"`
+	Avatar              *string     `json:"avatar"` // deprecated: 兼容旧前端，优先使用 avatar_image_id
+	AvatarImageID       *ctype.ID   `json:"avatar_image_id"`
 	Abstract            *string     `json:"abstract"`
 	LikeTagIDs          *[]ctype.ID `json:"like_tag_ids"`
 	LikeTags            *[]ctype.ID `json:"like_tags"` // deprecated: 兼容旧前端，后续统一移除
@@ -57,6 +59,14 @@ func (h ProfileApi) UserInfoUpdateView(c *gin.Context) {
 			return
 		}
 		confMap["like_tags"] = string(likeTagsJSON)
+	}
+	if cr.AvatarImageID != nil {
+		avatarURL, err := image_service.ResolveImageURLByID(app.DB, *cr.AvatarImageID)
+		if err != nil {
+			res.FailWithMsg(err.Error(), c)
+			return
+		}
+		userMap["avatar"] = avatarURL
 	}
 
 	claims := jwts.MustGetClaimsByGin(c)
@@ -105,7 +115,7 @@ func (h ProfileApi) UserInfoUpdateView(c *gin.Context) {
 			res.FailWithMsg("用户信息更新失败", c)
 			return
 		}
-		if cr.Nickname != nil || cr.Avatar != nil || cr.Abstract != nil {
+		if cr.Nickname != nil || cr.Avatar != nil || cr.AvatarImageID != nil || cr.Abstract != nil {
 			if err = read_service.SyncUserDisplaySnapshots(app.DB, claims.UserID); err != nil {
 				app.Logger.Errorf("同步用户展示快照失败: 用户ID=%d 错误=%v", claims.UserID, err)
 			}

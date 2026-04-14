@@ -6,6 +6,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
+	"myblogx/service/image_service"
 	"myblogx/service/read_service"
 	"myblogx/service/user_service"
 	"myblogx/utils/maps"
@@ -15,13 +16,14 @@ import (
 )
 
 type AdminUserInfoUpdateRequest struct {
-	UserID   ctype.ID         `json:"user_id" binding:"required"`
-	Username *string          `json:"username"`
-	Nickname *string          `json:"nickname"`
-	Avatar   *string          `json:"avatar"`
-	Abstract *string          `json:"abstract"`
-	Role     *enum.RoleType   `json:"role"`
-	Status   *enum.UserStatus `json:"status"`
+	UserID        ctype.ID         `json:"user_id" binding:"required"`
+	Username      *string          `json:"username"`
+	Nickname      *string          `json:"nickname"`
+	Avatar        *string          `json:"avatar"` // deprecated: 兼容旧前端，优先使用 avatar_image_id
+	AvatarImageID *ctype.ID        `json:"avatar_image_id"`
+	Abstract      *string          `json:"abstract"`
+	Role          *enum.RoleType   `json:"role"`
+	Status        *enum.UserStatus `json:"status"`
 }
 
 func (h ProfileApi) AdminUserInfoUpdateView(c *gin.Context) {
@@ -39,12 +41,20 @@ func (h ProfileApi) AdminUserInfoUpdateView(c *gin.Context) {
 		res.FailWithMsg("用户不存在", c)
 		return
 	}
+	if cr.AvatarImageID != nil {
+		avatarURL, err := image_service.ResolveImageURLByID(app.DB, *cr.AvatarImageID)
+		if err != nil {
+			res.FailWithMsg(err.Error(), c)
+			return
+		}
+		userMap["avatar"] = avatarURL
+	}
 
 	if err = app.DB.Model(&userModel).Updates(userMap).Error; err != nil {
 		res.FailWithMsg("用户信息更新失败", c)
 		return
 	}
-	if cr.Nickname != nil || cr.Avatar != nil || cr.Abstract != nil {
+	if cr.Nickname != nil || cr.Avatar != nil || cr.AvatarImageID != nil || cr.Abstract != nil {
 		if err = read_service.SyncUserDisplaySnapshots(app.DB, cr.UserID); err != nil {
 			app.Logger.Errorf("同步用户展示快照失败: 用户ID=%d 错误=%v", cr.UserID, err)
 		}
@@ -64,13 +74,14 @@ func (h ProfileApi) AdminUserInfoUpdateView(c *gin.Context) {
 		Success:    true,
 		Message:    "管理员更新用户信息成功",
 		RequestBody: map[string]any{
-			"user_id":  cr.UserID,
-			"username": cr.Username,
-			"nickname": cr.Nickname,
-			"avatar":   cr.Avatar,
-			"abstract": cr.Abstract,
-			"role":     cr.Role,
-			"status":   cr.Status,
+			"user_id":         cr.UserID,
+			"username":        cr.Username,
+			"nickname":        cr.Nickname,
+			"avatar":          cr.Avatar,
+			"avatar_image_id": cr.AvatarImageID,
+			"abstract":        cr.Abstract,
+			"role":            cr.Role,
+			"status":          cr.Status,
 		},
 		UseRawRequestBody: true,
 		UseRawRequestHead: true,
