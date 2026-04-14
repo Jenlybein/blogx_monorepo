@@ -1019,6 +1019,7 @@ useSeoMeta({
 
         <div class="write-page__actions">
           <NButton quaternary :loading="pendingState.draft" @click="submitArticle(1)">{{ draftActionLabel }}</NButton>
+          <NButton quaternary @click="navigateTo('/')">返回首页</NButton>
           <NButton quaternary @click="navigateTo('/studio/profile')">草稿箱</NButton>
           <NButton type="primary" @click="publishVisible = true">{{ isEditMode ? "更新" : "发布" }}</NButton>
           <NuxtLink :to="authStore.profileId ? `/users/${authStore.profileId}` : '/studio/profile'"
@@ -1063,7 +1064,7 @@ useSeoMeta({
           </template>
         </div>
 
-        <div class="write-page__toolbar-group">
+        <div class="write-page__toolbar-group write-page__toolbar-group--right">
           <NTooltip trigger="hover" placement="bottom">
             <template #trigger>
               <button type="button" class="write-tool-button" :class="{ 'write-tool-button--active': showToc }"
@@ -1656,19 +1657,24 @@ useSeoMeta({
     justify-content: flex-end;
   }
 
+  .write-page__toolbar-group--right,
+  .write-page__toc,
+  .write-page__pane--preview {
+    display: none !important;
+  }
+
   .write-page__body,
   .write-page__body--hide-toc,
   .write-page__body--editor-only,
   .write-page__body--preview-only,
   .write-page__body--editor-only.write-page__body--hide-toc,
   .write-page__body--preview-only.write-page__body--hide-toc {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
 
-  .write-page__toc,
   .write-page__pane--editor {
     border-right: 0;
-    border-bottom: 1px solid rgba(217, 226, 236, 0.92);
+    border-bottom: 0;
   }
 
   .write-page__textarea {

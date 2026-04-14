@@ -15,6 +15,7 @@ type ArticleStatusFilter = 0 | 1 | 2 | 3 | 4;
 const route = useRoute();
 const router = useRouter();
 const message = useMessage();
+const { openWriteEntry } = useWriteEntry();
 
 const key = shallowRef("");
 const sort = shallowRef("2");
@@ -173,7 +174,12 @@ useSeoMeta({
       eyebrow="Articles"
     >
       <div class="flex flex-wrap gap-3">
-        <NuxtLink to="/studio/write" class="glass-badge">创作文章</NuxtLink>
+        <NuxtLink
+          to="/studio/write"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="glass-badge"
+          @click.prevent="openWriteEntry()">创作文章</NuxtLink>
         <NButton quaternary @click="refresh()">刷新列表</NButton>
       </div>
     </StudioPageHeader>
@@ -264,7 +270,12 @@ useSeoMeta({
 
             <div class="flex flex-wrap gap-2">
               <NuxtLink :to="`/article/${item.id}`" class="glass-badge">查看详情</NuxtLink>
-              <NuxtLink :to="{ path: '/studio/write', query: { article_id: item.id } }" class="glass-badge">编辑</NuxtLink>
+              <NuxtLink
+                :to="{ path: '/studio/write', query: { article_id: item.id } }"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="glass-badge"
+                @click.prevent="openWriteEntry({ articleId: item.id })">编辑</NuxtLink>
               <NButton quaternary size="small" @click="handleDelete(item.id)">删除</NButton>
             </div>
           </div>

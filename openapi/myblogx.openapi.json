@@ -9658,11 +9658,6 @@
             "description": "昵称。",
             "nullable": true
           },
-          "avatar": {
-            "type": "string",
-            "description": "头像图片地址。兼容旧版本保留；新调用优先使用 `avatar_image_id`，由服务端根据图片 ID 回填真实 URL。",
-            "nullable": true
-          },
           "avatar_image_id": {
             "type": "string",
             "description": "头像图片 ID。推荐优先使用该字段，服务端会校验图片存在且可用后写入头像 URL。",
@@ -9679,13 +9674,6 @@
               "type": "string"
             },
             "description": "用户偏好标签 ID 列表。推荐优先使用该字段。"
-          },
-          "like_tags": {
-            "type": "array",
-            "items": {
-              "type": "integer"
-            },
-            "description": "兼容旧版本的偏好标签 ID 列表；新调用请改用 `like_tag_ids`。"
           },
           "favorites_visibility": {
             "type": "boolean",
@@ -9724,11 +9712,6 @@
           "nickname": {
             "type": "string",
             "description": "昵称。",
-            "nullable": true
-          },
-          "avatar": {
-            "type": "string",
-            "description": "头像图片地址。兼容旧版本保留；新调用优先使用 `avatar_image_id`。",
             "nullable": true
           },
           "avatar_image_id": {

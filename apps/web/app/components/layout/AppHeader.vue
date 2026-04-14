@@ -16,6 +16,7 @@ const router = useRouter();
 const authStore = useAuthStore();
 const siteStore = useSiteStore();
 const uiStore = useUiStore();
+const { openWriteEntry } = useWriteEntry();
 
 const searchKeyword = ref("");
 const authActionWidthClass = "w-[132px] md:w-[148px]";
@@ -94,7 +95,13 @@ async function handleUserMenuSelect(key: string | number) {
           <IconSearch :size="16" />
           <span>搜索</span>
         </NuxtLink>
-        <NuxtLink to="/studio/write" class="soft-tab" :class="{ 'is-active': route.path.startsWith('/studio/write') }">
+        <NuxtLink
+          to="/studio/write"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="soft-tab"
+          :class="{ 'is-active': route.path.startsWith('/studio/write') }"
+          @click.prevent="openWriteEntry()">
           <IconPencilPlus :size="16" />
           <span>创作</span>
         </NuxtLink>

@@ -346,24 +346,11 @@ func TestProfileHandlers(t *testing.T) {
 		likeTags := []ctype.ID{disabledTag.ID}
 		c.Set("claims", &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: user.Role}})
 		c.Set("requestJson", profile_api.UserInfoUpdateRequest{
-			LikeTags: &likeTags,
+			LikeTagIDs: &likeTags,
 		})
 		api.UserInfoUpdateView(c)
 		if code := readCode(t, w); code == 0 {
 			t.Fatalf("停用标签不应允许更新, body=%s", w.Body.String())
-		}
-	}
-
-	{
-		c, w := newCtx()
-		likeTags := []ctype.ID{tag.ID}
-		c.Set("claims", &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: user.Role}})
-		c.Set("requestJson", profile_api.UserInfoUpdateRequest{
-			LikeTags: &likeTags,
-		})
-		api.UserInfoUpdateView(c)
-		if code := readCode(t, w); code != 0 {
-			t.Fatalf("旧字段 like_tags 兼容更新失败, code=%d body=%s", code, w.Body.String())
 		}
 	}
 
