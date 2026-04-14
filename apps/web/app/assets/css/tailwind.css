@@ -115,11 +115,11 @@
     @apply mt-10 text-2xl font-semibold tracking-[-0.02em];
   }
 
-  .content-prose h2,
+  /* .content-prose h2,
   .content-prose h3,
   .content-prose h4 {
     scroll-margin-top: 132px;
-  }
+  } */
 
   .content-prose pre {
     @apply overflow-x-auto rounded-[20px] bg-slate-950 px-5 py-4 text-sm text-slate-100;

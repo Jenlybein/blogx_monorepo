@@ -54,7 +54,16 @@ export default defineNuxtConfig({
   },
   vite: {
     optimizeDeps: {
-      include: ["@vee-validate/zod", "vee-validate", "zod", "@tabler/icons-vue"],
+      include: [
+        "@vee-validate/zod",
+        "vee-validate",
+        "zod",
+        "@tabler/icons-vue",
+        "markdown-it-katex",
+        "markdown-it-ins",
+        "highlight.js",
+        "mermaid",
+      ],
     },
     ssr: {
       noExternal: ["naive-ui", "vueuc", "date-fns"],

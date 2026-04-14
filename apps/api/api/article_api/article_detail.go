@@ -103,6 +103,7 @@ func (h ArticleApi) ArticleDetailView(c *gin.Context) {
 		Title:           article.Title,
 		Abstract:        article.Abstract,
 		Content:         article.Content,
+		CategoryID:      article.CategoryID,
 		Cover:           article.Cover,
 		ViewCount:       article.ViewCount,
 		DiggCount:       article.DiggCount,
@@ -126,6 +127,7 @@ func (h ArticleApi) ArticleDetailView(c *gin.Context) {
 	}
 	if article.Tags != nil {
 		for _, tag := range article.Tags {
+			response.TagIDs = append(response.TagIDs, tag.ID)
 			response.Tags = append(response.Tags, tag.Title)
 		}
 	}

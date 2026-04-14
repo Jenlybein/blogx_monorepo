@@ -1,4 +1,7 @@
 import MarkdownIt from "markdown-it";
+import markdownItKatex from "markdown-it-katex";
+import markdownItIns from "markdown-it-ins";
+import hljs from "highlight.js";
 import { computed, toRef, toValue } from "vue";
 import type { MaybeRefOrGetter } from "vue";
 
@@ -14,22 +17,65 @@ interface RenderedArticleMarkdown {
   headings: ArticleHeadingAnchor[];
 }
 
+function escapeHtml(raw: string) {
+  return raw
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 const markdown = new MarkdownIt({
   breaks: true,
   linkify: true,
   html: false,
+  highlight(code, language) {
+    if (language && hljs.getLanguage(language)) {
+      const highlighted = hljs.highlight(code, { language, ignoreIllegals: true }).value;
+      return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
+    }
+
+    const highlighted = hljs.highlightAuto(code).value;
+    return `<pre><code class="hljs">${highlighted}</code></pre>`;
+  },
 });
+markdown.use(markdownItKatex);
+markdown.use(markdownItIns);
 const markdownRuntime = markdown as MarkdownIt & {
   parse: (source: string, env: Record<string, unknown>) => Array<{
     type: string;
     tag: string;
+    info?: string;
     content: string;
     attrSet: (name: string, value: string) => void;
   }>;
   renderer: {
     render: (tokens: unknown[], options: unknown, env: Record<string, unknown>) => string;
+    rules: {
+      fence?: (
+        tokens: Array<{ info?: string; content: string }>,
+        idx: number,
+        options: unknown,
+        env: unknown,
+        self: { renderToken: (tokens: unknown[], idx: number, options: unknown) => string },
+      ) => string;
+    };
   };
   options: unknown;
+};
+
+const defaultFenceRenderer = markdownRuntime.renderer.rules.fence?.bind(markdownRuntime.renderer.rules);
+markdownRuntime.renderer.rules.fence = (tokens, idx, options, env, self) => {
+  const token = tokens[idx];
+  const language = token?.info?.trim().split(/\s+/u)[0]?.toLowerCase();
+  if (language === "mermaid") {
+    return `<div class="mermaid">${escapeHtml(token.content || "")}</div>\n`;
+  }
+  if (defaultFenceRenderer) {
+    return defaultFenceRenderer(tokens, idx, options, env, self);
+  }
+  return self.renderToken(tokens as unknown[], idx, options);
 };
 
 function createHeadingId(title: string, serial: number, usedIds: Map<string, number>) {
@@ -53,7 +99,8 @@ function renderArticleMarkdown(source: string): RenderedArticleMarkdown {
     };
   }
 
-  const tokens = markdownRuntime.parse(source, {});
+  const normalizedSource = source.replace(/<u>([\s\S]*?)<\/u>/gi, "++$1++");
+  const tokens = markdownRuntime.parse(normalizedSource, {});
   const headings: ArticleHeadingAnchor[] = [];
   const usedIds = new Map<string, number>();
   let headingSerial = 0;

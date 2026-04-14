@@ -37,6 +37,8 @@ type ArticleDetailResponse struct {
 	Title           string             `json:"title"`
 	Abstract        string             `json:"abstract"`
 	Content         string             `json:"content"`
+	CategoryID      *ctype.ID          `json:"category_id"`
+	TagIDs          []ctype.ID         `json:"tag_ids"`
 	Cover           string             `json:"cover"`
 	ViewCount       int                `json:"view_count"`
 	DiggCount       int                `json:"digg_count"`

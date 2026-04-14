@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Component } from "vue";
 import { computed, nextTick, reactive, ref } from "vue";
+import { useDebounce } from "@vueuse/core";
 import {
   IconAlignCenter,
   IconAlignLeft,
@@ -17,17 +18,31 @@ import {
   IconList,
   IconListDetails,
   IconListNumbers,
+  IconPalette,
   IconPhoto,
   IconStrikethrough,
   IconTable,
   IconTopologyStar3,
 } from "@tabler/icons-vue";
-import { NAvatar, NButton, NInput, NModal, NPopover, NSelect, NSwitch, NTooltip, useMessage } from "naive-ui";
+import { NAvatar, NButton, NCard, NInput, NModal, NPopover, NSelect, NSwitch, NTooltip, useMessage } from "naive-ui";
 import { useArticleMarkdown } from "~/composables/useArticleMarkdown";
 import { generateArticleMetainfo } from "~/services/ai";
 import { createArticle } from "~/services/article";
 import { getCategoryOptions, getTagOptions } from "~/services/search";
-import "github-markdown-css/github-markdown-light.css";
+import katexCssUrl from "katex/dist/katex.min.css?url";
+import highlightCssUrl from "highlight.js/styles/github.min.css?url";
+import githubMarkdownCssUrl from "github-markdown-css/github-markdown-light.css?url";
+import githubMarkdownDarkCssUrl from "github-markdown-css/github-markdown-dark.css?url";
+import githubMarkdownLightColorblindCssUrl from "github-markdown-css/github-markdown-light-colorblind.css?url";
+import githubMarkdownDarkColorblindCssUrl from "github-markdown-css/github-markdown-dark-colorblind.css?url";
+import githubMarkdownDarkDimmedCssUrl from "github-markdown-css/github-markdown-dark-dimmed.css?url";
+import githubMarkdownDarkHighContrastCssUrl from "github-markdown-css/github-markdown-dark-high-contrast.css?url";
+import markdownThemeShanyueCssUrl from "markdown-theme/themes/shanyue.css?url";
+import markdownThemeVGreenCssUrl from "markdown-theme/themes/v-green.css?url";
+import markdownThemeChocolateCssUrl from "markdown-theme/themes/chocolate.css?url";
+import markdownThemeShanchuiCssUrl from "markdown-theme/themes/shanchui.css?url";
+import markdownThemeMenglvCssUrl from "markdown-theme/themes/menglv.css?url";
+import markdownThemeCondensedNightPurpleCssUrl from "markdown-theme/themes/condensed-night-purple.css?url";
 
 definePageMeta({
   layout: "write",
@@ -51,7 +66,7 @@ const router = useRouter();
 const authStore = useAuthStore();
 const message = useMessage();
 const editorTextareaRef = ref<HTMLTextAreaElement | null>(null);
-const previewPaneRef = ref<HTMLElement | null>(null);
+const shadowPreviewRef = ref<{ scrollToHeading: (id: string) => boolean } | null>(null);
 
 if (!authStore.profileId) {
   await authStore.fetchCurrentUser();
@@ -76,6 +91,20 @@ const pendingState = reactive({
 const showToc = ref(true);
 const viewMode = ref<"split" | "editor" | "preview">("split");
 const publishVisible = ref(false);
+const selectedMarkdownTheme = ref<
+  | "github"
+  | "github-dark"
+  | "github-colorblind"
+  | "github-dark-colorblind"
+  | "github-dark-dimmed"
+  | "github-dark-high-contrast"
+  | "shanyue"
+  | "vgreen"
+  | "chocolate"
+  | "shanchui"
+  | "menglv"
+  | "condensed-night-purple"
+>("github");
 
 const currentUserId = computed(() => authStore.profileId || "");
 const currentUserInitial = computed(() => authStore.profileName.slice(0, 1).toUpperCase() || "ME");
@@ -89,7 +118,8 @@ const { data: categoryOptions } = await useAsyncData(
   },
 );
 
-const { renderedHtml, headings } = useArticleMarkdown(computed(() => form.content));
+const debouncedContent = useDebounce(computed(() => form.content), 300);
+const { renderedHtml, headings } = useArticleMarkdown(debouncedContent);
 
 const writeBodyClass = computed(() => ({
   "write-page__body--hide-toc": !showToc.value,
@@ -104,21 +134,51 @@ const contentStats = computed(() => ({
 }));
 
 const tocItems = computed(() => {
-  if (headings.value.length) {
-    return headings.value.map((item) => ({
-      id: item.id,
-      label: item.title,
-      level: item.level,
-    }));
-  }
-
-  return [
-    { id: "", label: "从正文里的 H1-H4 标题自动生成目录", level: 1 },
-    { id: "", label: "比如：# 接口能力梳理", level: 2 },
-  ];
+  return headings.value.map((item) => ({
+    id: item.id,
+    label: item.title,
+    level: item.level,
+  }));
 });
 
 const canSubmit = computed(() => Boolean(form.title.trim() && form.content.trim()));
+
+const markdownThemeOptions: ToolOption[] = [
+  { key: "github", label: "GitHub Light" },
+  { key: "github-dark", label: "GitHub Dark" },
+  { key: "github-colorblind", label: "GitHub Colorblind" },
+  { key: "github-dark-colorblind", label: "GitHub Dark Colorblind" },
+  { key: "github-dark-dimmed", label: "GitHub Dark Dimmed" },
+  { key: "github-dark-high-contrast", label: "GitHub Dark High Contrast" },
+  { key: "shanyue", label: "Shanyue" },
+  { key: "vgreen", label: "V-Green" },
+  { key: "chocolate", label: "Chocolate" },
+  { key: "shanchui", label: "Shanchui" },
+  { key: "menglv", label: "Menglv" },
+  { key: "condensed-night-purple", label: "Condensed Night Purple" },
+];
+
+const selectedThemeLabel = computed(
+  () => markdownThemeOptions.find((item) => item.key === selectedMarkdownTheme.value)?.label || "GitHub Light",
+);
+
+const markdownThemeHrefMap: Record<typeof selectedMarkdownTheme.value, string> = {
+  github: githubMarkdownCssUrl,
+  "github-dark": githubMarkdownDarkCssUrl,
+  "github-colorblind": githubMarkdownLightColorblindCssUrl,
+  "github-dark-colorblind": githubMarkdownDarkColorblindCssUrl,
+  "github-dark-dimmed": githubMarkdownDarkDimmedCssUrl,
+  "github-dark-high-contrast": githubMarkdownDarkHighContrastCssUrl,
+  shanyue: markdownThemeShanyueCssUrl,
+  vgreen: markdownThemeVGreenCssUrl,
+  chocolate: markdownThemeChocolateCssUrl,
+  shanchui: markdownThemeShanchuiCssUrl,
+  menglv: markdownThemeMenglvCssUrl,
+  "condensed-night-purple": markdownThemeCondensedNightPurpleCssUrl,
+};
+
+const activeMarkdownThemeHref = computed(() => markdownThemeHrefMap[selectedMarkdownTheme.value]);
+const markdownSupportStyleHrefs = [katexCssUrl, highlightCssUrl];
 
 const leftTools: ToolItem[] = [
   {
@@ -145,6 +205,12 @@ const leftTools: ToolItem[] = [
   { key: "ol", label: "有序列表", icon: IconListNumbers },
   { key: "strike", label: "删除线", icon: IconStrikethrough },
   { key: "table", label: "表格", icon: IconTable },
+  {
+    key: "theme",
+    label: "预览样式",
+    icon: IconPalette,
+    options: markdownThemeOptions,
+  },
   {
     key: "align",
     label: "对齐",
@@ -216,7 +282,401 @@ function wrapSelection(prefix: string, suffix: string, placeholder: string) {
   });
 }
 
+function findWordRangeAtCursor(content: string, cursor: number) {
+  const isWordChar = (char: string) => /[A-Za-z0-9_\u4e00-\u9fff]/.test(char);
+  let start = cursor;
+  let end = cursor;
+
+  while (start > 0 && isWordChar(content[start - 1] || "")) {
+    start -= 1;
+  }
+
+  while (end < content.length && isWordChar(content[end] || "")) {
+    end += 1;
+  }
+
+  if (start === end) {
+    return null;
+  }
+
+  return { start, end };
+}
+
+function getShortcutRange() {
+  const textarea = editorTextareaRef.value;
+  if (!textarea) {
+    return null;
+  }
+
+  let selectionStart = textarea.selectionStart ?? 0;
+  let selectionEnd = textarea.selectionEnd ?? selectionStart;
+
+  if (selectionStart === selectionEnd) {
+    const wordRange = findWordRangeAtCursor(form.content, selectionStart);
+    if (!wordRange) {
+      return null;
+    }
+    selectionStart = wordRange.start;
+    selectionEnd = wordRange.end;
+  }
+
+  return { selectionStart, selectionEnd };
+}
+
+function toggleInlineWrapper(prefix: string, suffix: string) {
+  const range = getShortcutRange();
+  if (!range) {
+    return;
+  }
+
+  const { selectionStart, selectionEnd } = range;
+  const content = form.content;
+  const hasWrappedSelection =
+    selectionStart >= prefix.length &&
+    selectionEnd + suffix.length <= content.length &&
+    content.slice(selectionStart - prefix.length, selectionStart) === prefix &&
+    content.slice(selectionEnd, selectionEnd + suffix.length) === suffix;
+
+  if (hasWrappedSelection) {
+    const nextContent =
+      content.slice(0, selectionStart - prefix.length) +
+      content.slice(selectionStart, selectionEnd) +
+      content.slice(selectionEnd + suffix.length);
+    form.content = nextContent;
+    focusEditor(selectionStart - prefix.length, selectionEnd - prefix.length);
+    return;
+  }
+
+  const selectedText = content.slice(selectionStart, selectionEnd);
+  form.content = `${content.slice(0, selectionStart)}${prefix}${selectedText}${suffix}${content.slice(selectionEnd)}`;
+  focusEditor(selectionStart + prefix.length, selectionEnd + prefix.length);
+}
+
+function applyBoldShortcut() {
+  toggleInlineWrapper("**", "**");
+}
+
+function applyItalicShortcut() {
+  toggleInlineWrapper("*", "*");
+}
+
+function applyUnderlineShortcut() {
+  toggleInlineWrapper("++", "++");
+}
+
+function applyInlineCodeShortcut() {
+  toggleInlineWrapper("`", "`");
+}
+
+function applyImageShortcut() {
+  insertSnippet("![图片描述](https://example.com/image.png)\n");
+}
+
+function applyStrikeShortcut() {
+  toggleInlineWrapper("~~", "~~");
+}
+
+function applyTableShortcut() {
+  insertSnippet("| 列1 | 列2 |\n| --- | --- |\n| 内容 | 内容 |\n");
+}
+
+function applyHeadingShortcut(level: number) {
+  const textarea = editorTextareaRef.value;
+  if (!textarea) {
+    return;
+  }
+
+  const selectionStart = textarea.selectionStart ?? 0;
+  const selectionEnd = textarea.selectionEnd ?? selectionStart;
+  const content = form.content;
+  const lineStart = content.lastIndexOf("\n", Math.max(0, selectionStart - 1)) + 1;
+  let lineEnd = content.indexOf("\n", selectionEnd);
+  if (lineEnd === -1) {
+    lineEnd = content.length;
+  }
+
+  const lineBlock = content.slice(lineStart, lineEnd);
+  const nextPrefix = `${"#".repeat(level)} `;
+  const transformedBlock = lineBlock
+    .split("\n")
+    .map((line) => {
+      if (!line.trim()) {
+        return line;
+      }
+      const stripped = line.replace(/^\s{0,3}#{1,6}\s+/, "");
+      return `${nextPrefix}${stripped}`;
+    })
+    .join("\n");
+
+  form.content = `${content.slice(0, lineStart)}${transformedBlock}${content.slice(lineEnd)}`;
+  focusEditor(lineStart, lineStart + transformedBlock.length);
+}
+
+function replaceCurrentLineBlock(transformLine: (line: string, index: number) => string) {
+  const textarea = editorTextareaRef.value;
+  if (!textarea) {
+    return;
+  }
+
+  const selectionStart = textarea.selectionStart ?? 0;
+  const selectionEnd = textarea.selectionEnd ?? selectionStart;
+  const content = form.content;
+  const lineStart = content.lastIndexOf("\n", Math.max(0, selectionStart - 1)) + 1;
+  let lineEnd = content.indexOf("\n", selectionEnd);
+  if (lineEnd === -1) {
+    lineEnd = content.length;
+  }
+
+  const lineBlock = content.slice(lineStart, lineEnd);
+  const transformedBlock = lineBlock
+    .split("\n")
+    .map((line, index) => transformLine(line, index))
+    .join("\n");
+
+  form.content = `${content.slice(0, lineStart)}${transformedBlock}${content.slice(lineEnd)}`;
+  focusEditor(lineStart, lineStart + transformedBlock.length);
+}
+
+function applyQuoteShortcut() {
+  replaceCurrentLineBlock((line) => {
+    if (!line.trim()) {
+      return line;
+    }
+    if (/^\s{0,3}>\s?/.test(line)) {
+      return line.replace(/^\s{0,3}>\s?/, "");
+    }
+    return `> ${line}`;
+  });
+}
+
+function applyUnorderedListShortcut() {
+  const textarea = editorTextareaRef.value;
+  if (!textarea) {
+    return;
+  }
+
+  const selectionStart = textarea.selectionStart ?? 0;
+  const selectionEnd = textarea.selectionEnd ?? selectionStart;
+  const content = form.content;
+  const lineStart = content.lastIndexOf("\n", Math.max(0, selectionStart - 1)) + 1;
+  let lineEnd = content.indexOf("\n", selectionEnd);
+  if (lineEnd === -1) {
+    lineEnd = content.length;
+  }
+  const lineBlock = content.slice(lineStart, lineEnd);
+  const lines = lineBlock.split("\n");
+  const nonEmptyLines = lines.filter((line) => line.trim());
+  const isAllBulleted = nonEmptyLines.length > 0 && nonEmptyLines.every((line) => /^\s*-\s+/.test(line));
+
+  replaceCurrentLineBlock((line) => {
+    if (!line.trim()) {
+      return line;
+    }
+    if (isAllBulleted) {
+      return line.replace(/^\s*-\s+/, "");
+    }
+    return `- ${line}`;
+  });
+}
+
+function applyOrderedListShortcut() {
+  const textarea = editorTextareaRef.value;
+  if (!textarea) {
+    return;
+  }
+
+  const selectionStart = textarea.selectionStart ?? 0;
+  const selectionEnd = textarea.selectionEnd ?? selectionStart;
+  const content = form.content;
+  const lineStart = content.lastIndexOf("\n", Math.max(0, selectionStart - 1)) + 1;
+  let lineEnd = content.indexOf("\n", selectionEnd);
+  if (lineEnd === -1) {
+    lineEnd = content.length;
+  }
+  const lineBlock = content.slice(lineStart, lineEnd);
+  const lines = lineBlock.split("\n");
+  const nonEmptyLines = lines.filter((line) => line.trim());
+  const isAllOrdered = nonEmptyLines.length > 0 && nonEmptyLines.every((line) => /^\s*\d+\.\s+/.test(line));
+  let order = 0;
+
+  replaceCurrentLineBlock((line) => {
+    if (!line.trim()) {
+      return line;
+    }
+    if (isAllOrdered) {
+      return line.replace(/^\s*\d+\.\s+/, "");
+    }
+    order += 1;
+    return `${order}. ${line}`;
+  });
+}
+
+function applyCodeBlockShortcut() {
+  const textarea = editorTextareaRef.value;
+  const fallbackSelection = form.content.length;
+  const selectionStart = textarea?.selectionStart ?? fallbackSelection;
+  const selectionEnd = textarea?.selectionEnd ?? fallbackSelection;
+  const selectedText = form.content.slice(selectionStart, selectionEnd);
+  const match = selectedText.match(/^```([\w-]*)\n([\s\S]*?)\n```$/);
+
+  if (match) {
+    const inner = match[2] || "";
+    form.content = `${form.content.slice(0, selectionStart)}${inner}${form.content.slice(selectionEnd)}`;
+    focusEditor(selectionStart, selectionStart + inner.length);
+    return;
+  }
+
+  const code = selectedText || "const answer = true;";
+  const wrapped = `\`\`\`ts\n${code}\n\`\`\``;
+  form.content = `${form.content.slice(0, selectionStart)}${wrapped}${form.content.slice(selectionEnd)}`;
+  focusEditor(selectionStart + 6, selectionStart + 6 + code.length);
+}
+
+function applyLinkShortcut() {
+  const textarea = editorTextareaRef.value;
+  if (!textarea) {
+    return;
+  }
+
+  const fallbackSelection = form.content.length;
+  let selectionStart = textarea.selectionStart ?? fallbackSelection;
+  let selectionEnd = textarea.selectionEnd ?? fallbackSelection;
+
+  if (selectionStart === selectionEnd) {
+    const wordRange = findWordRangeAtCursor(form.content, selectionStart);
+    if (wordRange) {
+      selectionStart = wordRange.start;
+      selectionEnd = wordRange.end;
+    }
+  }
+
+  const selectedText = form.content.slice(selectionStart, selectionEnd);
+  const linkMatch = selectedText.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+  const defaultText = linkMatch?.[1] || selectedText || "链接文本";
+  const defaultUrl = linkMatch?.[2] || "https://example.com";
+  const url = import.meta.client ? window.prompt("请输入链接 URL", defaultUrl) : defaultUrl;
+
+  if (!url) {
+    return;
+  }
+
+  const nextContent = `[${defaultText}](${url.trim()})`;
+  form.content = `${form.content.slice(0, selectionStart)}${nextContent}${form.content.slice(selectionEnd)}`;
+  focusEditor(selectionStart + 1, selectionStart + 1 + defaultText.length);
+}
+
+function handleEditorShortcuts(event: KeyboardEvent) {
+  if (!(event.ctrlKey || event.metaKey)) {
+    return;
+  }
+
+  if (event.altKey) {
+    if (event.key.toLowerCase() === "t") {
+      event.preventDefault();
+      applyTableShortcut();
+    }
+    return;
+  }
+
+  if (event.key.toLowerCase() === "b") {
+    event.preventDefault();
+    applyBoldShortcut();
+    return;
+  }
+
+  if (event.shiftKey && event.key.toLowerCase() === "i") {
+    event.preventDefault();
+    applyImageShortcut();
+    return;
+  }
+
+  if (event.key.toLowerCase() === "i") {
+    event.preventDefault();
+    applyItalicShortcut();
+    return;
+  }
+
+  if (event.key.toLowerCase() === "u") {
+    event.preventDefault();
+    applyUnderlineShortcut();
+    return;
+  }
+
+  if (event.shiftKey && event.key.toLowerCase() === "k") {
+    event.preventDefault();
+    applyCodeBlockShortcut();
+    return;
+  }
+
+  if (event.shiftKey && event.key.toLowerCase() === "l") {
+    event.preventDefault();
+    applyOrderedListShortcut();
+    return;
+  }
+
+  if (event.shiftKey && (event.key === "~" || event.code === "Backquote")) {
+    event.preventDefault();
+    applyInlineCodeShortcut();
+    return;
+  }
+
+  if (event.key.toLowerCase() === "q") {
+    event.preventDefault();
+    applyQuoteShortcut();
+    return;
+  }
+
+  if (event.key.toLowerCase() === "k") {
+    event.preventDefault();
+    applyLinkShortcut();
+    return;
+  }
+
+  if (event.key.toLowerCase() === "l") {
+    event.preventDefault();
+    applyUnorderedListShortcut();
+    return;
+  }
+
+  if (event.key.toLowerCase() === "d") {
+    event.preventDefault();
+    applyStrikeShortcut();
+    return;
+  }
+
+  if (/^[1-6]$/.test(event.key)) {
+    event.preventDefault();
+    applyHeadingShortcut(Number(event.key));
+  }
+}
+
+const toolShortcutMap: Partial<Record<ToolItem["key"], string>> = {
+  bold: "Ctrl+B",
+  italic: "Ctrl+I",
+  quote: "Ctrl+Q",
+  link: "Ctrl+K",
+  image: "Ctrl+Shift+I",
+  highlight: "Ctrl+Shift+~",
+  code: "Ctrl+Shift+K",
+  ul: "Ctrl+L",
+  ol: "Ctrl+Shift+L",
+  strike: "Ctrl+D",
+  table: "Ctrl+Alt+T",
+};
+
+function getToolTooltip(tool: ToolItem) {
+  const shortcut = toolShortcutMap[tool.key];
+  return shortcut ? `${tool.label} (${shortcut})` : tool.label;
+}
+
 function handleToolOption(toolKey: string, optionKey: string) {
+  if (toolKey === "theme") {
+    selectedMarkdownTheme.value =
+      (markdownThemeOptions.find((option) => option.key === optionKey)?.key as typeof selectedMarkdownTheme.value) ||
+      "github";
+    return;
+  }
+
   if (toolKey === "title") {
     const level = Number(optionKey.slice(1)) || 2;
     insertSnippet(`${"#".repeat(level)} 标题\n`);
@@ -250,47 +710,47 @@ function handleToolOption(toolKey: string, optionKey: string) {
   }
 }
 
+function isToolOptionActive(toolKey: string, optionKey: string) {
+  if (toolKey === "theme") {
+    return selectedMarkdownTheme.value === optionKey;
+  }
+  return false;
+}
+
 function handleToolClick(tool: ToolItem) {
   switch (tool.key) {
     case "bold":
-      wrapSelection("**", "**", "加粗内容");
+      applyBoldShortcut();
       break;
     case "italic":
-      wrapSelection("*", "*", "斜体内容");
+      applyItalicShortcut();
       break;
     case "quote":
-      insertSnippet("> 引用内容\n");
+      applyQuoteShortcut();
       break;
     case "link":
-      wrapSelection("[", "](https://example.com)", "链接文本");
+      applyLinkShortcut();
       break;
     case "image":
-      insertSnippet("![图片描述](https://example.com/image.png)\n");
+      applyImageShortcut();
       break;
     case "highlight":
-      wrapSelection("==", "==", "高亮内容");
+      applyInlineCodeShortcut();
       break;
     case "code":
-      replaceSelection((selectedText) => {
-        const value = selectedText || "const answer = true;";
-        return {
-          content: `\`\`\`ts\n${value}\n\`\`\`\n`,
-          start: 6,
-          end: 6 + value.length,
-        };
-      });
+      applyCodeBlockShortcut();
       break;
     case "ul":
-      insertSnippet("- 列表项\n- 列表项\n");
+      applyUnorderedListShortcut();
       break;
     case "ol":
-      insertSnippet("1. 列表项\n2. 列表项\n");
+      applyOrderedListShortcut();
       break;
     case "strike":
-      wrapSelection("~~", "~~", "删除线内容");
+      applyStrikeShortcut();
       break;
     case "table":
-      insertSnippet("| 列1 | 列2 |\n| --- | --- |\n| 内容 | 内容 |\n");
+      applyTableShortcut();
       break;
     default:
       break;
@@ -313,15 +773,7 @@ function handleTocJump(id: string) {
     return;
   }
 
-  const target = previewPaneRef.value?.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
-  if (!target) {
-    return;
-  }
-
-  target.scrollIntoView({
-    behavior: "smooth",
-    block: "start",
-  });
+  shadowPreviewRef.value?.scrollToHeading(id);
 }
 
 function matchOptionByText(options: Array<{ label: string; value: string }>, target?: { id?: string; title?: string } | null) {
@@ -407,21 +859,15 @@ useSeoMeta({
   <div class="write-page">
     <header class="write-page__header">
       <div class="write-page__topbar">
-        <NInput
-          v-model:value="form.title"
-          class="write-title-input"
-          size="large"
-          maxlength="120"
-          placeholder="输入文章标题..."
-          :bordered="false"
-        />
+        <NInput v-model:value="form.title" class="write-title-input" size="large" maxlength="120"
+          placeholder="输入文章标题..." :bordered="false" />
 
         <div class="write-page__actions">
-          <span class="muted">支持保存草稿，再补全发布信息</span>
           <NButton quaternary :loading="pendingState.draft" @click="submitArticle(1)">保存草稿</NButton>
           <NButton quaternary @click="navigateTo('/studio/profile')">草稿箱</NButton>
           <NButton type="primary" @click="publishVisible = true">发布</NButton>
-          <NuxtLink :to="authStore.profileId ? `/users/${authStore.profileId}` : '/studio/profile'" class="write-avatar-link">
+          <NuxtLink :to="authStore.profileId ? `/users/${authStore.profileId}` : '/studio/profile'"
+            class="write-avatar-link">
             <NAvatar round :src="authStore.currentUser?.avatar || undefined">
               {{ currentUserInitial }}
             </NAvatar>
@@ -434,26 +880,17 @@ useSeoMeta({
           <template v-for="tool in leftTools" :key="tool.key">
             <NPopover v-if="tool.options" trigger="hover" placement="bottom-start">
               <template #trigger>
-                <button type="button" class="write-tool-button" :aria-label="tool.label">
+                <button type="button" class="write-tool-button" :aria-label="tool.label" :title="getToolTooltip(tool)">
                   <component :is="tool.icon" class="write-tool-button__icon" :size="18" :stroke-width="1.9" />
                 </button>
               </template>
 
               <div class="write-tool-popover">
-                <button
-                  v-for="option in tool.options"
-                  :key="option.key"
-                  type="button"
-                  class="write-tool-option"
-                  @click="handleToolOption(tool.key, option.key)"
-                >
-                  <component
-                    v-if="option.icon"
-                    :is="option.icon"
-                    class="write-tool-option__icon"
-                    :size="16"
-                    :stroke-width="1.9"
-                  />
+                <button v-for="option in tool.options" :key="option.key" type="button" class="write-tool-option"
+                  :class="{ 'write-tool-option--active': isToolOptionActive(tool.key, option.key) }"
+                  @click.prevent.stop="handleToolOption(tool.key, option.key)">
+                  <component v-if="option.icon" :is="option.icon" class="write-tool-option__icon" :size="16"
+                    :stroke-width="1.9" />
                   {{ option.label }}
                 </button>
               </div>
@@ -461,11 +898,12 @@ useSeoMeta({
 
             <NTooltip v-else trigger="hover" placement="bottom">
               <template #trigger>
-                <button type="button" class="write-tool-button" :aria-label="tool.label" @click="handleToolClick(tool)">
+                <button type="button" class="write-tool-button" :aria-label="tool.label" :title="getToolTooltip(tool)"
+                  @click="handleToolClick(tool)">
                   <component :is="tool.icon" class="write-tool-button__icon" :size="18" :stroke-width="1.9" />
                 </button>
               </template>
-              {{ tool.label }}
+              {{ getToolTooltip(tool) }}
             </NTooltip>
           </template>
         </div>
@@ -473,13 +911,8 @@ useSeoMeta({
         <div class="write-page__toolbar-group">
           <NTooltip trigger="hover" placement="bottom">
             <template #trigger>
-              <button
-                type="button"
-                class="write-tool-button"
-                :class="{ 'write-tool-button--active': showToc }"
-                aria-label="目录"
-                @click="handleRightToolClick('toc')"
-              >
+              <button type="button" class="write-tool-button" :class="{ 'write-tool-button--active': showToc }"
+                aria-label="目录" @click="handleRightToolClick('toc')">
                 <IconListDetails class="write-tool-button__icon" :size="18" :stroke-width="1.9" />
               </button>
             </template>
@@ -488,13 +921,9 @@ useSeoMeta({
 
           <NTooltip trigger="hover" placement="bottom">
             <template #trigger>
-              <button
-                type="button"
-                class="write-tool-button"
-                :class="{ 'write-tool-button--active': viewMode === 'editor' }"
-                aria-label="仅显示编辑区"
-                @click="handleRightToolClick('editor')"
-              >
+              <button type="button" class="write-tool-button"
+                :class="{ 'write-tool-button--active': viewMode === 'editor' }" aria-label="仅显示编辑区"
+                @click="handleRightToolClick('editor')">
                 <IconColumns1 class="write-tool-button__icon" :size="18" :stroke-width="1.9" />
               </button>
             </template>
@@ -503,13 +932,9 @@ useSeoMeta({
 
           <NTooltip trigger="hover" placement="bottom">
             <template #trigger>
-              <button
-                type="button"
-                class="write-tool-button"
-                :class="{ 'write-tool-button--active': viewMode === 'preview' }"
-                aria-label="仅显示预览区"
-                @click="handleRightToolClick('preview')"
-              >
+              <button type="button" class="write-tool-button"
+                :class="{ 'write-tool-button--active': viewMode === 'preview' }" aria-label="仅显示预览区"
+                @click="handleRightToolClick('preview')">
                 <IconColumns2 class="write-tool-button__icon" :size="18" :stroke-width="1.9" />
               </button>
             </template>
@@ -523,31 +948,30 @@ useSeoMeta({
       <aside v-show="showToc" class="write-page__toc">
         <div class="write-page__toc-header">目录</div>
         <nav class="write-page__toc-list">
-          <button
-            v-for="item in tocItems"
-            :key="`${item.level}-${item.label}`"
-            type="button"
-            class="write-page__toc-item"
-            :class="[`write-page__toc-item--level-${Math.min(item.level, 4)}`]"
-            @click="handleTocJump(item.id)"
-          >
+          <button v-for="item in tocItems" :key="`${item.level}-${item.label}`" type="button"
+            class="write-page__toc-item" :class="[`write-page__toc-item--level-${Math.min(item.level, 4)}`]"
+            @click="handleTocJump(item.id)">
             {{ item.label }}
           </button>
         </nav>
       </aside>
 
       <section class="write-page__pane write-page__pane--editor">
-        <textarea
-          ref="editorTextareaRef"
-          v-model="form.content"
-          class="write-page__textarea"
-          placeholder="从这里开始写作，把 API 能力、页面结构和组件关系整理清楚。"
-        />
+        <textarea ref="editorTextareaRef" v-model="form.content" class="write-page__textarea"
+          @keydown="handleEditorShortcuts"
+          placeholder="从这里开始写作，把 API 能力、页面结构和组件关系整理清楚。" />
       </section>
 
-      <aside ref="previewPaneRef" class="write-page__pane write-page__pane--preview">
+      <aside class="write-page__pane write-page__pane--preview">
         <div v-if="form.content.trim()" class="write-page__preview-shell">
-          <article class="write-page__markdown markdown-body" v-html="renderedHtml" />
+          <div class="write-page__theme-indicator">预览样式：{{ selectedThemeLabel }}</div>
+          <StudioMarkdownShadowPreview
+            ref="shadowPreviewRef"
+            class="write-page__markdown"
+            :html="renderedHtml"
+            :theme-href="activeMarkdownThemeHref"
+            :extra-style-hrefs="markdownSupportStyleHrefs"
+            article-class="markdown-body" />
         </div>
 
         <div v-else class="write-page__preview-empty">
@@ -565,85 +989,67 @@ useSeoMeta({
       <span>视图: {{ viewMode === 'split' ? '双栏' : viewMode === 'editor' ? '仅编辑区' : '仅预览区' }}</span>
     </footer>
 
-    <NModal v-model:show="publishVisible" preset="card" class="publish-modal" title="发布文章">
-      <div class="publish-form">
-        <div class="publish-form__row">
-          <label class="publish-form__label">分类</label>
-          <NSelect
-            v-model:value="form.category_id"
-            clearable
-            filterable
-            :options="categoryOptions || []"
-            placeholder="请选择分类"
-            class="publish-form__control"
-          />
-        </div>
-
-        <div class="publish-form__row">
-          <label class="publish-form__label">添加标签</label>
-          <NSelect
-            v-model:value="form.tag_ids"
-            multiple
-            clearable
-            filterable
-            max-tag-count="responsive"
-            :options="tagOptions || []"
-            placeholder="请选择已有标签"
-            class="publish-form__control"
-          />
-        </div>
-
-        <div class="publish-form__row publish-form__row--top">
-          <label class="publish-form__label">文章封面</label>
-          <div class="publish-cover">
-            <div class="publish-cover__picker">
-              <span class="publish-cover__plus">+</span>
-              <span>封面 URL</span>
+    <NModal v-model:show="publishVisible" :mask-closable="!(pendingState.publish || pendingState.draft || pendingState.ai)">
+      <div class="publish-modal-shell">
+        <NCard title="发布文章" :bordered="false" closable class="publish-modal-card" @close="publishVisible = false">
+          <div class="publish-form">
+            <div class="publish-form__row">
+              <label class="publish-form__label">分类</label>
+              <NSelect v-model:value="form.category_id" clearable filterable :options="categoryOptions || []"
+                placeholder="请选择分类" class="publish-form__control" />
             </div>
-            <p class="muted">当前正式链路先支持写入封面 URL，文件上传任务链会再补齐。</p>
-            <NInput
-              v-model:value="form.cover"
-              placeholder="https://example.com/article-cover.png"
-              class="publish-form__control"
-            />
-          </div>
-        </div>
 
-        <div class="publish-form__row publish-form__row--top">
-          <label class="publish-form__label">编辑摘要</label>
-          <div class="publish-summary">
-            <NInput
-              v-model:value="form.abstract"
-              type="textarea"
-              maxlength="180"
-              :autosize="{ minRows: 5, maxRows: 8 }"
-              placeholder="请输入文章摘要"
-            />
-            <span class="publish-summary__count">{{ form.abstract.length }}/180</span>
-          </div>
-        </div>
+            <div class="publish-form__row">
+              <label class="publish-form__label">添加标签</label>
+              <NSelect v-model:value="form.tag_ids" multiple clearable filterable max-tag-count="responsive"
+                :options="tagOptions || []" placeholder="请选择已有标签" class="publish-form__control" />
+            </div>
 
-        <div class="publish-form__row">
-          <label class="publish-form__label">评论开关</label>
-          <div class="publish-form__switch">
-            <span class="muted">{{ form.comments_toggle ? "文章发布后允许评论" : "文章发布后将关闭评论区" }}</span>
-            <NSwitch v-model:value="form.comments_toggle" />
-          </div>
-        </div>
+            <div class="publish-form__row publish-form__row--top">
+              <label class="publish-form__label">文章封面</label>
+              <div class="publish-cover">
+                <div class="publish-cover__picker">
+                  <span class="publish-cover__plus">+</span>
+                  <span>封面 URL</span>
+                </div>
+                <p class="muted">当前正式链路先支持写入封面 URL，文件上传任务链会再补齐。</p>
+                <NInput v-model:value="form.cover" placeholder="https://example.com/article-cover.png"
+                  class="publish-form__control" />
+              </div>
+            </div>
 
-        <div class="publish-form__note">
-          <p>当前优先打通新建文章主链路，编辑态的 `status/category/tag` 完整回填仍依赖后端补齐契约。</p>
-        </div>
+            <div class="publish-form__row publish-form__row--top">
+              <label class="publish-form__label">编辑摘要</label>
+              <div class="publish-summary">
+                <NInput v-model:value="form.abstract" type="textarea" maxlength="180"
+                  :autosize="{ minRows: 5, maxRows: 8 }" placeholder="请输入文章摘要" />
+                <span class="publish-summary__count">{{ form.abstract.length }}/180</span>
+              </div>
+            </div>
+
+            <div class="publish-form__row">
+              <label class="publish-form__label">评论开关</label>
+              <div class="publish-form__switch">
+                <span class="muted">{{ form.comments_toggle ? "文章发布后允许评论" : "文章发布后将关闭评论区" }}</span>
+                <NSwitch v-model:value="form.comments_toggle" />
+              </div>
+            </div>
+
+            <div class="publish-form__note">
+              <p>当前优先打通新建文章主链路，编辑态的 `status/category/tag` 完整回填仍依赖后端补齐契约。</p>
+            </div>
+          </div>
+
+          <template #footer>
+            <div class="publish-modal__footer">
+              <NButton quaternary @click="publishVisible = false">取消</NButton>
+              <NButton secondary :loading="pendingState.ai" @click="handleAiAssist()">AI 填入</NButton>
+              <NButton quaternary :loading="pendingState.draft" @click="submitArticle(1)">保存草稿</NButton>
+              <NButton type="primary" :loading="pendingState.publish" @click="submitArticle(2)">确定并发布</NButton>
+            </div>
+          </template>
+        </NCard>
       </div>
-
-      <template #footer>
-        <div class="publish-modal__footer">
-          <NButton quaternary @click="publishVisible = false">取消</NButton>
-          <NButton secondary :loading="pendingState.ai" @click="handleAiAssist()">AI 填入</NButton>
-          <NButton quaternary :loading="pendingState.draft" @click="submitArticle(1)">保存草稿</NButton>
-          <NButton type="primary" :loading="pendingState.publish" @click="submitArticle(2)">确定并发布</NButton>
-        </div>
-      </template>
     </NModal>
   </div>
 </template>
@@ -771,6 +1177,12 @@ useSeoMeta({
   color: #0f766e;
 }
 
+.write-tool-option--active {
+  background: rgba(15, 118, 110, 0.16);
+  color: #0f766e;
+  font-weight: 600;
+}
+
 .write-page__body {
   flex: 1;
   min-height: 0;
@@ -890,56 +1302,21 @@ useSeoMeta({
   padding: 32px 36px 48px;
 }
 
+.write-page__theme-indicator {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 14px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #0f766e;
+  background: rgba(15, 118, 110, 0.08);
+}
+
 .write-page__markdown {
   max-width: none;
-  background: transparent;
-  color: #0f172a;
-  font-family: "Sora", "Sora Fallback", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
-  font-size: 16px;
-  line-height: 1.9;
-  padding: 0;
-}
-
-.write-page__markdown :deep(h1),
-.write-page__markdown :deep(h2),
-.write-page__markdown :deep(h3),
-.write-page__markdown :deep(h4),
-.write-page__markdown :deep(h5),
-.write-page__markdown :deep(h6) {
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.write-page__markdown :deep(h1) {
-  font-size: 2rem;
-}
-
-.write-page__markdown :deep(h2) {
-  font-size: 1.7rem;
-}
-
-.write-page__markdown :deep(h3) {
-  font-size: 1.5rem;
-}
-
-.write-page__markdown :deep(h4) {
-  font-size: 1.3rem;
-}
-
-.write-page__markdown :deep(h5) {
-  font-size: 1.1rem;
-}
-
-.write-page__markdown :deep(h6) {
-  font-size: 1.05rem;
-}
-
-.write-page__markdown :deep(pre) {
-  border-radius: 12px;
-}
-
-.write-page__markdown :deep(table) {
-  display: table;
+  min-height: 100%;
+  box-sizing: border-box;
 }
 
 .write-page__preview-empty {
@@ -966,8 +1343,13 @@ useSeoMeta({
   background: rgba(255, 251, 245, 0.84);
 }
 
-.publish-modal {
-  width: min(720px, calc(100vw - 32px));
+.publish-modal-shell {
+  width: min(760px, calc(100vw - 96px));
+  margin: 0 auto;
+}
+
+.publish-modal-card {
+  border-radius: 20px;
 }
 
 .publish-form {
@@ -1064,6 +1446,7 @@ useSeoMeta({
 }
 
 @media (max-width: 1120px) {
+
   .write-page__topbar,
   .write-page__toolbar,
   .write-page__statusbar {
@@ -1117,6 +1500,10 @@ useSeoMeta({
 
   .publish-modal__footer {
     flex-wrap: wrap;
+  }
+
+  .publish-modal-shell {
+    width: calc(100vw - 28px) !important;
   }
 }
 </style>

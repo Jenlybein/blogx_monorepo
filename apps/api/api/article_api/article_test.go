@@ -478,6 +478,13 @@ func TestArticleDiggFavoriteVisitDetailRemoveUser(t *testing.T) {
 		if _, ok := data["author_created_time"].(string); !ok {
 			t.Fatalf("文章详情作者创建时间异常, body=%s", w.Body.String())
 		}
+		if data["category_id"] != category.ID.String() {
+			t.Fatalf("文章详情分类 id 异常, body=%s", w.Body.String())
+		}
+		tagIDs, ok := data["tag_ids"].([]any)
+		if !ok || len(tagIDs) != 1 || tagIDs[0] != tag.ID.String() {
+			t.Fatalf("文章详情标签 id 列表异常, body=%s", w.Body.String())
+		}
 		if data["category_name"] != category.Title {
 			t.Fatalf("文章详情分类名异常, body=%s", w.Body.String())
 		}

@@ -10604,6 +10604,18 @@
               "admin_hidden"
             ],
             "description": "文章可见性状态。"
+          },
+          "category_id": {
+            "type": "string",
+            "description": "分类 ID。",
+            "nullable": true
+          },
+          "tag_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "标签 ID 列表，供编辑态回填使用。"
           }
         },
         "required": [
@@ -10631,7 +10643,8 @@
           "is_digg",
           "is_favor",
           "publish_status",
-          "visibility_status"
+          "visibility_status",
+          "tag_ids"
         ]
       },
       "ArticleListItem": {
