@@ -70,7 +70,9 @@ export function createArticle(payload: ArticleWritePayload) {
 
 export function updateArticle(
   id: string | number,
-  payload: Omit<ArticleWritePayload, "status">,
+  payload: Partial<Omit<ArticleWritePayload, "status">> & {
+    status?: 1 | 2;
+  },
 ) {
   return useNuxtApp().$api.request(`/api/articles/${id}`, {
     method: "PUT",

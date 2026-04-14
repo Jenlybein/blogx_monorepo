@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Component } from "vue";
-import { computed, nextTick, reactive, ref } from "vue";
+import { computed, nextTick, reactive, ref, watch } from "vue";
 import { useDebounce } from "@vueuse/core";
 import {
   IconAlignCenter,
@@ -27,7 +27,7 @@ import {
 import { NAvatar, NButton, NCard, NInput, NModal, NPopover, NSelect, NSwitch, NTooltip, useMessage } from "naive-ui";
 import { useArticleMarkdown } from "~/composables/useArticleMarkdown";
 import { generateArticleMetainfo } from "~/services/ai";
-import { createArticle } from "~/services/article";
+import { createArticle, getArticleDetail, updateArticle } from "~/services/article";
 import { getCategoryOptions, getTagOptions } from "~/services/search";
 import katexCssUrl from "katex/dist/katex.min.css?url";
 import highlightCssUrl from "highlight.js/styles/github.min.css?url";
@@ -63,6 +63,7 @@ type ToolItem = {
 };
 
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
 const message = useMessage();
 const editorTextareaRef = ref<HTMLTextAreaElement | null>(null);
@@ -108,6 +109,14 @@ const selectedMarkdownTheme = ref<
 
 const currentUserId = computed(() => authStore.profileId || "");
 const currentUserInitial = computed(() => authStore.profileName.slice(0, 1).toUpperCase() || "ME");
+const editArticleId = computed(() => {
+  const fromArticleId = typeof route.query.article_id === "string" ? route.query.article_id.trim() : "";
+  if (fromArticleId) return fromArticleId;
+  const fromId = typeof route.query.id === "string" ? route.query.id.trim() : "";
+  return fromId || "";
+});
+const isEditMode = computed(() => Boolean(editArticleId.value));
+const hydratedArticleId = ref("");
 
 const { data: tagOptions } = await useAsyncData("studio-write-tag-options", () => getTagOptions().catch(() => []));
 const { data: categoryOptions } = await useAsyncData(
@@ -116,6 +125,46 @@ const { data: categoryOptions } = await useAsyncData(
   {
     watch: [currentUserId],
   },
+);
+
+const { data: editingArticle, error: editingArticleError } = await useAsyncData(
+  () => `studio-write-article-detail:${editArticleId.value || "new"}`,
+  () => (editArticleId.value ? getArticleDetail(editArticleId.value) : Promise.resolve(null)),
+  {
+    watch: [editArticleId],
+  },
+);
+
+watch(
+  editingArticleError,
+  (error) => {
+    if (!error || !isEditMode.value) return;
+    message.error(error instanceof Error ? error.message : "加载待编辑文章失败");
+  },
+  { immediate: true },
+);
+
+watch(
+  [editArticleId, editingArticle],
+  ([articleId, article]) => {
+    if (!articleId) {
+      hydratedArticleId.value = "";
+      return;
+    }
+    if (!article || hydratedArticleId.value === articleId) {
+      return;
+    }
+
+    form.title = article.title || "";
+    form.abstract = article.abstract || "";
+    form.content = article.content || "";
+    form.cover = article.cover || "";
+    form.comments_toggle = article.comments_toggle ?? true;
+    form.category_id = article.category_id ?? null;
+    form.tag_ids = Array.isArray(article.tag_ids) ? [...article.tag_ids] : [];
+    hydratedArticleId.value = articleId;
+  },
+  { immediate: true },
 );
 
 const debouncedContent = useDebounce(computed(() => form.content), 300);
@@ -142,6 +191,8 @@ const tocItems = computed(() => {
 });
 
 const canSubmit = computed(() => Boolean(form.title.trim() && form.content.trim()));
+const draftActionLabel = computed(() => (isEditMode.value ? "更新草稿" : "保存草稿"));
+const publishActionLabel = computed(() => (isEditMode.value ? "更新并发布" : "确定并发布"));
 
 const markdownThemeOptions: ToolOption[] = [
   { key: "github", label: "GitHub Light" },
@@ -828,7 +879,7 @@ async function submitArticle(status: 1 | 2) {
   pendingState[key] = true;
 
   try {
-    const payload = await createArticle({
+    const payload = {
       title: form.title.trim(),
       abstract: form.abstract.trim() || undefined,
       content: form.content,
@@ -837,11 +888,20 @@ async function submitArticle(status: 1 | 2) {
       cover: form.cover.trim() || undefined,
       comments_toggle: form.comments_toggle,
       status,
-    });
+    };
 
+    if (isEditMode.value && editArticleId.value) {
+      await updateArticle(editArticleId.value, payload);
+      publishVisible.value = false;
+      message.success(status === 1 ? "草稿已更新" : "文章已更新并提交发布");
+      await router.push(`/article/${editArticleId.value}`);
+      return;
+    }
+
+    const created = await createArticle(payload);
     publishVisible.value = false;
     message.success(status === 1 ? "草稿已保存" : "文章已提交发布");
-    await router.push(`/article/${payload.id}`);
+    await router.push(`/article/${created.id}`);
   } catch (error) {
     message.error(error instanceof Error ? error.message : "文章提交失败");
   } finally {
@@ -863,9 +923,9 @@ useSeoMeta({
           placeholder="输入文章标题..." :bordered="false" />
 
         <div class="write-page__actions">
-          <NButton quaternary :loading="pendingState.draft" @click="submitArticle(1)">保存草稿</NButton>
+          <NButton quaternary :loading="pendingState.draft" @click="submitArticle(1)">{{ draftActionLabel }}</NButton>
           <NButton quaternary @click="navigateTo('/studio/profile')">草稿箱</NButton>
-          <NButton type="primary" @click="publishVisible = true">发布</NButton>
+          <NButton type="primary" @click="publishVisible = true">{{ isEditMode ? "更新" : "发布" }}</NButton>
           <NuxtLink :to="authStore.profileId ? `/users/${authStore.profileId}` : '/studio/profile'"
             class="write-avatar-link">
             <NAvatar round :src="authStore.currentUser?.avatar || undefined">
@@ -1044,8 +1104,8 @@ useSeoMeta({
             <div class="publish-modal__footer">
               <NButton quaternary @click="publishVisible = false">取消</NButton>
               <NButton secondary :loading="pendingState.ai" @click="handleAiAssist()">AI 填入</NButton>
-              <NButton quaternary :loading="pendingState.draft" @click="submitArticle(1)">保存草稿</NButton>
-              <NButton type="primary" :loading="pendingState.publish" @click="submitArticle(2)">确定并发布</NButton>
+              <NButton quaternary :loading="pendingState.draft" @click="submitArticle(1)">{{ draftActionLabel }}</NButton>
+              <NButton type="primary" :loading="pendingState.publish" @click="submitArticle(2)">{{ publishActionLabel }}</NButton>
             </div>
           </template>
         </NCard>

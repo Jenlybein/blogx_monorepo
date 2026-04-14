@@ -264,6 +264,7 @@ useSeoMeta({
 
             <div class="flex flex-wrap gap-2">
               <NuxtLink :to="`/article/${item.id}`" class="glass-badge">查看详情</NuxtLink>
+              <NuxtLink :to="{ path: '/studio/write', query: { article_id: item.id } }" class="glass-badge">编辑</NuxtLink>
               <NButton quaternary size="small" @click="handleDelete(item.id)">删除</NButton>
             </div>
           </div>

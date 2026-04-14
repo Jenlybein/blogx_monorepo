@@ -217,8 +217,12 @@ export interface ArticleDetail {
   author_name: string;
   author_username: string;
   category_name: string;
+  category_id?: string | null;
+  tag_ids?: string[];
   is_digg: boolean;
   is_favor: boolean;
+  publish_status?: number;
+  visibility_status?: "visible" | "user_hidden" | "admin_hidden";
 }
 
 export interface CommentRootItem {
