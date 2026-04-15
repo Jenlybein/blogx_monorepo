@@ -1642,6 +1642,13 @@ export BLOGX_QINIU_CALLBACK_URL='https://blog.gentlybeing.cn/api/images/qiniu/ca
 - `BLOGX_WEB_API_UPSTREAM='http://blogx_server:8080'`：这是容器内部地址，给 Docker 内部用
 - `BLOGX_WEB_ENV_PROFILE` 和 `BLOGX_WEB_SITE_URL` 在你不启动 blogx_web 时其实不重要，但填成 local-test / 测试域名更不容易误解
 
+然后启动：
+
+```bash
+docker compose -f deploy/compose/local/docker-compose.yml up -d \
+  mysql-master mysql-slave redis es clickhouse blogx_server fluent-bit nginx
+```
+
 **本地电脑跑 Nuxt**
 本地不要用 blogx_server:8080，因为你的电脑不认识这个 Docker 内部名字。本地应该这样：
 

@@ -5,8 +5,9 @@ import { readFileSync } from 'node:fs'
 import { defineNuxtConfig } from 'nuxt/config'
 
 const appRoot = dirname(fileURLToPath(import.meta.url))
+const hydratedEnvKeys = new Set<string>()
 
-function hydrateProcessEnv(relativePath: string) {
+function hydrateProcessEnv(relativePath: string, options: { overrideHydrated?: boolean } = {}) {
   const envPath = resolve(appRoot, relativePath)
   if (!existsSync(envPath)) {
     return
@@ -25,7 +26,10 @@ function hydrateProcessEnv(relativePath: string) {
     }
 
     const key = line.slice(0, separatorIndex).trim()
-    if (!key || process.env[key] !== undefined) {
+    if (
+      !key ||
+      (process.env[key] !== undefined && !(options.overrideHydrated && hydratedEnvKeys.has(key)))
+    ) {
       continue
     }
 
@@ -36,12 +40,13 @@ function hydrateProcessEnv(relativePath: string) {
     }
 
     process.env[key] = value
+    hydratedEnvKeys.add(key)
   }
 }
 
 const envProfile = (process.env.BLOGX_WEB_ENV_PROFILE || 'local-local').trim() || 'local-local'
 hydrateProcessEnv('env/common.env')
-hydrateProcessEnv(`env/${envProfile}.env`)
+hydrateProcessEnv(`env/${envProfile}.env`, { overrideHydrated: true })
 
 function normalizeOrigin(value: string) {
   return value.endsWith('/') ? value.slice(0, -1) : value
@@ -58,6 +63,15 @@ const siteUrl = normalizeOrigin(process.env.BLOGX_WEB_SITE_URL || 'http://localh
 const apiBase = String(process.env.BLOGX_WEB_API_BASE || '/api').trim() || '/api'
 const wsPath = String(process.env.BLOGX_WEB_WS_PATH || '/api/chat/ws').trim() || '/api/chat/ws'
 const assetProxyBase = String(process.env.BLOGX_WEB_ASSET_PROXY_BASE || '/_origin').trim() || '/_origin'
+const devProxy = wsPath.startsWith('/')
+  ? {
+      [wsPath]: {
+        target: apiUpstream,
+        changeOrigin: true,
+        ws: true,
+      },
+    }
+  : {}
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -102,13 +116,7 @@ export default defineNuxtConfig({
     experimental: {
       websocket: true,
     },
-    devProxy: {
-      [wsPath]: {
-        target: apiUpstream,
-        changeOrigin: true,
-        ws: true,
-      },
-    },
+    devProxy,
   },
   routeRules: {
     "/search": { ssr: false },

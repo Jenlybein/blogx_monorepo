@@ -5,7 +5,11 @@ import type { ChatMessageItem, ChatSocketEnvelope, ChatSocketOutgoingMessage } f
 function resolveWebSocketUrl(siteUrl: string, wsPath: string) {
   const origin = import.meta.client ? window.location.origin : siteUrl;
   const endpoint = new URL(wsPath, origin);
-  endpoint.protocol = endpoint.protocol === "https:" ? "wss:" : "ws:";
+  if (endpoint.protocol === "https:") {
+    endpoint.protocol = "wss:";
+  } else if (endpoint.protocol === "http:") {
+    endpoint.protocol = "ws:";
+  }
   return endpoint.toString();
 }
 

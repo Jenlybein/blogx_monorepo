@@ -112,6 +112,8 @@ const articleQuery = computed(() => ({
 
 const { articles, pending: articlePending } = await useArticleSearch(articleQuery, {
   key: computed(() => `user-articles:${userId.value}`),
+  server: false,
+  lazy: true,
 });
 
 const favoriteLocked = computed(() => !isSelf.value && profile.value?.favorites_visibility === false);

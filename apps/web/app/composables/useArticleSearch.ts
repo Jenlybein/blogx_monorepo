@@ -7,6 +7,8 @@ interface UseArticleSearchOptions {
   key?: MaybeRefOrGetter<string>;
   fallback?: MaybeRefOrGetter<SearchArticleResponse>;
   immediate?: boolean;
+  lazy?: boolean;
+  server?: boolean;
   watch?: Array<MaybeRefOrGetter<unknown>>;
 }
 
@@ -53,12 +55,14 @@ export async function useArticleSearch(
         return await searchArticles(paramsRef.value);
       } catch (error) {
         requestError.value = error;
-        console.error(`[useArticleSearch] request failed: ${formatRequestError(error)}`, paramsRef.value);
+        console.warn(`[useArticleSearch] request failed, using fallback: ${formatRequestError(error)}`, paramsRef.value);
         return fallbackRef.value;
       }
     },
     {
       immediate: options.immediate ?? true,
+      lazy: options.lazy ?? false,
+      server: options.server ?? true,
       watch: [requestFingerprint, ...externalWatchers],
     },
   );

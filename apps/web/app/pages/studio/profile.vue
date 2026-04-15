@@ -87,6 +87,8 @@ const {
         page: page.value,
       })}`,
   ),
+  server: false,
+  lazy: true,
 });
 
 const totalPages = computed(() => Math.max(pagination.value.total_pages || 0, 1));
