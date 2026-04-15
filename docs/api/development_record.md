@@ -1602,6 +1602,77 @@ flowchart TD
 sudo bash scripts/apply-cert.sh --domain 你的域名 --email 你的邮箱
 ```
 
+## 配置切换
+
+### "本地web+api"
+
+** .envrc**
+
+```bash
+export BLOGX_NGINX_ENV='local'
+export BLOGX_WEB_ENV_PROFILE='local-local'
+export BLOGX_WEB_SITE_URL='http://localhost'
+export BLOGX_WEB_API_UPSTREAM='http://blogx_server:8080'
+```
+
+因为本地无法接收到七牛云的回调，所以需要手动打进`/complete`接口
+
+然后启动：
+
+```bash
+docker compose -f deploy/compose/local/docker-compose.yml up -d
+```
+
+### "本地web+测试服务器api"
+
+**服务器上的 .envrc**
+服务器只跑后端 Docker + API-only Nginx，所以建议这样：
+
+```bash
+export BLOGX_NGINX_ENV='api-only'
+export BLOGX_WEB_ENV_PROFILE='local-test'
+export BLOGX_WEB_SITE_URL='https://blog.gentlybeing.cn'
+export BLOGX_WEB_API_UPSTREAM='http://blogx_server:8080'
+export BLOGX_QINIU_CALLBACK_URL='https://blog.gentlybeing.cn/api/images/qiniu/callback'
+```
+
+这里关键是：
+
+- `BLOGX_NGINX_ENV='api-only'`：让服务器 Nginx 挂 nginx.api-only.conf
+- `BLOGX_WEB_API_UPSTREAM='http://blogx_server:8080'`：这是容器内部地址，给 Docker 内部用
+- `BLOGX_WEB_ENV_PROFILE` 和 `BLOGX_WEB_SITE_URL` 在你不启动 blogx_web 时其实不重要，但填成 local-test / 测试域名更不容易误解
+
+**本地电脑跑 Nuxt**
+本地不要用 blogx_server:8080，因为你的电脑不认识这个 Docker 内部名字。本地应该这样：
+
+```bash
+export BLOGX_WEB_ENV_PROFILE='local-test'
+```
+
+```js
+pnpm dev:web:local-test
+```
+
+### 测试环境web+api
+
+**服务器上的 .envrc**
+
+```bash
+export BLOGX_NGINX_ENV='test'
+export BLOGX_WEB_ENV_PROFILE='test'
+export BLOGX_WEB_SITE_URL='https://blog.gentlybeing.cn'
+export BLOGX_WEB_API_UPSTREAM='http://blogx_server:8080'
+export BLOGX_QINIU_CALLBACK_URL='https://blog.gentlybeing.cn/api/images/qiniu/callback'
+```
+
+然后启动：
+
+```bash
+docker compose -f deploy/compose/local/docker-compose.yml up -d
+```
+
+
+
 ## 启动本地环境
 
 读取环境变量并启动项目（请参考模板 `.envrc.example`)：

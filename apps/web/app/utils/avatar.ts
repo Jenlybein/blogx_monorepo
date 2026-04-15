@@ -22,6 +22,16 @@ const NAME_FIELD_CANDIDATES = [
   "name",
 ] as const;
 
+function resolveAssetProxyBase() {
+  try {
+    const config = useRuntimeConfig();
+    const value = String(config.public.assetProxyBase || "").trim();
+    return value || "/_origin";
+  } catch {
+    return "/_origin";
+  }
+}
+
 function normalizeAvatarUrl(raw: string): string {
   const value = raw.trim();
   if (!value) {
@@ -32,15 +42,20 @@ function normalizeAvatarUrl(raw: string): string {
     return value;
   }
 
-  // 后端历史数据里头像常是相对路径，统一走 Nuxt 反向代理避免 404/CORS。
-  if (value.startsWith("/_backend/")) {
+  const assetProxyBase = resolveAssetProxyBase();
+
+  // 后端历史数据里头像常是相对路径，统一走同源资源代理避免 404/CORS。
+  if (value.startsWith(`${assetProxyBase}/`)) {
     return value;
   }
+  if (value.startsWith("/_backend/")) {
+    return value.replace(/^\/_backend/, assetProxyBase);
+  }
   if (value.startsWith("/")) {
-    return `/_backend${value}`;
+    return `${assetProxyBase}${value}`;
   }
 
-  return `/_backend/${value.replace(/^\/+/, "")}`;
+  return `${assetProxyBase}/${value.replace(/^\/+/, "")}`;
 }
 
 export function resolveAvatarUrl(input: unknown): string {

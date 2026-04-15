@@ -2,85 +2,138 @@
 
 `apps/web` 是 BlogX 的公开站点与用户侧前端，基于 `Nuxt 4 + Vue 3 + Pinia + Naive UI + Tailwind CSS`。
 
-## 环境变量
+## 当前结论
 
-前端不要直接依赖根目录 `.envrc`。  
-`Nuxt` 开发和构建最稳的方式，是在 `apps/web` 下维护自己的环境文件。
+这个项目现在正式按下面的方式运行：
 
-### 本地文件
+- 开发：`Nuxt dev + Go API`
+- 测试/生产：`Nginx + Nuxt Node SSR + Go API`
 
-- 示例文件：[.env.example](/E:/project/blogx_monorepo/apps/web/.env.example)
-- 本地开发文件：[.env.local](/E:/project/blogx_monorepo/apps/web/.env.local)
+浏览器公开入口固定为同源路径：
 
-当前最小必需变量：
+- HTTP API：`/api/*`
+- WebSocket：`/api/chat/ws`
+- 后端相对资源代理：`/_origin/*`
+- 后端上传资源：`/uploads/*`
 
-```env
-NUXT_API_ORIGIN=http://106.53.184.85
-```
+测试/生产的 SSR 部署里：
 
-如需跨域直连（不推荐），必须显式确认：
+- `/` -> Nuxt SSR 容器
+- `/api/*` -> Go API
+- `/api/chat/ws` -> Go WebSocket
+- `/uploads/*` -> Go
+- `/_origin/*` -> Go
 
-```env
-NUXT_PUBLIC_API_BASE=https://your-api-origin
-NUXT_PUBLIC_ALLOW_CROSS_ORIGIN_API_BASE=true
-```
+## 环境文件
 
-说明：
+仓库内置 4 套 web profile：
 
-- `NUXT_API_ORIGIN` 只给 Nuxt 服务端使用，浏览器请求统一走同源代理 `/_backend`
-- 如果直接把远端地址写进 `NUXT_PUBLIC_API_BASE`，本地开发会因为跨域和 cookie 策略更容易出问题
-- `NUXT_PUBLIC_*` 会暴露到浏览器，所以这里只放确实需要公开的配置
-- 数据库、Redis、JWT、SMTP 这类敏感变量继续留在后端环境里，不要写进 `apps/web`
+- [common.env](/E:/project/blogx_monorepo/apps/web/env/common.env)
+- [local-local.env](/E:/project/blogx_monorepo/apps/web/env/local-local.env)
+- [local-test.env](/E:/project/blogx_monorepo/apps/web/env/local-test.env)
+- [test.env](/E:/project/blogx_monorepo/apps/web/env/test.env)
+- [production.env](/E:/project/blogx_monorepo/apps/web/env/production.env)
 
-### 跨域凭据策略（仅在你确认要跨域时）
+含义如下：
 
-如果你明确要让浏览器直接请求远端 API，请确保至少满足以下条件，否则“刷新后掉登录”很容易出现：
+1. `local-local`
+   页面：`http://localhost:3000`
+   API：`http://localhost:3000/api/*`
+   实际上游：`http://127.0.0.1:8080`
+2. `local-test`
+   页面：`http://localhost:3000`
+   API：`http://localhost:3000/api/*`
+   实际上游：`https://blog.gentlybeing.cn`
+3. `test`
+   页面：`https://blog.gentlybeing.cn`
+   API：`https://blog.gentlybeing.cn/api/*`
+   默认构建口径：测试站
+4. `production`
+   页面：`https://blogx.gentlybeing.cn`
+   API：`https://blogx.gentlybeing.cn/api/*`
+   默认构建口径：生产站
 
-1. 前端请求带凭据：`credentials: include`（本项目已配置）
-2. 后端 CORS：
-   - `AllowCredentials = true`
-   - `AllowOrigins` 必须是明确域名（不能是 `*`）
-   - 允许 `Authorization` 等必要请求头
-3. 刷新令牌 Cookie：
-   - `HttpOnly` 建议保持开启
-   - 跨站场景通常需要 `SameSite=None`
-   - `Secure=true`（要求 HTTPS）
-4. 前后端协议与域名要一致规划（避免混用 `http/https`、IP/域名 导致 cookie 不发送）
+前端环境切换只认 `apps/web/env/*.env` 和根目录 `.envrc`。
 
-结论：除非有明确网关/跨域架构需求，否则优先使用 `/_backend` 同源代理。
+## 如何切换环境
 
-## 安装依赖
-
-在 monorepo 根目录执行：
-
-```bash
-pnpm install
-```
-
-## 开发启动
-
-在仓库根目录执行：
+仓库根目录：
 
 ```bash
-pnpm --filter web dev
+pnpm dev:web:local-local
+pnpm dev:web:local-test
+pnpm build:web:test
+pnpm build:web:production
+pnpm start:web
 ```
 
-默认访问：
+`apps/web` 目录：
+
+```bash
+pnpm dev:local-local
+pnpm dev:local-test
+pnpm build:test
+pnpm build:production
+pnpm start
+```
+
+这些脚本本质上只是设置 `BLOGX_WEB_ENV_PROFILE`，再运行 Nuxt 命令。
+
+## 开发环境怎么工作
+
+开发时浏览器只访问 `http://localhost:3000`。
+
+- 页面由 Nuxt dev server 提供
+- `/api/*` 由 Nuxt 服务端代理到 `BLOGX_WEB_API_UPSTREAM`
+- `/api/chat/ws` 由 Nuxt `devProxy` 转发
+- `/_origin/*` 和 `/uploads/*` 也保持同源
+
+所以“本地前端 + 测试后端”不需要单独处理 CORS，只需要切到 `local-test`。
+
+## 测试与生产部署
+
+### 前端容器
+
+Nuxt SSR 容器 Dockerfile 在：
+
+- [deploy/docker/web/Dockerfile](/E:/project/blogx_monorepo/deploy/docker/web/Dockerfile)
+
+镜像构建阶段执行 `nuxt build`，运行阶段启动：
+
+```bash
+node .output/server/index.mjs
+```
+
+### Nginx 固定配置
+
+Nginx 不再使用模板渲染，改成固定配置文件：
+
+- 本地 compose：[nginx.local.conf](/E:/project/blogx_monorepo/deploy/docker/nginx/nginx.local.conf)
+- 后端联调：[nginx.api-only.conf](/E:/project/blogx_monorepo/deploy/docker/nginx/nginx.api-only.conf)
+- 测试：[nginx.test.conf](/E:/project/blogx_monorepo/deploy/docker/nginx/nginx.test.conf)
+- 生产：[nginx.production.conf](/E:/project/blogx_monorepo/deploy/docker/nginx/nginx.production.conf)
+
+本地 compose 通过 `BLOGX_NGINX_ENV` 选择要挂载的固定配置：
+
+- `BLOGX_NGINX_ENV=local` -> `nginx.local.conf`
+- `BLOGX_NGINX_ENV=api-only` -> `nginx.api-only.conf`
+- `BLOGX_NGINX_ENV=test` -> `nginx.test.conf`
+- `BLOGX_NGINX_ENV=production` -> `nginx.production.conf`
+
+`api-only` 用于“服务器跑后端 Docker 容器，本地跑 Nuxt dev server”的联调模式；它只代理 `/api/*`、`/api/chat/ws`、`/uploads/*`、`/_origin/*`，不依赖 `blogx_web`。
+
+### 本地 compose
+
+[deploy/compose/local/docker-compose.yml](/E:/project/blogx_monorepo/deploy/compose/local/docker-compose.yml) 现在是完整的 SSR 链路：
+
+- `blogx_web`：Nuxt Node SSR
+- `blogx_server`：Go API
+- `nginx`：反代入口
+
+启动后链路是：
 
 ```text
-http://localhost:3000
-```
-
-如果首页没有文章、搜索没有结果，先检查：
-
-- `apps/web/.env.local` 的 `NUXT_API_ORIGIN` 是否指向了你有数据的测试环境
-- 是否重启过 `pnpm --filter web dev`
-- 浏览器里请求是否走了 `http://localhost:3000/_backend/...`，而不是直接请求远端域名
-
-## 生产构建
-
-```bash
-pnpm --filter web build
+Browser -> nginx -> blogx_web / blogx_server
 ```
 
 ## 类型检查
@@ -88,12 +141,3 @@ pnpm --filter web build
 ```bash
 pnpm --filter web exec nuxi typecheck
 ```
-
-## 当前联调约定
-
-- 首页和搜索页都依赖公开搜索接口
-- 作者主页依赖 `/api/users/base`
-- 文章详情依赖 `/api/article/:id`
-- 公共搜索页不再使用用户私有分类 `options`
-
-如果后端测试环境切换了地址，只需要同步改 `apps/web/.env.local` 的 `NUXT_API_ORIGIN`。

@@ -39,8 +39,25 @@ function hydrateProcessEnv(relativePath: string) {
   }
 }
 
-hydrateProcessEnv('.env.local')
-hydrateProcessEnv('.env')
+const envProfile = (process.env.BLOGX_WEB_ENV_PROFILE || 'local-local').trim() || 'local-local'
+hydrateProcessEnv('env/common.env')
+hydrateProcessEnv(`env/${envProfile}.env`)
+
+function normalizeOrigin(value: string) {
+  return value.endsWith('/') ? value.slice(0, -1) : value
+}
+
+const apiUpstream = normalizeOrigin(
+  process.env.BLOGX_WEB_API_UPSTREAM ||
+    process.env.NUXT_API_ORIGIN ||
+    process.env.NUXT_PUBLIC_API_BASE ||
+    'http://127.0.0.1:8080',
+)
+
+const siteUrl = normalizeOrigin(process.env.BLOGX_WEB_SITE_URL || 'http://localhost:3000')
+const apiBase = String(process.env.BLOGX_WEB_API_BASE || '/api').trim() || '/api'
+const wsPath = String(process.env.BLOGX_WEB_WS_PATH || '/api/chat/ws').trim() || '/api/chat/ws'
+const assetProxyBase = String(process.env.BLOGX_WEB_ASSET_PROXY_BASE || '/_origin').trim() || '/_origin'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -70,10 +87,27 @@ export default defineNuxtConfig({
     },
   },
   runtimeConfig: {
-    apiOrigin: process.env.NUXT_API_ORIGIN || process.env.BLOGX_WEB_API_BASE || process.env.NUXT_PUBLIC_API_BASE || "http://127.0.0.1:8080",
+    envProfile,
+    apiUpstream,
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || "/_backend",
-      allowCrossOriginApiBase: process.env.NUXT_PUBLIC_ALLOW_CROSS_ORIGIN_API_BASE === "true",
+      envProfile,
+      siteUrl,
+      apiBase,
+      wsPath,
+      assetProxyBase,
+      uploadsBase: "/uploads",
+    },
+  },
+  nitro: {
+    experimental: {
+      websocket: true,
+    },
+    devProxy: {
+      [wsPath]: {
+        target: apiUpstream,
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
   routeRules: {

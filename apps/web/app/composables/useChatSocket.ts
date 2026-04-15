@@ -2,10 +2,11 @@ import { computed, onBeforeUnmount, shallowRef } from "vue";
 import { getChatWsTicket } from "~/services/inbox";
 import type { ChatMessageItem, ChatSocketEnvelope, ChatSocketOutgoingMessage } from "~/types/api";
 
-function toWebSocketOrigin(origin: string) {
-  if (origin.startsWith("https://")) return `wss://${origin.slice("https://".length)}`;
-  if (origin.startsWith("http://")) return `ws://${origin.slice("http://".length)}`;
-  return origin;
+function resolveWebSocketUrl(siteUrl: string, wsPath: string) {
+  const origin = import.meta.client ? window.location.origin : siteUrl;
+  const endpoint = new URL(wsPath, origin);
+  endpoint.protocol = endpoint.protocol === "https:" ? "wss:" : "ws:";
+  return endpoint.toString();
 }
 
 function normalizeSocketData(payload: unknown) {
@@ -23,7 +24,7 @@ export function useChatSocket() {
   const socket = shallowRef<WebSocket | null>(null);
   const inbox = shallowRef<Array<ChatSocketEnvelope>>([]);
 
-  const wsOrigin = computed(() => toWebSocketOrigin(config.apiOrigin));
+  const wsUrl = computed(() => resolveWebSocketUrl(config.public.siteUrl, config.public.wsPath));
   const canConnect = computed(() => import.meta.client && authStore.isLoggedIn);
 
   function pushEnvelope(envelope: ChatSocketEnvelope) {
@@ -49,7 +50,7 @@ export function useChatSocket() {
         throw new Error("后端未返回可用的 WebSocket ticket。");
       }
 
-      const instance = new WebSocket(`${wsOrigin.value}/api/chat/ws?ticket=${encodeURIComponent(ticket)}`);
+      const instance = new WebSocket(`${wsUrl.value}?ticket=${encodeURIComponent(ticket)}`);
 
       instance.onopen = () => {
         chatStore.setSocketStatus("connected");

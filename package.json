@@ -7,6 +7,9 @@
     },
     "scripts": {
         "dev:web": "turbo run dev --filter=web",
+        "dev:web:local-local": "pnpm --filter web dev:local-local",
+        "dev:web:local-test": "pnpm --filter web dev:local-test",
+        "start:web": "pnpm --filter web start",
         "dev:admin": "turbo run dev --filter=admin",
         "dev:prototype:web": "turbo run dev --filter=prototype-web",
         "dev:prototype:admin": "turbo run dev --filter=prototype-admin",
@@ -15,6 +18,8 @@
         "dev": "turbo run dev --filter=web",
         "dev:all": "turbo run dev",
         "build:web": "turbo run build --filter=web",
+        "build:web:test": "pnpm --filter web build:test",
+        "build:web:production": "pnpm --filter web build:production",
         "build:admin": "turbo run build --filter=admin",
         "build:prototype:web": "turbo run build --filter=prototype-web",
         "build:prototype:admin": "turbo run build --filter=prototype-admin",

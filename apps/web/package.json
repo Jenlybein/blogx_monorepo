@@ -3,10 +3,13 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "nuxt build",
-    "dev": "nuxt dev",
-    "generate": "nuxt generate",
-    "preview": "nuxt preview",
+    "build": "node ../../scripts/run-web-env.mjs production build",
+    "dev": "node ../../scripts/run-web-env.mjs local-local dev",
+    "dev:local-local": "node ../../scripts/run-web-env.mjs local-local dev",
+    "dev:local-test": "node ../../scripts/run-web-env.mjs local-test dev",
+    "build:test": "node ../../scripts/run-web-env.mjs test build",
+    "build:production": "node ../../scripts/run-web-env.mjs production build",
+    "start": "node .output/server/index.mjs",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {

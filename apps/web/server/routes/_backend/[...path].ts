@@ -1,16 +1,9 @@
-import { defineEventHandler, getRequestURL, getRouterParam, proxyRequest } from "h3";
+import { defineEventHandler, getRouterParam } from "h3";
+import { proxyRoutePath } from "../../utils/upstreamProxy";
 
-function normalizeOrigin(origin: string) {
-  return origin.endsWith("/") ? origin : `${origin}/`;
-}
-
-export default defineEventHandler(async (event) => {
+export default defineEventHandler((event) => {
   const runtimeConfig = useRuntimeConfig(event);
   const requestPath = getRouterParam(event, "path") || "";
-  const requestUrl = getRequestURL(event);
-  const targetUrl = new URL(requestPath, normalizeOrigin(runtimeConfig.apiOrigin));
-
-  targetUrl.search = requestUrl.search;
-
-  return proxyRequest(event, targetUrl.toString());
+  const upstream = runtimeConfig.apiUpstream;
+  return proxyRoutePath(event, upstream);
 });

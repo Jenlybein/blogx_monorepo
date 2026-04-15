@@ -26,6 +26,32 @@ export BLOGX_LOG_REQUEST_LOG_ENABLED='true'
 export BLOGX_LOG_QUERY_DEFAULT_LIMIT='20'
 export BLOGX_LOG_QUERY_MAX_LIMIT='200'
 
+# Nginx 固定配置选择：
+# - 本地：BLOGX_NGINX_ENV='local'
+# - API-only 联调：BLOGX_NGINX_ENV='api-only'
+# - 测试：BLOGX_NGINX_ENV='test'
+# - 生产：BLOGX_NGINX_ENV='production'
+# API-only 联调时可使用：export BLOGX_NGINX_ENV='api-only'
+export BLOGX_NGINX_ENV='local'
+
+# Web SSR 部署参数
+# 本地 compose：
+export BLOGX_WEB_ENV_PROFILE='local-local'
+export BLOGX_WEB_SITE_URL='http://localhost'
+export BLOGX_WEB_API_UPSTREAM='http://blogx_server:8080'
+#
+# 测试构建口径：
+# export BLOGX_NGINX_ENV='test'
+# export BLOGX_WEB_ENV_PROFILE='test'
+# export BLOGX_WEB_SITE_URL='https://blog.gentlybeing.cn'
+# export BLOGX_WEB_API_UPSTREAM='http://blogx_server:8080'
+#
+# 生产构建口径：
+# export BLOGX_NGINX_ENV='production'
+# export BLOGX_WEB_ENV_PROFILE='production'
+# export BLOGX_WEB_SITE_URL='https://blogx.gentlybeing.cn'
+# export BLOGX_WEB_API_UPSTREAM='http://blogx_server:8080'
+
 # JWT
 export BLOGX_JWT_SECRET='******'
 export BLOGX_JWT_ISSUER='******'
