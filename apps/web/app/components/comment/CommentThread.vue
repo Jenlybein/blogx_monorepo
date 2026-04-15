@@ -46,7 +46,7 @@ function toggleReplies(rootId: string) {
           <div class="mb-2 flex flex-wrap items-center gap-3">
             <span class="text-base font-semibold">{{ comment.user_nickname }}</span>
             <span class="text-sm muted">{{ formatDateTimeLabel(comment.created_at) }}</span>
-            <NTag v-if="comment.status === 2" size="small" round type="warning">审核中</NTag>
+            <NTag v-if="comment.status === 1" size="small" round type="warning">审核中</NTag>
           </div>
           <div class="text-[15px] leading-7">
             {{ comment.content }}

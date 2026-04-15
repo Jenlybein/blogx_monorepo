@@ -309,6 +309,7 @@ export interface UserBaseInfo {
   id: string;
   code_age: number;
   avatar: string;
+  avatar_image_id?: string | null;
   nickname: string;
   abstract?: string;
   view_count: number;

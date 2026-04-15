@@ -4,15 +4,17 @@ import type { SiteMessageItem } from "~/types/api";
 import type { SiteMessageGroup } from "~/composables/useInboxCenter";
 import { formatDateTimeLabel } from "~/utils/format";
 
+type InboxMessageGroup = SiteMessageGroup | "global";
+
 defineProps<{
-  categories: Array<{ key: SiteMessageGroup; label: string; hint: string; count: number }>;
-  activeGroup: SiteMessageGroup;
+  categories: Array<{ key: InboxMessageGroup; label: string; hint: string; count: number }>;
+  activeGroup: InboxMessageGroup;
   items: SiteMessageItem[];
   pending: boolean;
 }>();
 
 const emit = defineEmits<{
-  "update:activeGroup": [value: SiteMessageGroup];
+  "update:activeGroup": [value: InboxMessageGroup];
   markAllRead: [];
   remove: [id: string];
   clearGroup: [];

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { useMessage } from "naive-ui";
 import InboxChatPanel from "~/components/inbox/InboxChatPanel.vue";
-import InboxGlobalPanel from "~/components/inbox/InboxGlobalPanel.vue";
 import InboxSitePanel from "~/components/inbox/InboxSitePanel.vue";
+import type { SiteMessageItem } from "~/types/api";
+import type { SiteMessageGroup } from "~/composables/useInboxCenter";
 
 definePageMeta({
   layout: "studio",
@@ -10,6 +11,8 @@ definePageMeta({
 });
 
 const message = useMessage();
+const route = useRoute();
+const router = useRouter();
 const inbox = useInboxCenter();
 const {
   activeTab,
@@ -29,6 +32,8 @@ const {
   messagePending,
   socketStatus,
   socketError,
+  loadSiteMessages,
+  loadGlobalNotices,
   markCurrentSiteGroupRead,
   removeSiteMessage,
   markAllGlobalRead,
@@ -38,6 +43,143 @@ const {
   sendCurrentChatMessage,
   connectSocket,
 } = inbox;
+
+type InboxTab = "site" | "chat";
+type InboxMessageGroup = SiteMessageGroup | "global";
+
+function resolveInboxTab(value: unknown): InboxTab {
+  return value === "chat" ? "chat" : "site";
+}
+
+watch(
+  () => route.query.tab,
+  (value) => {
+    activeTab.value = resolveInboxTab(value);
+  },
+  { immediate: true },
+);
+
+watch(
+  () => activeTab.value,
+  (value) => {
+    const next = resolveInboxTab(route.query.tab);
+    if (next === value) return;
+    void router.replace({
+      query: {
+        ...route.query,
+        tab: value,
+      },
+    });
+  },
+);
+
+const activeMessageGroup = shallowRef<InboxMessageGroup>(1);
+
+function resolveMessageGroup(value: unknown): InboxMessageGroup {
+  return value === "global" ? "global" : [1, 2, 3].includes(Number(value)) ? (Number(value) as SiteMessageGroup) : 1;
+}
+
+watch(
+  () => route.query.group,
+  (value) => {
+    activeMessageGroup.value = resolveMessageGroup(value);
+  },
+  { immediate: true },
+);
+
+watch(
+  () => activeMessageGroup.value,
+  (value) => {
+    if (value !== "global") {
+      activeSiteGroup.value = value;
+    }
+    const nextGroup = resolveMessageGroup(route.query.group);
+    if (nextGroup === value) return;
+    void router.replace({
+      query: {
+        ...route.query,
+        group: value === 1 ? undefined : String(value),
+      },
+    });
+  },
+);
+
+watch(
+  () => activeMessageGroup.value,
+  async (value) => {
+    if (activeTab.value === "chat") return;
+    if (value === "global") {
+      await loadGlobalNotices();
+      return;
+    }
+    activeSiteGroup.value = value;
+    await loadSiteMessages();
+  },
+  { immediate: true },
+);
+
+const mergedCategories = computed(() => [
+  ...siteCategories.value,
+  {
+    key: "global" as const,
+    label: "全局通知",
+    hint: "站点公告与平台级通知",
+    count: globalNotices.value.filter((item) => !item.is_read).length,
+  },
+]);
+
+const mergedItems = computed<SiteMessageItem[]>(() => {
+  if (activeMessageGroup.value !== "global") {
+    return siteMessages.value;
+  }
+  return globalNotices.value.map((item) => ({
+    id: item.id,
+    created_at: item.create_at,
+    updated_at: item.create_at,
+    type: 9,
+    receiver_id: "",
+    action_user_id: null,
+    action_user_nickname: "系统",
+    action_user_avatar: null,
+    content: item.content,
+    article_id: "",
+    comment_id: "",
+    article_title: item.title,
+    link_title: item.title,
+    link_herf: item.herf,
+    is_read: item.is_read,
+    read_at: null,
+  }));
+});
+
+const mergedPending = computed(() => (activeMessageGroup.value === "global" ? globalPending.value : sitePending.value));
+
+async function handleMarkAllRead() {
+  if (activeMessageGroup.value === "global") {
+    await markAllGlobalRead();
+    return;
+  }
+  await markCurrentSiteGroupRead();
+}
+
+async function handleRemoveMessage(id: string) {
+  if (activeMessageGroup.value === "global") {
+    await removeGlobalNotice(id);
+    return;
+  }
+  await removeSiteMessage({ id });
+}
+
+async function handleClearGroup() {
+  if (activeMessageGroup.value === "global") {
+    const unreadIds = globalNotices.value.filter((item) => !item.is_read).map((item) => item.id);
+    if (unreadIds.length) {
+      await markAllGlobalRead();
+    }
+    return;
+  }
+  await removeSiteMessage({ group: activeSiteGroup.value });
+}
 
 async function handleSend() {
   try {
@@ -59,42 +201,16 @@ useSeoMeta({
 
 <template>
   <div class="page-stack">
-    <StudioPageHeader
-      title="消息中心"
-      description="Phase4 先把站内消息、全局通知、私信会话与 WebSocket 接入落成正式页面。对于后端尚未文档化的协议细节，前端只做兼容实现，不假定不存在的行为。"
-      eyebrow="Inbox"
-    >
-      <div class="studio-filter-row">
-        <button type="button" class="studio-filter-chip" :class="{ 'is-active': activeTab === 'site' }" @click="activeTab = 'site'">
-          站内消息
-        </button>
-        <button type="button" class="studio-filter-chip" :class="{ 'is-active': activeTab === 'global' }" @click="activeTab = 'global'">
-          全局通知
-        </button>
-        <button type="button" class="studio-filter-chip" :class="{ 'is-active': activeTab === 'chat' }" @click="activeTab = 'chat'">
-          私信
-        </button>
-      </div>
-    </StudioPageHeader>
-
     <InboxSitePanel
       v-if="activeTab === 'site'"
-      :categories="siteCategories"
-      :active-group="activeSiteGroup"
-      :items="siteMessages"
-      :pending="sitePending"
-      @update:active-group="activeSiteGroup = $event"
-      @mark-all-read="markCurrentSiteGroupRead()"
-      @remove="removeSiteMessage({ id: $event })"
-      @clear-group="removeSiteMessage({ group: activeSiteGroup })"
-    />
-
-    <InboxGlobalPanel
-      v-else-if="activeTab === 'global'"
-      :items="globalNotices"
-      :pending="globalPending"
-      @mark-all-read="markAllGlobalRead()"
-      @remove="removeGlobalNotice($event)"
+      :categories="mergedCategories"
+      :active-group="activeMessageGroup"
+      :items="mergedItems"
+      :pending="mergedPending"
+      @update:active-group="activeMessageGroup = $event"
+      @mark-all-read="handleMarkAllRead()"
+      @remove="handleRemoveMessage($event)"
+      @clear-group="handleClearGroup()"
     />
 
     <InboxChatPanel

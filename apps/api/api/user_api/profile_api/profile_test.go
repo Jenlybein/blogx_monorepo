@@ -170,7 +170,9 @@ func TestProfileHandlers(t *testing.T) {
 		var body struct {
 			Code int `json:"code"`
 			Data struct {
-				Relation int8 `json:"relation"`
+				AvatarImageID string `json:"avatar_image_id"`
+				Abstract      string `json:"abstract"`
+				Relation      int8   `json:"relation"`
 			} `json:"data"`
 		}
 		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
@@ -178,6 +180,12 @@ func TestProfileHandlers(t *testing.T) {
 		}
 		if body.Data.Relation != 0 {
 			t.Fatalf("匿名访问用户关系应为 0, got=%d", body.Data.Relation)
+		}
+		if body.Data.Abstract != user.Abstract {
+			t.Fatalf("匿名访问用户简介异常: %+v", body.Data.Abstract)
+		}
+		if body.Data.AvatarImageID != avatarImage.ID.String() {
+			t.Fatalf("匿名访问用户头像 image id 异常: %+v", body.Data.AvatarImageID)
 		}
 	}
 
@@ -193,6 +201,8 @@ func TestProfileHandlers(t *testing.T) {
 		var body struct {
 			Code int `json:"code"`
 			Data struct {
+				AvatarImageID       string   `json:"avatar_image_id"`
+				Abstract            string   `json:"abstract"`
 				ViewCount           int      `json:"view_count"`
 				FansCount           int      `json:"fans_count"`
 				FollowCount         int      `json:"follow_count"`
@@ -210,6 +220,12 @@ func TestProfileHandlers(t *testing.T) {
 		}
 		if body.Data.ViewCount != 1 || body.Data.FansCount != 0 || body.Data.FollowCount != 0 || body.Data.ArticleVisitedCount != 9 || body.Data.ArticleCount != 1 {
 			t.Fatalf("用户基础统计返回异常: %+v", body.Data)
+		}
+		if body.Data.Abstract != user.Abstract {
+			t.Fatalf("用户基础简介返回异常: %+v", body.Data.Abstract)
+		}
+		if body.Data.AvatarImageID != avatarImage.ID.String() {
+			t.Fatalf("用户基础头像 image id 返回异常: %+v", body.Data.AvatarImageID)
 		}
 		if !body.Data.FavoritesVisibility || !body.Data.FollowVisibility || !body.Data.FansVisibility {
 			t.Fatalf("用户可见性默认值异常: %+v", body.Data)

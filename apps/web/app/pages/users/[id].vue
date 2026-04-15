@@ -7,7 +7,7 @@ import ProfileHeroCard from "~/components/profile/ProfileHeroCard.vue";
 import ProfileRelationList from "~/components/profile/ProfileRelationList.vue";
 import { getPublicFavoriteFolders, getOwnFavoriteFolders, getFavoriteFolderArticles } from "~/services/favorite";
 import { getFansList, getFollowList, followUser, unfollowUser } from "~/services/follow";
-import { getUserBaseInfo } from "~/services/user";
+import { getSelfUserDetail, getUserBaseInfo } from "~/services/user";
 import { formatCount } from "~/utils/format";
 import { getAuthorButtonLabel, getRelationLabel, isFollowing } from "~/utils/relation";
 
@@ -85,6 +85,21 @@ const { data: profile, refresh: refreshProfile } = await useAsyncData(
 
 const isSelf = computed(() => authStore.profileId != null && String(authStore.profileId) === profile.value?.id);
 const relationText = computed(() => getAuthorButtonLabel(profile.value?.relation));
+
+const { data: selfDetail } = await useAsyncData(
+  () => `self-detail:${authStore.profileId || "guest"}:${isSelf.value ? "self" : "other"}`,
+  () => (isSelf.value ? getSelfUserDetail() : Promise.resolve(null)),
+  {
+    watch: [computed(() => authStore.profileId), isSelf],
+  },
+);
+
+const profileAbstractText = computed(() => {
+  if (isSelf.value) {
+    return selfDetail.value?.abstract || "";
+  }
+  return profile.value?.abstract || "";
+});
 
 const articleQuery = computed(() => ({
   type: 3 as const,
@@ -264,6 +279,7 @@ useSeoMeta({
         <ProfileHeroCard
           v-if="profile"
           :profile="profile"
+          :abstract-text="profileAbstractText"
           :is-self="isSelf"
           :relation-text="relationText"
           :action-disabled="profileLoadFailed"
@@ -414,7 +430,7 @@ useSeoMeta({
           <div class="section-title">资料摘要</div>
           <p class="mt-4 text-sm leading-7 muted">
             {{
-              profile?.abstract ||
+              profileAbstractText ||
               "这位作者暂时还没有补充个人简介。你可以先从文章流、收藏夹或关系分栏了解他的内容偏好。"
             }}
           </p>

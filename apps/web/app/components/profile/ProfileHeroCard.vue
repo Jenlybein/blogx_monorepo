@@ -6,6 +6,7 @@ import { formatCount } from "~/utils/format";
 
 const props = defineProps<{
   profile: UserBaseInfo;
+  abstractText?: string;
   isSelf?: boolean;
   relationText?: string;
   actionDisabled?: boolean;
@@ -27,7 +28,7 @@ const emit = defineEmits<{
       <div>
         <div class="text-4xl font-semibold tracking-[-0.04em]">{{ profile.nickname }}</div>
         <p class="mt-3 max-w-2xl text-[15px] leading-7 muted">
-          {{ profile.abstract || "视当下为结果，便会绝望；视其为过程，则仍有转机。" }}
+          {{ props.abstractText || "这位作者暂未补充个人简介。" }}
         </p>
         <div class="mt-4 flex flex-wrap items-center gap-4 text-sm muted">
           <span class="inline-flex items-center gap-1.5"><IconThumbUp :size="16" /> 点赞 {{ formatCount(profile.digg_count || 0) }}</span>

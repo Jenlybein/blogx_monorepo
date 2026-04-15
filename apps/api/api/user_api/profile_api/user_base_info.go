@@ -6,6 +6,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/follow_service"
+	"myblogx/service/image_service"
 	"myblogx/service/user_service"
 	"myblogx/utils/jwts"
 
@@ -13,21 +14,23 @@ import (
 )
 
 type UserBaseInfoResponse struct {
-	ID                  ctype.ID `gorm:"primaryKey" json:"id"`
-	CodeAge             int      `json:"code_age"`
-	Avatar              string   `gorm:"size:256" json:"avatar"`
-	Nickname            string   `gorm:"size:32" json:"nickname"`
-	ViewCount           int      `json:"view_count"`
-	FansCount           int      `json:"fans_count"`
-	FollowCount         int      `json:"follow_count"`
-	ArticleVisitedCount int      `json:"article_visited_count"`
-	ArticleCount        int      `json:"article_count"`
-	FavoritesVisibility bool     `json:"favorites_visibility"`
-	FollowVisibility    bool     `json:"followers_visibility"`
-	FansVisibility      bool     `json:"fans_visibility"`
-	HomeStyleID         ctype.ID `json:"home_style_id"`
-	Relation            int8     `json:"relation"`
-	Place               string   `json:"place"`
+	ID                  ctype.ID  `gorm:"primaryKey" json:"id"`
+	CodeAge             int       `json:"code_age"`
+	AvatarImageID       *ctype.ID `json:"avatar_image_id,omitempty"`
+	Avatar              string    `gorm:"size:256" json:"avatar"`
+	Nickname            string    `gorm:"size:32" json:"nickname"`
+	Abstract            string    `gorm:"size:256" json:"abstract"`
+	ViewCount           int       `json:"view_count"`
+	FansCount           int       `json:"fans_count"`
+	FollowCount         int       `json:"follow_count"`
+	ArticleVisitedCount int       `json:"article_visited_count"`
+	ArticleCount        int       `json:"article_count"`
+	FavoritesVisibility bool      `json:"favorites_visibility"`
+	FollowVisibility    bool      `json:"followers_visibility"`
+	FansVisibility      bool      `json:"fans_visibility"`
+	HomeStyleID         ctype.ID  `json:"home_style_id"`
+	Relation            int8      `json:"relation"`
+	Place               string    `json:"place"`
 }
 
 func (h ProfileApi) UserBaseInfoView(c *gin.Context) {
@@ -70,6 +73,7 @@ func (h ProfileApi) UserBaseInfoView(c *gin.Context) {
 		CodeAge:             user.CodeAge(),
 		Avatar:              user.Avatar,
 		Nickname:            user.Nickname,
+		Abstract:            user.Abstract,
 		ViewCount:           stat.ViewCount + viewCountDelta,
 		FansCount:           stat.FansCount,
 		FollowCount:         stat.FollowCount,
@@ -82,6 +86,7 @@ func (h ProfileApi) UserBaseInfoView(c *gin.Context) {
 		Relation:            relation,
 		Place:               user.Addr,
 	}
+	data.AvatarImageID, _ = image_service.FindImageIDByURL(app.DB, user.Avatar)
 
 	res.OkWithData(data, c)
 }

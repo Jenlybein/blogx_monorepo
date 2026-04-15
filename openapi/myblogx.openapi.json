@@ -9764,9 +9764,18 @@
             "type": "string",
             "description": "头像图片地址。"
           },
+          "avatar_image_id": {
+            "type": "string",
+            "description": "头像图片 ID；若头像来自图片上传链路，这里会回填对应 image_id。",
+            "nullable": true
+          },
           "nickname": {
             "type": "string",
             "description": "昵称。"
+          },
+          "abstract": {
+            "type": "string",
+            "description": "用户简介。"
           },
           "view_count": {
             "type": "integer",
@@ -9818,6 +9827,7 @@
           "code_age",
           "avatar",
           "nickname",
+          "abstract",
           "view_count",
           "fans_count",
           "follow_count",
