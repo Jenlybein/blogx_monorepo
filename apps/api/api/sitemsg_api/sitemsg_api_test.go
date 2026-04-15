@@ -279,7 +279,10 @@ func TestSitemsgListViewFiltersByType(t *testing.T) {
 			t.Fatalf("查询评论消息失败, body=%s", w.Body.String())
 		}
 		data := readSitemsgBody(t, w)["data"].(map[string]any)
-		if int(data["count"].(float64)) != 2 {
+		if data["has_more"].(bool) {
+			t.Fatalf("评论消息 has_more 应为 false, body=%s", w.Body.String())
+		}
+		if len(data["list"].([]any)) != 2 {
 			t.Fatalf("评论消息数量异常, body=%s", w.Body.String())
 		}
 	}
@@ -293,7 +296,10 @@ func TestSitemsgListViewFiltersByType(t *testing.T) {
 			t.Fatalf("查询点赞/收藏消息失败, body=%s", w.Body.String())
 		}
 		data := readSitemsgBody(t, w)["data"].(map[string]any)
-		if int(data["count"].(float64)) != 1 {
+		if data["has_more"].(bool) {
+			t.Fatalf("点赞/收藏消息 has_more 应为 false, body=%s", w.Body.String())
+		}
+		if len(data["list"].([]any)) != 1 {
 			t.Fatalf("点赞/收藏消息数量异常, body=%s", w.Body.String())
 		}
 	}
@@ -307,7 +313,10 @@ func TestSitemsgListViewFiltersByType(t *testing.T) {
 			t.Fatalf("查询系统消息失败, body=%s", w.Body.String())
 		}
 		data := readSitemsgBody(t, w)["data"].(map[string]any)
-		if int(data["count"].(float64)) != 1 {
+		if data["has_more"].(bool) {
+			t.Fatalf("系统消息 has_more 应为 false, body=%s", w.Body.String())
+		}
+		if len(data["list"].([]any)) != 1 {
 			t.Fatalf("系统消息数量异常, body=%s", w.Body.String())
 		}
 	}

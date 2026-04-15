@@ -5,7 +5,7 @@ import AuthModal from "~/components/auth/AuthModal.vue";
 
 const siteStore = useSiteStore();
 
-await siteStore.ensurePublicBootstrap();
+void siteStore.ensurePublicBootstrap();
 
 useHead(() => ({
   link: siteStore.seo?.icon

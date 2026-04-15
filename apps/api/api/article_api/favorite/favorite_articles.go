@@ -46,7 +46,7 @@ func (h FavoriteApi) FavoriteArticlesView(c *gin.Context) {
 	}
 
 	queryService := favorite_service.NewQueryService(h.App.DB, cachex.NewDeps(h.App.Redis, h.App.Logger))
-	list, count, err := queryService.ListFavoriteArticles(favorite_service.FavoriteArticlesQuery{
+	list, hasMore, err := queryService.ListFavoriteArticles(favorite_service.FavoriteArticlesQuery{
 		PageInfo:   cr.PageInfo,
 		FavoriteID: favoriteModel.ID,
 	}, favoriteArticleOrderMap)
@@ -54,7 +54,7 @@ func (h FavoriteApi) FavoriteArticlesView(c *gin.Context) {
 		res.FailWithMsg("查询收藏夹文章失败", c)
 		return
 	}
-	res.OkWithList(list, count, c)
+	res.OkWithHasMoreList(list, hasMore, c)
 }
 
 func getAccessibleFavorite(app Deps, c *gin.Context, favoriteID ctype.ID, claims *jwts.MyClaims) (*models.FavoriteModel, error) {

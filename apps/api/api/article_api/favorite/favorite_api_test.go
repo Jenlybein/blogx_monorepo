@@ -304,7 +304,10 @@ func TestFavoriteArticlesView(t *testing.T) {
 			t.Fatalf("收藏夹文章列表应成功, body=%s", w.Body.String())
 		}
 		data := readData(t, w)
-		if int(data["count"].(float64)) != 1 {
+		if data["has_more"].(bool) {
+			t.Fatalf("关键词筛选后 has_more 应为 false, body=%s", w.Body.String())
+		}
+		if len(data["list"].([]any)) != 1 {
 			t.Fatalf("关键词筛选结果异常, body=%s", w.Body.String())
 		}
 	}
@@ -344,7 +347,10 @@ func TestFavoriteArticlesView(t *testing.T) {
 			t.Fatalf("公开收藏夹应允许访问, body=%s", w.Body.String())
 		}
 		data := readData(t, w)
-		if int(data["count"].(float64)) != 2 {
+		if data["has_more"].(bool) {
+			t.Fatalf("公开收藏夹 has_more 应为 false, body=%s", w.Body.String())
+		}
+		if len(data["list"].([]any)) != 2 {
 			t.Fatalf("公开收藏夹文章数量异常, body=%s", w.Body.String())
 		}
 	}

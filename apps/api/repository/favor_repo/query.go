@@ -139,7 +139,7 @@ func (s *QueryService) ListFavorites(query FavoriteListQuery) ([]FavoriteListIte
 	return list, count, nil
 }
 
-func (s *QueryService) ListFavoriteArticles(query FavoriteArticlesQuery, orderMap map[string]string) ([]FavoriteArticleItem, int, error) {
+func (s *QueryService) ListFavoriteArticles(query FavoriteArticlesQuery, orderMap map[string]string) ([]FavoriteArticleItem, bool, error) {
 	base := s.DB.Model(&models.UserArticleFavorModel{}).
 		Where("favor_id = ?", query.FavoriteID)
 
@@ -149,24 +149,21 @@ func (s *QueryService) ListFavoriteArticles(query FavoriteArticlesQuery, orderMa
 			Select("id").
 			Where("status = ? AND title LIKE ?", enum.ArticleStatusPublished, "%"+query.PageInfo.Key+"%").
 			Pluck("id", &articleIDs).Error; err != nil {
-			return nil, 0, err
+			return nil, false, err
 		}
 		if len(articleIDs) == 0 {
-			return []FavoriteArticleItem{}, 0, nil
+			return []FavoriteArticleItem{}, false, nil
 		}
 		base = base.Where("article_id IN ?", articleIDs)
 	}
 
-	count, err := common.CountQuery(base)
-	if err != nil {
-		return nil, 0, err
-	}
-
 	order, err := common.ResolveOrder(query.PageInfo.Order, orderMap, "created_at desc")
 	if err != nil {
-		return nil, 0, err
+		return nil, false, err
 	}
 
+	limit := query.PageInfo.GetLimit()
+	offset := query.PageInfo.GetOffsetNoCount()
 	var rows []models.UserArticleFavorModel
 	if err = base.Select(
 		"id",
@@ -180,14 +177,19 @@ func (s *QueryService) ListFavoriteArticles(query FavoriteArticlesQuery, orderMa
 		"article_author_nickname",
 		"article_author_avatar",
 	).Order(order).
-		Limit(query.PageInfo.GetLimit()).
-		Offset(query.PageInfo.GetOffset(count)).
+		Limit(limit + 1).
+		Offset(offset).
 		Find(&rows).Error; err != nil {
-		return nil, 0, err
+		return nil, false, err
+	}
+
+	hasMore := len(rows) > limit
+	if hasMore {
+		rows = rows[:limit]
 	}
 
 	if err = hydrateFavoriteArticleSnapshots(s.DB, rows); err != nil {
-		return nil, 0, err
+		return nil, false, err
 	}
 
 	articleIDs := make([]ctype.ID, 0, len(rows))
@@ -196,7 +198,7 @@ func (s *QueryService) ListFavoriteArticles(query FavoriteArticlesQuery, orderMa
 	}
 	articleBaseMap, err := read_repo.LoadArticleBaseMap(s.DB, articleIDs)
 	if err != nil {
-		return nil, 0, err
+		return nil, false, err
 	}
 	authorIDs := make([]ctype.ID, 0, len(rows))
 	for _, row := range rows {
@@ -210,7 +212,7 @@ func (s *QueryService) ListFavoriteArticles(query FavoriteArticlesQuery, orderMa
 	}
 	authorMap, err := read_repo.LoadUserDisplayMap(s.DB, authorIDs)
 	if err != nil {
-		return nil, 0, err
+		return nil, false, err
 	}
 	counters := s.ArticleReader.Batch(articleIDs)
 
@@ -260,7 +262,7 @@ func (s *QueryService) ListFavoriteArticles(query FavoriteArticlesQuery, orderMa
 			ArticleStatus: articleBase.Status,
 		})
 	}
-	return list, count, nil
+	return list, hasMore, nil
 }
 
 func hydrateFavoriteOwners(db *gorm.DB, rows []models.FavoriteModel) error {

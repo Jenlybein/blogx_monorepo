@@ -37,14 +37,10 @@ export function useWriteEntry() {
 
     const href = router.resolve(target).href;
     const opened = window.open(href, "_blank", "noopener,noreferrer");
-    if (!opened) {
-      void navigateTo(target);
-    }
-    return true;
+    return Boolean(opened);
   }
 
   return {
     openWriteEntry,
   };
 }
-

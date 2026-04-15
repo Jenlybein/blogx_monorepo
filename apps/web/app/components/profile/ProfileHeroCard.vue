@@ -3,6 +3,7 @@ import { IconEye, IconHeart, IconMessageCircle2, IconThumbUp } from "@tabler/ico
 import { NAvatar, NButton } from "naive-ui";
 import type { UserBaseInfo } from "~/types/api";
 import { formatCount } from "~/utils/format";
+import { resolveAvatarInitial, resolveAvatarUrl } from "~/utils/avatar";
 
 const props = defineProps<{
   profile: UserBaseInfo;
@@ -21,8 +22,10 @@ const emit = defineEmits<{
 <template>
   <div class="profile-hero">
     <div class="profile-hero-main">
-      <NAvatar class="profile-hero-avatar" :size="80" :src="profile.avatar || undefined">
-        {{ profile.nickname.slice(0, 1).toUpperCase() }}
+      <NAvatar class="profile-hero-avatar" :size="80" :src="resolveAvatarUrl(profile.avatar) || undefined">
+        <template #fallback>
+          {{ resolveAvatarInitial(profile.nickname, "作") }}
+        </template>
       </NAvatar>
 
       <div>

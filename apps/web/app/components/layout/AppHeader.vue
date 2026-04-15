@@ -9,7 +9,8 @@ import {
   IconSunHigh,
   IconUserCircle,
 } from "@tabler/icons-vue";
-import { NAvatar, NButton, NDropdown, NInput } from "naive-ui";
+import { NAvatar, NButton, NDropdown, NInput, NSkeleton } from "naive-ui";
+import { resolveAvatarInitial } from "~/utils/avatar";
 
 const route = useRoute();
 const router = useRouter();
@@ -95,16 +96,14 @@ async function handleUserMenuSelect(key: string | number) {
           <IconSearch :size="16" />
           <span>搜索</span>
         </NuxtLink>
-        <NuxtLink
-          to="/studio/write"
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          type="button"
           class="soft-tab"
           :class="{ 'is-active': route.path.startsWith('/studio/write') }"
-          @click.prevent="openWriteEntry()">
+          @click="openWriteEntry()">
           <IconPencilPlus :size="16" />
           <span>创作</span>
-        </NuxtLink>
+        </button>
       </nav>
 
       <div class="ml-auto flex w-full items-center justify-end gap-3 md:w-auto">
@@ -130,18 +129,16 @@ async function handleUserMenuSelect(key: string | number) {
         <ClientOnly>
           <template #fallback>
             <div :class="['flex shrink-0 justify-end', authActionWidthClass]">
-              <div
-                class="h-[42px] w-full animate-pulse rounded-full border border-slate-200/70 bg-white/60 dark:border-slate-700 dark:bg-slate-900/60"
-                aria-hidden="true"
-              />
+              <NSkeleton round height="42px" width="100%" />
             </div>
           </template>
 
           <div :class="['flex shrink-0 justify-end', authActionWidthClass]">
-            <div
-              v-if="(!authStore.initialized && !authStore.currentUser) || (authStore.isLoggedIn && !authStore.currentUser)"
-              class="h-[42px] w-full animate-pulse rounded-full border border-slate-200/70 bg-white/60 dark:border-slate-700 dark:bg-slate-900/60"
-              aria-hidden="true"
+            <NSkeleton
+              v-if="authStore.isLoggedIn && (!authStore.initialized || !authStore.currentUser)"
+              round
+              height="42px"
+              width="100%"
             />
 
             <NDropdown v-else-if="authStore.isLoggedIn" :options="userMenuOptions" @select="handleUserMenuSelect">
@@ -150,8 +147,15 @@ async function handleUserMenuSelect(key: string | number) {
                 aria-label="打开个人菜单"
                 class="inline-flex w-full min-w-0 flex-nowrap items-center justify-center gap-2 rounded-full border border-slate-200/80 bg-white/70 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-teal-200 hover:text-teal-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100"
               >
-                <NAvatar class="shrink-0" round :size="30" :src="authStore.currentUser?.avatar || undefined">
-                  {{ (authStore.profileName || "我").slice(0, 1).toUpperCase() }}
+                <NAvatar
+                  :key="authStore.profileAvatar || authStore.profileName"
+                  class="shrink-0"
+                  round
+                  :size="30"
+                  :src="authStore.profileAvatar || undefined">
+                  <template #fallback>
+                    {{ resolveAvatarInitial(authStore.profileName, "我") }}
+                  </template>
                 </NAvatar>
                 <span class="hidden min-w-0 max-w-[96px] truncate whitespace-nowrap leading-none md:inline">
                   {{ authStore.profileName }}

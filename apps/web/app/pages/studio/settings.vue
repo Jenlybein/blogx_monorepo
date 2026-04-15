@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
-import { NButton, NCard, NInput, NSelect, NSwitch, NTag, useMessage } from "naive-ui";
+import { NAvatar, NButton, NCard, NInput, NModal, NSelect, NSwitch, useMessage } from "naive-ui";
 import { sendEmailCode } from "~/services/auth";
 import { uploadImageByTask } from "~/services/image";
 import { getTagOptions } from "~/services/search";
@@ -12,6 +12,7 @@ import {
   renewPasswordByEmail,
 } from "~/services/studio";
 import { getSelfUserDetail } from "~/services/user";
+import { resolveAvatarInitial, resolveAvatarUrl } from "~/utils/avatar";
 
 definePageMeta({
   layout: "studio",
@@ -62,6 +63,8 @@ const avatarUploading = reactive({
   stage: "",
 });
 const avatarDirty = ref(false);
+const showEmailModal = ref(false);
+const showPasswordModal = ref(false);
 
 watch(
   () => profile.value,
@@ -94,7 +97,6 @@ watch(
   { immediate: true },
 );
 
-const likeTagItems = computed(() => profile.value?.like_tag_items ?? []);
 const enabledTagIdSet = computed(() => {
   const set = new Set<string>();
   for (const option of tagOptions.value ?? []) {
@@ -106,6 +108,50 @@ const enabledTagIdSet = computed(() => {
   }
   return set;
 });
+
+const currentEmail = computed(() => {
+  const maybeProfileEmail = (profile.value as { email?: string } | null)?.email ?? "";
+  const maybeAuthEmail = (authStore.currentUser as { email?: string } | null)?.email ?? "";
+  const candidates = [emailBindForm.email, maybeProfileEmail, maybeAuthEmail];
+  for (const item of candidates) {
+    const normalized = item.trim();
+    if (normalized && normalized.includes("@")) {
+      return normalized;
+    }
+  }
+  return "";
+});
+
+const hasBoundEmail = computed(() => Boolean(currentEmail.value));
+
+const maskedEmailText = computed(() => {
+  if (!currentEmail.value) {
+    return "********(填入真实邮箱)";
+  }
+
+  const [localPart, domain = ""] = currentEmail.value.split("@");
+  if (!localPart) {
+    return "********(填入真实邮箱)";
+  }
+
+  const visiblePrefix = localPart.slice(0, Math.min(2, localPart.length));
+  return `${visiblePrefix}${"*".repeat(6)}@${domain}`;
+});
+
+const hasBoundPassword = computed(() => {
+  const user = profile.value as { has_password?: boolean; password_bound?: boolean } | null;
+  if (typeof user?.has_password === "boolean") {
+    return user.has_password;
+  }
+  if (typeof user?.password_bound === "boolean") {
+    return user.password_bound;
+  }
+  return true;
+});
+
+const maskedPasswordText = computed(() => (hasBoundPassword.value ? "******" : "******(未绑定)"));
+const profileAvatarPreview = computed(() => resolveAvatarUrl(profileForm.avatar));
+const profileAvatarInitial = computed(() => resolveAvatarInitial(profileForm.nickname || profileForm.username, "我"));
 
 async function saveProfile() {
   if (avatarUploading.pending) {
@@ -161,6 +207,19 @@ function openAvatarPicker() {
     return;
   }
   avatarFileInputRef.value?.click();
+}
+
+function openEmailModalDialog() {
+  emailBindForm.email = currentEmail.value || emailBindForm.email;
+  emailBindForm.email_code = "";
+  emailBindForm.email_id = "";
+  showEmailModal.value = true;
+}
+
+function openPasswordModalDialog() {
+  passwordForm.old_password = "";
+  passwordForm.new_password = "";
+  showPasswordModal.value = true;
 }
 
 function clearAvatar() {
@@ -240,6 +299,8 @@ async function submitBindEmail() {
     });
     message.success("邮箱已绑定");
     emailBindForm.email_code = "";
+    showEmailModal.value = false;
+    await Promise.all([refreshProfile(), authStore.fetchCurrentUser()]);
   } catch (error) {
     message.error(error instanceof Error ? error.message : "绑定邮箱失败");
   }
@@ -253,6 +314,7 @@ async function submitPasswordReset() {
     });
     passwordForm.old_password = "";
     passwordForm.new_password = "";
+    showPasswordModal.value = false;
     message.success("密码已更新，请留意旧登录态可能会失效");
   } catch (error) {
     message.error(error instanceof Error ? error.message : "更新密码失败");
@@ -276,12 +338,6 @@ useSeoMeta({
 
 <template>
   <div class="page-stack">
-    <StudioPageHeader
-      title="账号设置"
-      description="设置页已对齐新契约：偏好标签走 like_tag_ids，头像走上传任务并提交 avatar_image_id，消息偏好、邮箱和密码保持真实接口对接。"
-      eyebrow="Settings"
-    />
-
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
       <section class="space-y-5">
         <NCard class="studio-list-card" :bordered="false">
@@ -304,7 +360,7 @@ useSeoMeta({
             </label>
             <label class="space-y-2 md:col-span-2">
               <span class="text-sm font-medium">头像上传</span>
-              <div class="rounded-[18px] border px-4 py-4">
+              <div class="rounded-[18px] border px-4 py-4 bg-white/40">
                 <input
                   ref="avatarFileInputRef"
                   type="file"
@@ -312,20 +368,30 @@ useSeoMeta({
                   class="hidden"
                   @change="handleAvatarFileChange" />
 
-                <div class="flex flex-wrap items-center gap-3">
-                  <NButton quaternary :loading="avatarUploading.pending" @click="openAvatarPicker()">
-                    {{ profileForm.avatar ? "重新上传头像" : "选择头像图片" }}
-                  </NButton>
-                  <NButton v-if="profileForm.avatar || profileForm.avatar_image_id" quaternary @click="clearAvatar()">
-                    移除头像
-                  </NButton>
-                  <span v-if="avatarUploading.stage" class="text-xs muted">{{ avatarUploading.stage }}</span>
+                <div class="flex min-h-[92px] flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div class="flex items-center gap-3">
+                    <NAvatar round :size="56" :src="profileAvatarPreview || undefined">
+                      <template #fallback>
+                        {{ profileAvatarInitial }}
+                      </template>
+                    </NAvatar>
+                    <div class="space-y-1">
+                      <p class="text-sm font-medium">更新你的个人头像</p>
+                      <p class="text-xs muted">支持 JPG / PNG / JPEG，建议方形图片，大小 5MB 以内</p>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-wrap gap-2 sm:justify-end">
+                    <NButton quaternary :loading="avatarUploading.pending" @click="openAvatarPicker()">
+                      {{ profileForm.avatar ? "重新上传头像" : "选择头像图片" }}
+                    </NButton>
+                    <NButton v-if="profileForm.avatar || profileForm.avatar_image_id" quaternary @click="clearAvatar()">
+                      移除头像
+                    </NButton>
+                  </div>
                 </div>
 
-                <div v-if="profileForm.avatar" class="mt-3 flex items-center gap-3">
-                  <img :src="profileForm.avatar" alt="头像预览" class="h-12 w-12 rounded-full object-cover border" />
-                  <span class="text-xs muted">预览 URL 仅用于显示，提交时只发送 avatar_image_id。</span>
-                </div>
+                <p v-if="avatarUploading.stage" class="mt-3 text-xs muted">{{ avatarUploading.stage }}</p>
               </div>
             </label>
             <label class="space-y-2 md:col-span-2">
@@ -350,24 +416,10 @@ useSeoMeta({
                 placeholder="选择你感兴趣的标签，提交时会走 like_tag_ids"
               />
             </label>
-            <label class="space-y-2">
+            <label class="space-y-2 md:col-span-2 lg:max-w-[320px]">
               <span class="text-sm font-medium">主页样式 ID</span>
               <NInput v-model:value="profileForm.home_style_id" placeholder="例如：1、2、3" />
             </label>
-            <div class="space-y-3">
-              <div class="flex items-center justify-between rounded-[18px] border px-4 py-3">
-                <span>收藏夹可见</span>
-                <NSwitch v-model:value="profileForm.favorites_visibility" />
-              </div>
-              <div class="flex items-center justify-between rounded-[18px] border px-4 py-3">
-                <span>关注列表可见</span>
-                <NSwitch v-model:value="profileForm.followers_visibility" />
-              </div>
-              <div class="flex items-center justify-between rounded-[18px] border px-4 py-3">
-                <span>粉丝列表可见</span>
-                <NSwitch v-model:value="profileForm.fans_visibility" />
-              </div>
-            </div>
           </div>
         </NCard>
 
@@ -375,44 +427,25 @@ useSeoMeta({
           <div class="eyebrow">Bind</div>
           <h2 class="section-title mt-2">绑定信息</h2>
 
-          <div class="mt-5 grid gap-4">
-            <label class="space-y-2">
-              <span class="text-sm font-medium">邮箱地址</span>
-              <NInput v-model:value="emailBindForm.email" placeholder="name@example.com" />
-            </label>
-            <div class="flex flex-wrap gap-3">
-              <NButton quaternary @click="sendBindCode()">发送邮箱验证码</NButton>
-              <span v-if="emailBindForm.email_id" class="glass-badge">email_id 已生成</span>
+          <div class="mt-5 space-y-3">
+            <div class="flex items-center justify-between rounded-[18px] border px-4 py-3">
+              <div class="flex items-center gap-4">
+                <span class="text-sm font-medium">邮箱</span>
+                <span class="text-sm muted">{{ maskedEmailText }}</span>
+              </div>
+              <NButton text type="primary" @click="openEmailModalDialog()">
+                {{ hasBoundEmail ? "修改邮箱" : "绑定邮箱" }}
+              </NButton>
             </div>
-            <label class="space-y-2">
-              <span class="text-sm font-medium">邮箱验证码</span>
-              <NInput v-model:value="emailBindForm.email_code" maxlength="8" placeholder="输入邮箱验证码…" />
-            </label>
-            <div>
-              <NButton type="primary" @click="submitBindEmail()">绑定邮箱</NButton>
+            <div class="flex items-center justify-between rounded-[18px] border px-4 py-3">
+              <div class="flex items-center gap-4">
+                <span class="text-sm font-medium">密码</span>
+                <span class="text-sm muted">{{ maskedPasswordText }}</span>
+              </div>
+              <NButton text type="primary" @click="openPasswordModalDialog()">
+                {{ hasBoundPassword ? "修改密码" : "绑定密码" }}
+              </NButton>
             </div>
-          </div>
-        </NCard>
-
-        <NCard class="studio-list-card" :bordered="false">
-          <div class="eyebrow">Security</div>
-          <h2 class="section-title mt-2">密码更新</h2>
-          <p class="mt-3 text-sm leading-7 muted">
-            当前 OpenAPI 对这个接口的请求体是 `old_password + new_password`，并没有邮箱验证码字段，所以这里按真实 schema 实现。
-          </p>
-
-          <div class="mt-5 grid gap-4 md:grid-cols-2">
-            <label class="space-y-2">
-              <span class="text-sm font-medium">旧密码</span>
-              <NInput v-model:value="passwordForm.old_password" type="password" show-password-on="click" />
-            </label>
-            <label class="space-y-2">
-              <span class="text-sm font-medium">新密码</span>
-              <NInput v-model:value="passwordForm.new_password" type="password" show-password-on="click" />
-            </label>
-          </div>
-          <div class="mt-4">
-            <NButton type="primary" @click="submitPasswordReset()">更新密码</NButton>
           </div>
         </NCard>
       </section>
@@ -446,20 +479,74 @@ useSeoMeta({
         </NCard>
 
         <NCard class="studio-list-card" :bordered="false">
-          <div class="eyebrow">Contract</div>
-          <h2 class="section-title mt-2">当前接口约束</h2>
-          <div class="mt-4 space-y-3 text-sm leading-7 muted">
-            <p>头像现在走上传任务链路，提交资料时优先传 `avatar_image_id`，而不是头像 URL。</p>
-            <p>QQ 绑定也没有单独的用户侧绑定接口，当前只能保留说明，不做假按钮行为。</p>
-            <p>`like_tag_ids` 已经成为主字段，详情展示走 `like_tag_items`，不再继续扩散旧的 `like_tags` 字段。</p>
-          </div>
+          <div class="eyebrow">Visibility</div>
+          <h2 class="section-title mt-2">可见性</h2>
 
-          <div class="mt-4 flex flex-wrap gap-2">
-            <NTag v-for="tag in likeTagItems" :key="tag.id">{{ tag.title }}</NTag>
-            <NTag v-if="!likeTagItems.length" type="default">暂无标签</NTag>
+          <div class="mt-5 space-y-3">
+            <div class="flex items-center justify-between rounded-[18px] border px-4 py-3">
+              <span>收藏夹可见</span>
+              <NSwitch v-model:value="profileForm.favorites_visibility" />
+            </div>
+            <div class="flex items-center justify-between rounded-[18px] border px-4 py-3">
+              <span>关注列表可见</span>
+              <NSwitch v-model:value="profileForm.followers_visibility" />
+            </div>
+            <div class="flex items-center justify-between rounded-[18px] border px-4 py-3">
+              <span>粉丝列表可见</span>
+              <NSwitch v-model:value="profileForm.fans_visibility" />
+            </div>
           </div>
         </NCard>
       </section>
     </div>
+
+    <NModal
+      v-model:show="showEmailModal"
+      preset="card"
+      title="修改邮箱"
+      class="w-[min(92vw,520px)]"
+      :mask-closable="false">
+      <div class="space-y-4">
+        <label class="space-y-2 block">
+          <span class="text-sm font-medium">邮箱地址</span>
+          <NInput v-model:value="emailBindForm.email" placeholder="name@example.com" />
+        </label>
+        <div class="flex flex-wrap gap-3">
+          <NButton quaternary @click="sendBindCode()">发送邮箱验证码</NButton>
+          <span v-if="emailBindForm.email_id" class="glass-badge">email_id 已生成</span>
+        </div>
+        <label class="space-y-2 block">
+          <span class="text-sm font-medium">邮箱验证码</span>
+          <NInput v-model:value="emailBindForm.email_code" maxlength="8" placeholder="输入邮箱验证码…" />
+        </label>
+        <div class="flex justify-end gap-2 pt-1">
+          <NButton quaternary @click="showEmailModal = false">取消</NButton>
+          <NButton type="primary" @click="submitBindEmail()">{{ hasBoundEmail ? "确认修改" : "确认绑定" }}</NButton>
+        </div>
+      </div>
+    </NModal>
+
+    <NModal
+      v-model:show="showPasswordModal"
+      preset="card"
+      title="修改密码"
+      class="w-[min(92vw,520px)]"
+      :mask-closable="false">
+      <div class="space-y-4">
+        <p class="text-sm leading-6 muted">密码接口当前要求提交旧密码和新密码。</p>
+        <label class="space-y-2 block">
+          <span class="text-sm font-medium">旧密码</span>
+          <NInput v-model:value="passwordForm.old_password" type="password" show-password-on="click" />
+        </label>
+        <label class="space-y-2 block">
+          <span class="text-sm font-medium">新密码</span>
+          <NInput v-model:value="passwordForm.new_password" type="password" show-password-on="click" />
+        </label>
+        <div class="flex justify-end gap-2 pt-1">
+          <NButton quaternary @click="showPasswordModal = false">取消</NButton>
+          <NButton type="primary" @click="submitPasswordReset()">{{ hasBoundPassword ? "确认修改" : "确认绑定" }}</NButton>
+        </div>
+      </div>
+    </NModal>
   </div>
 </template>

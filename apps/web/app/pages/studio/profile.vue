@@ -147,6 +147,10 @@ function statusType(status: number) {
   return "default";
 }
 
+function resolveDisplayStatus(item: { publish_status?: number; status: number }) {
+  return item.publish_status ?? item.status;
+}
+
 async function handleDelete(id: string) {
   try {
     await deleteOwnArticle(id);
@@ -168,22 +172,6 @@ useSeoMeta({
 
 <template>
   <div class="page-stack">
-    <StudioPageHeader
-      title="我的文章"
-      description="这里改成了真正面向作者检索的文章页：只查询当前登录账号自己的内容，同时支持关键词、标签、排序、状态和准确总数分页。"
-      eyebrow="Articles"
-    >
-      <div class="flex flex-wrap gap-3">
-        <NuxtLink
-          to="/studio/write"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="glass-badge"
-          @click.prevent="openWriteEntry()">创作文章</NuxtLink>
-        <NButton quaternary @click="refresh()">刷新列表</NButton>
-      </div>
-    </StudioPageHeader>
-
     <section class="surface-card p-5 md:p-6">
       <div class="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -192,7 +180,16 @@ useSeoMeta({
             这里走 `type=4` 的文章搜索接口，后端会强制限定为当前登录用户，不会查到别人文章。
           </p>
         </div>
-        <div class="text-sm muted">共 {{ total }} 篇，当前第 {{ pagination.page }} / {{ totalPages }} 页</div>
+        <div class="flex flex-wrap items-center gap-3">
+          <NuxtLink
+            to="/studio/write"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="glass-badge"
+            @click.prevent="openWriteEntry()">创作文章</NuxtLink>
+          <NButton quaternary @click="refresh()">刷新列表</NButton>
+          <div class="text-sm muted">共 {{ total }} 篇，当前第 {{ pagination.page }} / {{ totalPages }} 页</div>
+        </div>
       </div>
 
       <div class="space-y-4">
@@ -264,7 +261,9 @@ useSeoMeta({
         >
           <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div class="flex flex-wrap items-center gap-2">
-              <NTag :type="statusType(item.status)" size="small">{{ statusLabel(item.status) }}</NTag>
+              <NTag :type="statusType(resolveDisplayStatus(item))" size="small">
+                {{ statusLabel(resolveDisplayStatus(item)) }}
+              </NTag>
               <NTag v-if="!item.comments_toggle" size="small" type="warning">评论已关闭</NTag>
             </div>
 

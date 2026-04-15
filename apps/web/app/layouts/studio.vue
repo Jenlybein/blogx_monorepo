@@ -7,10 +7,10 @@ const siteStore = useSiteStore();
 const authStore = useAuthStore();
 const messageStore = useMessageStore();
 
-await siteStore.ensurePublicBootstrap();
+void siteStore.ensurePublicBootstrap();
 
 if (authStore.isLoggedIn && !messageStore.fetched) {
-  await messageStore.refreshSummary().catch(() => undefined);
+  void messageStore.refreshSummary().catch(() => undefined);
 }
 </script>
 

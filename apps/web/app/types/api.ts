@@ -178,6 +178,8 @@ export interface SearchArticleItem {
   favor_count: number;
   comments_toggle: boolean;
   status: number;
+  publish_status?: number;
+  visibility_status?: "visible" | "user_hidden" | "admin_hidden";
   tags: SearchTag[];
   category?: SearchCategory;
   author: SearchAuthor;
@@ -215,6 +217,7 @@ export interface ArticleWritePayload {
   tag_ids?: string[];
   cover_image_id?: string | null;
   comments_toggle?: boolean;
+  visibility_status?: "visible" | "user_hidden";
   status: 1 | 2;
 }
 
@@ -226,6 +229,8 @@ export interface ArticleCreateResult {
   cover_image_id?: string | null;
   comments_toggle: boolean;
   status: number;
+  publish_status: number;
+  visibility_status: "visible" | "user_hidden" | "admin_hidden";
 }
 
 export interface ArticleDetail {
@@ -256,8 +261,8 @@ export interface ArticleDetail {
   tag_ids?: string[];
   is_digg: boolean;
   is_favor: boolean;
-  publish_status?: number;
-  visibility_status?: "visible" | "user_hidden" | "admin_hidden";
+  publish_status: number;
+  visibility_status: "visible" | "user_hidden" | "admin_hidden";
 }
 
 export interface CommentRootItem {
@@ -403,7 +408,7 @@ export interface HistoryArticleItem {
 
 export interface HistoryArticleListData {
   list: HistoryArticleItem[];
-  count: number;
+  has_more: boolean;
 }
 
 export interface CommentManageItem {
@@ -436,7 +441,7 @@ export interface FollowUserItem {
 
 export interface FollowUserListData {
   list: FollowUserItem[];
-  count: number;
+  has_more: boolean;
 }
 
 export interface FanUserItem {
@@ -450,7 +455,7 @@ export interface FanUserItem {
 
 export interface FanUserListData {
   list: FanUserItem[];
-  count: number;
+  has_more: boolean;
 }
 
 export interface FavoriteArticleItem {
@@ -470,7 +475,7 @@ export interface FavoriteArticleItem {
 
 export interface FavoriteArticleListData {
   list: FavoriteArticleItem[];
-  count: number;
+  has_more: boolean;
 }
 
 export interface LoginLogItem {
@@ -541,7 +546,7 @@ export interface SiteMessageItem {
 
 export interface SiteMessageListData {
   list: SiteMessageItem[];
-  count: number;
+  has_more: boolean;
 }
 
 export interface GlobalNoticeItem {
@@ -556,7 +561,7 @@ export interface GlobalNoticeItem {
 
 export interface GlobalNoticeListData {
   list: GlobalNoticeItem[];
-  count: number;
+  has_more: boolean;
 }
 
 export interface ChatSessionItem {

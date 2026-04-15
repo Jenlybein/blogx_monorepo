@@ -3047,13 +3047,13 @@
                                 "$ref": "#/components/schemas/FavoriteArticleItem"
                               }
                             },
-                            "count": {
-                              "type": "integer"
+                            "has_more": {
+                              "type": "boolean"
                             }
                           },
                           "required": [
                             "list",
-                            "count"
+                            "has_more"
                           ]
                         }
                       },
@@ -3231,13 +3231,13 @@
                                 "$ref": "#/components/schemas/ArticleViewHistoryItem"
                               }
                             },
-                            "count": {
-                              "type": "integer"
+                            "has_more": {
+                              "type": "boolean"
                             }
                           },
                           "required": [
                             "list",
-                            "count"
+                            "has_more"
                           ]
                         }
                       },
@@ -4673,13 +4673,13 @@
                                 "$ref": "#/components/schemas/ArticleMessageItem"
                               }
                             },
-                            "count": {
-                              "type": "integer"
+                            "has_more": {
+                              "type": "boolean"
                             }
                           },
                           "required": [
                             "list",
-                            "count"
+                            "has_more"
                           ]
                         }
                       },
@@ -5041,13 +5041,13 @@
                                 "$ref": "#/components/schemas/GlobalNotifListItem"
                               }
                             },
-                            "count": {
-                              "type": "integer"
+                            "has_more": {
+                              "type": "boolean"
                             }
                           },
                           "required": [
                             "list",
-                            "count"
+                            "has_more"
                           ]
                         }
                       },
@@ -5244,13 +5244,13 @@
                                 "$ref": "#/components/schemas/FollowListItem"
                               }
                             },
-                            "count": {
-                              "type": "integer"
+                            "has_more": {
+                              "type": "boolean"
                             }
                           },
                           "required": [
                             "list",
-                            "count"
+                            "has_more"
                           ]
                         }
                       },
@@ -5479,13 +5479,13 @@
                                 "$ref": "#/components/schemas/FansListItem"
                               }
                             },
-                            "count": {
-                              "type": "integer"
+                            "has_more": {
+                              "type": "boolean"
                             }
                           },
                           "required": [
                             "list",
-                            "count"
+                            "has_more"
                           ]
                         }
                       },

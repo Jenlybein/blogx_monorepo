@@ -35,10 +35,10 @@ func (h *FollowApi) FansListView(c *gin.Context) {
 	}
 
 	queryService := follow_service.NewQueryService(h.App.DB)
-	list, count, err := queryService.ListFans(cr.UserID, claims.UserID, cr.FansUserID, cr.PageInfo)
+	list, hasMore, err := queryService.ListFans(cr.UserID, claims.UserID, cr.FansUserID, cr.PageInfo)
 	if err != nil {
 		res.FailWithError(err, c)
 		return
 	}
-	res.OkWithList(list, count, c)
+	res.OkWithHasMoreList(list, hasMore, c)
 }

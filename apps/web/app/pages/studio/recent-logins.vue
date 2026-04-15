@@ -34,12 +34,6 @@ useSeoMeta({
 
 <template>
   <div class="page-stack">
-    <StudioPageHeader
-      title="最近登录"
-      description="这里现在直接接当前用户会话列表，并支持按会话 ID 精确下线设备。当前设备如果被下线，会同步清理本地登录状态。"
-      eyebrow="Security"
-    />
-
     <section class="studio-list-card">
       <div class="studio-toolbar">
         <div class="muted text-sm">共 {{ data?.count ?? 0 }} 条登录记录</div>

@@ -4,6 +4,7 @@ import { IconEye, IconHeart, IconMessageCircle2, IconThumbUp } from "@tabler/ico
 import { NAvatar, NTag } from "naive-ui";
 import type { SearchArticleItem } from "~/types/api";
 import { formatCount, formatDateLabel } from "~/utils/format";
+import { resolveAvatarInitial, resolveAvatarUrl } from "~/utils/avatar";
 
 const props = withDefaults(
   defineProps<{
@@ -48,8 +49,10 @@ const abstractText = computed(() => props.article.highlight?.abstract || props.a
             :to="`/users/${article.author.id}`"
             class="inline-flex items-center gap-2"
           >
-            <NAvatar round :size="30" :src="article.author.avatar || undefined">
-              {{ article.author.nickname.slice(0, 1).toUpperCase() }}
+            <NAvatar round :size="30" :src="resolveAvatarUrl(article.author.avatar) || undefined">
+              <template #fallback>
+                {{ resolveAvatarInitial(article.author.nickname, "作") }}
+              </template>
             </NAvatar>
             <span class="text-sm font-medium">{{ article.author.nickname }}</span>
           </NuxtLink>

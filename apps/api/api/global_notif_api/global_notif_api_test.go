@@ -196,7 +196,10 @@ func TestGlobalNotifListViewAndUserRemove(t *testing.T) {
 		}
 
 		data := readGlobalNotifBody(t, w)["data"].(map[string]any)
-		if int(data["count"].(float64)) != 3 {
+		if data["has_more"].(bool) {
+			t.Fatalf("用户通知 has_more 应为 false, body=%s", w.Body.String())
+		}
+		if len(data["list"].([]any)) != 3 {
 			t.Fatalf("用户通知数量异常, body=%s", w.Body.String())
 		}
 

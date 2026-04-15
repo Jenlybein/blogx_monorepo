@@ -11,16 +11,34 @@ definePageMeta({
 });
 
 const message = useMessage();
-const { data, pending, refresh } = await useAsyncData("studio-follows", () => getFollowUsers({ page: 1, limit: 30 }));
+const page = shallowRef(1);
+const { data, pending, refresh } = await useAsyncData(
+  () => `studio-follows:${page.value}`,
+  () => getFollowUsers({ page: page.value, limit: 30 }),
+  { watch: [page] },
+);
 
 async function removeFollow(id: string) {
   try {
     await unfollowUser(id);
     message.success("已取消关注");
     await refresh();
+    if (!data.value?.list.length && page.value > 1) {
+      page.value -= 1;
+    }
   } catch (error) {
     message.error(error instanceof Error ? error.message : "取消关注失败");
   }
+}
+
+function previousPage() {
+  if (page.value <= 1) return;
+  page.value -= 1;
+}
+
+function nextPage() {
+  if (!data.value?.has_more) return;
+  page.value += 1;
 }
 
 useSeoMeta({
@@ -30,12 +48,6 @@ useSeoMeta({
 
 <template>
   <div class="page-stack">
-    <StudioPageHeader
-      title="关注列表"
-      description="把你主动关注的人集中到一个地方，方便回访主页、查看动态或快速取消关注。"
-      eyebrow="Follow"
-    />
-
     <section class="studio-list-card">
       <NList v-if="data?.list.length">
         <NListItem v-for="item in data?.list" :key="item.followed_user_id">
@@ -62,6 +74,14 @@ useSeoMeta({
         title="你还没有关注任何人"
         :description="pending ? '正在读取关注列表…' : '可以从作者主页或文章详情作者卡开始关注感兴趣的创作者。'"
       />
+
+      <div v-if="data?.list.length" class="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm muted">
+        <span>第 {{ page }} 页</span>
+        <div class="flex items-center gap-3">
+          <NButton quaternary size="small" :disabled="page <= 1 || pending" @click="previousPage()">上一页</NButton>
+          <NButton quaternary size="small" :disabled="!data?.has_more || pending" @click="nextPage()">下一页</NButton>
+        </div>
+      </div>
     </section>
   </div>
 </template>

@@ -20,7 +20,7 @@ func (h ViewHistoryApi) ArticleViewHistoryView(c *gin.Context) {
 	case 2:
 	}
 
-	_list, count, err := common.ListQuery(models.UserArticleViewHistoryModel{
+	_list, hasMore, err := common.ListQueryHasMore(models.UserArticleViewHistoryModel{
 		UserID: cr.UserID,
 	}, common.Options{
 		DB:       h.App.DB,
@@ -45,5 +45,5 @@ func (h ViewHistoryApi) ArticleViewHistoryView(c *gin.Context) {
 		})
 	}
 
-	res.OkWithList(list, count, c)
+	res.OkWithHasMoreList(list, hasMore, c)
 }

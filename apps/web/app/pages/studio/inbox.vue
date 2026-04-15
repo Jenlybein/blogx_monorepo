@@ -17,6 +17,8 @@ const inbox = useInboxCenter();
 const {
   activeTab,
   activeSiteGroup,
+  siteHasMore,
+  globalHasMore,
   activeSessionId,
   activeSession,
   siteCategories,
@@ -34,6 +36,8 @@ const {
   socketError,
   loadSiteMessages,
   loadGlobalNotices,
+  loadMoreSiteMessages,
+  loadMoreGlobalNotices,
   markCurrentSiteGroupRead,
   removeSiteMessage,
   markAllGlobalRead,
@@ -109,11 +113,11 @@ watch(
   async (value) => {
     if (activeTab.value === "chat") return;
     if (value === "global") {
-      await loadGlobalNotices();
+      await loadGlobalNotices(1);
       return;
     }
     activeSiteGroup.value = value;
-    await loadSiteMessages();
+    await loadSiteMessages(1);
   },
   { immediate: true },
 );
@@ -123,7 +127,7 @@ const mergedCategories = computed(() => [
   {
     key: "global" as const,
     label: "全局通知",
-    hint: "站点公告与平台级通知",
+    hint: "",
     count: globalNotices.value.filter((item) => !item.is_read).length,
   },
 ]);
@@ -153,6 +157,7 @@ const mergedItems = computed<SiteMessageItem[]>(() => {
 });
 
 const mergedPending = computed(() => (activeMessageGroup.value === "global" ? globalPending.value : sitePending.value));
+const mergedHasMore = computed(() => (activeMessageGroup.value === "global" ? globalHasMore.value : siteHasMore.value));
 
 async function handleMarkAllRead() {
   if (activeMessageGroup.value === "global") {
@@ -181,6 +186,14 @@ async function handleClearGroup() {
   await removeSiteMessage({ group: activeSiteGroup.value });
 }
 
+async function handleLoadMore() {
+  if (activeMessageGroup.value === "global") {
+    await loadMoreGlobalNotices();
+    return;
+  }
+  await loadMoreSiteMessages();
+}
+
 async function handleSend() {
   try {
     await sendCurrentChatMessage();
@@ -201,38 +214,18 @@ useSeoMeta({
 
 <template>
   <div class="page-stack">
-    <InboxSitePanel
-      v-if="activeTab === 'site'"
-      :categories="mergedCategories"
-      :active-group="activeMessageGroup"
-      :items="mergedItems"
-      :pending="mergedPending"
-      @update:active-group="activeMessageGroup = $event"
-      @mark-all-read="handleMarkAllRead()"
-      @remove="handleRemoveMessage($event)"
-      @clear-group="handleClearGroup()"
-    />
+    <InboxSitePanel v-if="activeTab === 'site'" :categories="mergedCategories" :active-group="activeMessageGroup"
+      :items="mergedItems" :pending="mergedPending" :has-more="mergedHasMore"
+      @update:active-group="activeMessageGroup = $event" @mark-all-read="handleMarkAllRead()"
+      @remove="handleRemoveMessage($event)" @clear-group="handleClearGroup()" @load-more="handleLoadMore()" />
 
-    <InboxChatPanel
-      v-else
-      :sessions="filteredChatSessions"
-      :active-session-id="activeSessionId ?? null"
-      :current-session="activeSession"
-      :items="chatMessages"
-      :keyword="chatKeyword"
-      :draft="chatDraft"
-      :session-pending="sessionPending"
-      :message-pending="messagePending"
-      :socket-status="socketStatus"
-      :socket-error="socketError"
-      @update:active-session-id="activeSessionId = $event"
-      @update:keyword="chatKeyword = $event"
-      @update:draft="chatDraft = $event"
-      @send="handleSend()"
-      @remove-session="removeChatSession($event)"
-      @remove-message="removeChatMessage($event)"
-      @reconnect="handleReconnect()"
-    />
+    <InboxChatPanel v-else :sessions="filteredChatSessions" :active-session-id="activeSessionId ?? null"
+      :current-session="activeSession" :items="chatMessages" :keyword="chatKeyword" :draft="chatDraft"
+      :session-pending="sessionPending" :message-pending="messagePending" :socket-status="socketStatus"
+      :socket-error="socketError" @update:active-session-id="activeSessionId = $event"
+      @update:keyword="chatKeyword = $event" @update:draft="chatDraft = $event" @send="handleSend()"
+      @remove-session="removeChatSession($event)" @remove-message="removeChatMessage($event)"
+      @reconnect="handleReconnect()" />
 
     <div class="surface-section p-4 text-sm leading-7 muted">
       当前实现说明：

@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { NAvatar, NTag } from "naive-ui";
+import { NAvatar, NSkeleton, NTag } from "naive-ui";
 import type { SearchArticleItem, SiteAiInfo, SiteRuntimeConfig } from "~/types/api";
+import { resolveAvatarInitial, resolveAvatarUrl } from "~/utils/avatar";
 
 const props = defineProps<{
+  pending?: boolean;
   runtimeConfig: SiteRuntimeConfig | null;
   aiInfo: SiteAiInfo | null;
   articles: SearchArticleItem[];
@@ -75,7 +77,7 @@ const recommendedAuthors = computed(() => {
     authorMap.set(article.author.id, {
       id: article.author.id,
       nickname: article.author.nickname,
-      avatar: article.author.avatar,
+      avatar: resolveAvatarUrl(article.author.avatar),
       articleCount: 1,
       totalViews: article.view_count,
     });
@@ -94,10 +96,19 @@ const projectTitle = computed(() => props.runtimeConfig?.project?.title || props
 const projectAbstract = computed(
   () => props.runtimeConfig?.project?.abstract || props.runtimeConfig?.site_info?.subtitle || "为开发者写作、搜索与知识整理提供稳定的内容入口。",
 );
+const aiAvatarUrl = computed(() => resolveAvatarUrl(props.aiInfo?.avatar ?? ""));
 </script>
 
 <template>
   <aside class="profile-sidebar home-sidebar">
+    <section v-if="pending" class="surface-card p-5 md:p-6">
+      <NSkeleton text width="96px" />
+      <NSkeleton text class="mt-3" :repeat="2" />
+      <div class="mt-4 flex flex-wrap gap-2">
+        <NSkeleton v-for="idx in 3" :key="`notice-tag-${idx}`" round height="24px" width="64px" />
+      </div>
+    </section>
+
     <section v-if="showNotice" class="surface-card p-5 md:p-6">
       <div class="text-base font-semibold">站点公告</div>
       <p class="mt-2 text-sm leading-7 muted">
@@ -151,7 +162,9 @@ const projectAbstract = computed(
         >
           <div class="flex items-center gap-3">
             <NAvatar round :size="38" :src="author.avatar || undefined">
-              {{ author.nickname.slice(0, 1).toUpperCase() }}
+              <template #fallback>
+                {{ resolveAvatarInitial(author.nickname, "作") }}
+              </template>
             </NAvatar>
             <div>
               <div class="text-sm font-semibold">{{ author.nickname }}</div>
@@ -166,17 +179,32 @@ const projectAbstract = computed(
     <section class="surface-card p-5 md:p-6">
       <div class="section-title">AI 助手</div>
       <div class="mt-4 flex items-center gap-3">
-        <img
-          v-if="aiInfo?.avatar"
-          :src="aiInfo.avatar"
-          alt="AI 助手"
-          class="h-14 w-14 rounded-2xl object-cover"
-        />
+        <NSkeleton v-if="pending" circle height="56px" width="56px" />
+        <div v-else class="h-14 w-14 shrink-0 overflow-hidden rounded-full border border-slate-200/70 bg-neutral-100">
+          <img
+            v-if="aiAvatarUrl"
+            :src="aiAvatarUrl"
+            alt="AI 助手"
+            class="block h-full w-full object-cover object-center"
+          />
+          <div
+            v-else
+            class="flex h-full w-full items-center justify-center text-sm font-semibold text-slate-600"
+          >
+            {{ resolveAvatarInitial(aiInfo?.nickname, "AI") }}
+          </div>
+        </div>
         <div>
-          <div class="text-base font-semibold">{{ aiInfo?.nickname || "AI 助手" }}</div>
-          <p class="mt-1 text-sm leading-6 muted">
-            {{ aiInfo?.abstract || "在搜索、写作和诊断场景里协助作者提高产出效率。" }}
-          </p>
+          <template v-if="pending">
+            <NSkeleton text width="96px" />
+            <NSkeleton text width="224px" class="mt-2" />
+          </template>
+          <template v-else>
+            <div class="text-base font-semibold">{{ aiInfo?.nickname || "AI 助手" }}</div>
+            <p class="mt-1 text-sm leading-6 muted">
+              {{ aiInfo?.abstract || "在搜索、写作和诊断场景里协助作者提高产出效率。" }}
+            </p>
+          </template>
         </div>
       </div>
       <NuxtLink to="/search" class="mt-4 inline-flex text-sm font-medium text-teal-700 dark:text-teal-300">

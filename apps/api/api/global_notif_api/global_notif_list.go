@@ -37,7 +37,7 @@ func (h GlobalNotifApi) GlobalNotifListView(c *gin.Context) {
 		}
 	}
 
-	_list, count, err := common.ListQuery(models.GlobalNotifModel{}, common.Options{
+	_list, hasMore, err := common.ListQueryHasMore(models.GlobalNotifModel{}, common.Options{
 		DB:           h.App.DB,
 		PageInfo:     cr.PageInfo,
 		Likes:        []string{"title", "content"},
@@ -63,5 +63,5 @@ func (h GlobalNotifApi) GlobalNotifListView(c *gin.Context) {
 		})
 	}
 
-	res.OkWithList(list, count, c)
+	res.OkWithHasMoreList(list, hasMore, c)
 }

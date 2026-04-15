@@ -3,7 +3,7 @@ import ArticleFeedItem from "~/components/article/ArticleFeedItem.vue";
 import BannerCarousel from "~/components/article/BannerCarousel.vue";
 import HomeSidebar from "~/components/home/HomeSidebar.vue";
 import { computed, shallowRef } from "vue";
-import { NButton } from "naive-ui";
+import { NButton, NSkeleton } from "naive-ui";
 import { getTopArticles } from "~/services/article";
 import { searchArticles } from "~/services/search";
 import { getBannerList } from "~/services/site";
@@ -21,10 +21,10 @@ function formatRequestError(error: unknown) {
   return String(error);
 }
 
-const { data: bannerData } = await useAsyncData("home-banners", () =>
+const { data: bannerData, pending: bannerPending } = await useAsyncData("home-banners", () =>
   getBannerList().catch(() => ({ list: [], has_more: false })),
 );
-const { data: topData } = await useAsyncData("home-top-articles", async () => {
+const { data: topData, pending: topPending } = await useAsyncData("home-top-articles", async () => {
   try {
     topRequestError.value = null;
     return await getTopArticles();
@@ -76,6 +76,7 @@ const banners = computed(() => bannerData.value?.list || []);
 const topArticles = computed(() => topData.value?.list || []);
 const latestArticles = computed(() => latestPager.currentItems.value);
 const latestPending = computed(() => latestPager.pending.value);
+const siteBootstrapPending = computed(() => !siteStore.fetched);
 
 async function handlePreviousLatestPage() {
   await latestPager.goToPreviousPage();
@@ -119,6 +120,21 @@ async function handleNextLatestPage() {
             </div>
           </div>
         </section>
+        <section v-else-if="topPending" class="surface-card p-5 md:p-6">
+          <div class="mb-5 flex items-center justify-between">
+            <div>
+              <div class="eyebrow">Pinned</div>
+              <h2 class="section-title mt-2">热门置顶</h2>
+            </div>
+            <div class="glass-badge">加载中</div>
+          </div>
+          <div class="space-y-4">
+            <div v-for="idx in 3" :key="`top-skeleton-${idx}`" class="line-divider pt-4 first:border-0 first:pt-0">
+              <NSkeleton text width="80%" height="24px" />
+              <NSkeleton text class="mt-3" :repeat="2" />
+            </div>
+          </div>
+        </section>
 
         <section class="surface-card p-5 md:p-6">
           <div class="mb-5 flex items-center justify-between">
@@ -158,19 +174,29 @@ async function handleNextLatestPage() {
               </div>
             </div>
           </div>
+          <div v-else-if="latestPending" class="space-y-4">
+            <article
+              v-for="idx in 4"
+              :key="`latest-skeleton-${idx}`"
+              class="rounded-2xl border border-slate-200/70 bg-white/75 p-4"
+            >
+              <NSkeleton text width="66%" height="24px" />
+              <NSkeleton text class="mt-3" :repeat="2" />
+              <NSkeleton text width="50%" class="mt-2" />
+            </article>
+          </div>
           <div v-else class="surface-section flex min-h-[220px] items-center justify-center p-6 text-sm muted">
             {{
-              latestPending
-                ? "正在加载文章流..."
-                : latestRequestError
-                  ? "文章加载失败，请检查前端 API 地址或测试环境状态。"
-                  : "暂时没有可展示的公开文章。"
+              latestRequestError
+                ? "文章加载失败，请检查前端 API 地址或测试环境状态。"
+                : "暂时没有可展示的公开文章。"
             }}
           </div>
         </section>
       </div>
 
       <HomeSidebar
+        :pending="siteBootstrapPending || bannerPending"
         :runtime-config="siteStore.runtimeConfig"
         :ai-info="siteStore.aiInfo"
         :articles="latestArticles"

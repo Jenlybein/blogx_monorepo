@@ -4,6 +4,7 @@ import { NAvatar, NButton, NInput, NSpace, NTag } from "naive-ui";
 import type { ChatMessageItem, ChatSessionItem } from "~/types/api";
 import { formatDateTimeLabel } from "~/utils/format";
 import { getRelationLabel } from "~/utils/relation";
+import { resolveAvatarInitial, resolveAvatarUrl } from "~/utils/avatar";
 
 defineProps<{
   sessions: ChatSessionItem[];
@@ -58,8 +59,10 @@ const emit = defineEmits<{
             :class="{ 'is-active': activeSessionId === session.session_id }"
             @click="emit('update:activeSessionId', session.session_id)"
           >
-            <NAvatar round :src="session.receiver_avatar || undefined">
-              {{ session.receiver_nickname.slice(0, 1) }}
+            <NAvatar round :src="resolveAvatarUrl(session.receiver_avatar) || undefined">
+              <template #fallback>
+                {{ resolveAvatarInitial(session.receiver_nickname, "私") }}
+              </template>
             </NAvatar>
             <div class="min-w-0 flex-1 text-left">
               <div class="flex items-center justify-between gap-2">

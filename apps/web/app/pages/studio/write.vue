@@ -44,6 +44,7 @@ import markdownThemeChocolateCssUrl from "markdown-theme/themes/chocolate.css?ur
 import markdownThemeShanchuiCssUrl from "markdown-theme/themes/shanchui.css?url";
 import markdownThemeMenglvCssUrl from "markdown-theme/themes/menglv.css?url";
 import markdownThemeCondensedNightPurpleCssUrl from "markdown-theme/themes/condensed-night-purple.css?url";
+import { resolveAvatarInitial } from "~/utils/avatar";
 
 definePageMeta({
   layout: "write",
@@ -83,6 +84,7 @@ const form = reactive({
   tag_ids: [] as string[],
   cover_image_id: null as string | null,
   comments_toggle: true,
+  visibility_status: "visible" as "visible" | "user_hidden",
 });
 
 const pendingState = reactive({
@@ -115,7 +117,7 @@ const selectedMarkdownTheme = ref<
 >("github");
 
 const currentUserId = computed(() => authStore.profileId || "");
-const currentUserInitial = computed(() => authStore.profileName.slice(0, 1).toUpperCase() || "ME");
+const currentUserInitial = computed(() => resolveAvatarInitial(authStore.profileName, "我"));
 const editArticleId = computed(() => {
   const fromArticleId = typeof route.query.article_id === "string" ? route.query.article_id.trim() : "";
   if (fromArticleId) return fromArticleId;
@@ -158,6 +160,7 @@ watch(
       hydratedArticleId.value = "";
       coverPreviewUrl.value = "";
       form.cover_image_id = null;
+      form.visibility_status = "visible";
       coverDirty.value = false;
       return;
     }
@@ -172,6 +175,7 @@ watch(
     coverPreviewUrl.value = article.cover || "";
     coverDirty.value = false;
     form.comments_toggle = article.comments_toggle ?? true;
+    form.visibility_status = article.visibility_status === "user_hidden" ? "user_hidden" : "visible";
     form.category_id = article.category_id ?? null;
     form.tag_ids = Array.isArray(article.tag_ids) ? [...article.tag_ids] : [];
     hydratedArticleId.value = articleId;
@@ -221,6 +225,11 @@ const markdownThemeOptions: ToolOption[] = [
   { key: "menglv", label: "Menglv" },
   { key: "condensed-night-purple", label: "Condensed Night Purple" },
 ];
+
+const visibilityOptions = [
+  { label: "公开展示", value: "visible" },
+  { label: "仅自己可见", value: "user_hidden" },
+] as const;
 
 const selectedThemeLabel = computed(
   () => markdownThemeOptions.find((item) => item.key === selectedMarkdownTheme.value)?.label || "GitHub Light",
@@ -967,6 +976,7 @@ async function submitArticle(status: 1 | 2) {
       category_id: string | null;
       tag_ids: string[];
       comments_toggle: boolean;
+      visibility_status: "visible" | "user_hidden";
       status: 1 | 2;
       cover_image_id?: string | null;
     } = {
@@ -976,6 +986,7 @@ async function submitArticle(status: 1 | 2) {
       category_id: form.category_id || null,
       tag_ids: form.tag_ids,
       comments_toggle: form.comments_toggle,
+      visibility_status: form.visibility_status,
       status,
     };
 
@@ -988,14 +999,28 @@ async function submitArticle(status: 1 | 2) {
     if (isEditMode.value && editArticleId.value) {
       await updateArticle(editArticleId.value, payload);
       publishVisible.value = false;
-      message.success(status === 1 ? "草稿已更新" : "文章已更新并提交发布");
+      if (status === 1) {
+        message.success("草稿已更新");
+      } else {
+        message.success(
+          form.visibility_status === "user_hidden" ? "文章已提交发布（当前为仅自己可见）" : "文章已提交发布（可能进入审核）",
+        );
+      }
       await router.push(`/article/${editArticleId.value}`);
       return;
     }
 
     const created = await createArticle(payload);
     publishVisible.value = false;
-    message.success(status === 1 ? "草稿已保存" : "文章已提交发布");
+    if (status === 1) {
+      message.success("草稿已保存");
+    } else if (created.publish_status === 3) {
+      message.success("文章已发布成功");
+    } else if (created.publish_status === 2) {
+      message.success("文章已提交审核，审核通过后会公开展示");
+    } else {
+      message.success("文章已提交发布");
+    }
     await router.push(`/article/${created.id}`);
   } catch (error) {
     message.error(error instanceof Error ? error.message : "文章提交失败");
@@ -1024,8 +1049,13 @@ useSeoMeta({
           <NButton type="primary" @click="publishVisible = true">{{ isEditMode ? "更新" : "发布" }}</NButton>
           <NuxtLink :to="authStore.profileId ? `/users/${authStore.profileId}` : '/studio/profile'"
             class="write-avatar-link">
-            <NAvatar round :src="authStore.currentUser?.avatar || undefined">
-              {{ currentUserInitial }}
+            <NAvatar
+              :key="authStore.profileAvatar || authStore.profileName"
+              round
+              :src="authStore.profileAvatar || undefined">
+              <template #fallback>
+                {{ currentUserInitial }}
+              </template>
             </NAvatar>
           </NuxtLink>
         </div>
@@ -1206,6 +1236,15 @@ useSeoMeta({
                   :autosize="{ minRows: 5, maxRows: 8 }" placeholder="请输入文章摘要" />
                 <span class="publish-summary__count">{{ form.abstract.length }}/180</span>
               </div>
+            </div>
+
+            <div class="publish-form__row">
+              <label class="publish-form__label">可见范围</label>
+              <NSelect
+                v-model:value="form.visibility_status"
+                :options="visibilityOptions"
+                placeholder="请选择文章可见范围"
+                class="publish-form__control" />
             </div>
 
             <div class="publish-form__row">

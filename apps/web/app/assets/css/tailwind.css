@@ -6,7 +6,11 @@
   :root {
     color-scheme: light;
     --bg-page:
-      radial-gradient(circle at top, rgba(255, 243, 224, 0.95), transparent 34%),
+      radial-gradient(
+        circle at top,
+        rgba(255, 243, 224, 0.95),
+        transparent 34%
+      ),
       linear-gradient(180deg, #f7f4eb 0%, #eef4fb 52%, #edf3f8 100%);
     --bg-page-dark:
       radial-gradient(circle at top, rgba(22, 57, 93, 0.72), transparent 30%),
@@ -33,7 +37,9 @@
 
   body {
     margin: 0;
-    font-family: "Sora", "Sora Fallback", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    font-family:
+      "Sora", "Sora Fallback", "PingFang SC", "Hiragino Sans GB",
+      "Microsoft YaHei", "Noto Sans SC", sans-serif;
     color: var(--text-main);
     background: var(--bg-page);
     transition:
@@ -322,7 +328,11 @@
 
   .article-reading-progress__fill {
     @apply h-full rounded-full transition-all duration-300;
-    background: linear-gradient(90deg, rgba(15, 118, 110, 0.82) 0%, rgba(20, 184, 166, 0.96) 100%);
+    background: linear-gradient(
+      90deg,
+      rgba(15, 118, 110, 0.82) 0%,
+      rgba(20, 184, 166, 0.96) 100%
+    );
   }
 
   .article-toc-anchor {
@@ -425,7 +435,11 @@
 
   .banner-overlay {
     @apply absolute inset-x-0 bottom-0 p-6 text-white md:p-8;
-    background: linear-gradient(180deg, transparent 18%, rgba(0, 0, 0, 0.62) 100%);
+    background: linear-gradient(
+      180deg,
+      transparent 18%,
+      rgba(0, 0, 0, 0.62) 100%
+    );
   }
 
   .banner-nav {
@@ -506,7 +520,11 @@
   .studio-sidebar__avatar {
     @apply flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-[26px] border text-xl font-semibold;
     border-color: rgba(217, 226, 236, 0.88);
-    background: linear-gradient(135deg, rgba(15, 118, 110, 0.12), rgba(217, 119, 6, 0.12));
+    background: linear-gradient(
+      135deg,
+      rgba(15, 118, 110, 0.12),
+      rgba(217, 119, 6, 0.12)
+    );
   }
 
   .studio-sidebar__avatar img {
@@ -538,7 +556,11 @@
   }
 
   .studio-sidebar__link.is-active {
-    background: linear-gradient(135deg, rgba(15, 118, 110, 0.14), rgba(217, 119, 6, 0.12));
+    background: linear-gradient(
+      135deg,
+      rgba(15, 118, 110, 0.14),
+      rgba(217, 119, 6, 0.12)
+    );
     color: var(--accent);
   }
 
@@ -618,6 +640,7 @@
     border-color: rgba(217, 226, 236, 0.88);
     background: rgba(255, 255, 255, 0.56);
     touch-action: manipulation;
+    margin-top: 0.25em;
   }
 
   .studio-filter-chip:hover {
@@ -701,7 +724,11 @@
   }
 
   .studio-chat-session.is-active {
-    background: linear-gradient(135deg, rgba(15, 118, 110, 0.12), rgba(217, 119, 6, 0.1));
+    background: linear-gradient(
+      135deg,
+      rgba(15, 118, 110, 0.12),
+      rgba(217, 119, 6, 0.1)
+    );
   }
 
   .studio-chat-thread {

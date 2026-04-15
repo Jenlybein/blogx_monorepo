@@ -38,33 +38,35 @@ func NewQueryService(db *gorm.DB) *QueryService {
 	return &QueryService{DB: db}
 }
 
-func (s *QueryService) ListFollowing(ownerUserID, viewerUserID, followedUserID ctype.ID, page common.PageInfo) ([]FollowListItem, int, error) {
+func (s *QueryService) ListFollowing(ownerUserID, viewerUserID, followedUserID ctype.ID, page common.PageInfo) ([]FollowListItem, bool, error) {
 	query := s.DB.Model(&models.UserFollowModel{}).Where("fans_user_id = ?", ownerUserID)
 	if followedUserID != 0 {
 		query = query.Where("followed_user_id = ?", followedUserID)
 	}
 
-	count, err := common.CountQuery(query)
-	if err != nil {
-		return nil, 0, err
-	}
-
+	limit := page.GetLimit()
+	offset := page.GetOffsetNoCount()
 	var rows []models.UserFollowModel
-	if err = query.Select(
+	if err := query.Select(
 		"created_at",
 		"followed_user_id",
 		"followed_nickname",
 		"followed_avatar",
 		"followed_abstract",
 	).Order("created_at asc, id asc").
-		Limit(page.GetLimit()).
-		Offset(page.GetOffset(count)).
+		Limit(limit + 1).
+		Offset(offset).
 		Find(&rows).Error; err != nil {
-		return nil, 0, err
+		return nil, false, err
 	}
 
-	if err = hydrateFollowedSnapshots(s.DB, rows); err != nil {
-		return nil, 0, err
+	hasMore := len(rows) > limit
+	if hasMore {
+		rows = rows[:limit]
+	}
+
+	if err := hydrateFollowedSnapshots(s.DB, rows); err != nil {
+		return nil, false, err
 	}
 
 	userIDs := make([]ctype.ID, 0, len(rows))
@@ -88,36 +90,38 @@ func (s *QueryService) ListFollowing(ownerUserID, viewerUserID, followedUserID c
 			Relation:         int8(relation),
 		})
 	}
-	return list, count, nil
+	return list, hasMore, nil
 }
 
-func (s *QueryService) ListFans(ownerUserID, viewerUserID, fansUserID ctype.ID, page common.PageInfo) ([]FansListItem, int, error) {
+func (s *QueryService) ListFans(ownerUserID, viewerUserID, fansUserID ctype.ID, page common.PageInfo) ([]FansListItem, bool, error) {
 	query := s.DB.Model(&models.UserFollowModel{}).Where("followed_user_id = ?", ownerUserID)
 	if fansUserID != 0 {
 		query = query.Where("fans_user_id = ?", fansUserID)
 	}
 
-	count, err := common.CountQuery(query)
-	if err != nil {
-		return nil, 0, err
-	}
-
+	limit := page.GetLimit()
+	offset := page.GetOffsetNoCount()
 	var rows []models.UserFollowModel
-	if err = query.Select(
+	if err := query.Select(
 		"created_at",
 		"fans_user_id",
 		"fans_nickname",
 		"fans_avatar",
 		"fans_abstract",
 	).Order("created_at asc, id asc").
-		Limit(page.GetLimit()).
-		Offset(page.GetOffset(count)).
+		Limit(limit + 1).
+		Offset(offset).
 		Find(&rows).Error; err != nil {
-		return nil, 0, err
+		return nil, false, err
 	}
 
-	if err = hydrateFansSnapshots(s.DB, rows); err != nil {
-		return nil, 0, err
+	hasMore := len(rows) > limit
+	if hasMore {
+		rows = rows[:limit]
+	}
+
+	if err := hydrateFansSnapshots(s.DB, rows); err != nil {
+		return nil, false, err
 	}
 
 	userIDs := make([]ctype.ID, 0, len(rows))
@@ -141,7 +145,7 @@ func (s *QueryService) ListFans(ownerUserID, viewerUserID, fansUserID ctype.ID, 
 			Relation:     int8(relation),
 		})
 	}
-	return list, count, nil
+	return list, hasMore, nil
 }
 
 func hydrateFollowedSnapshots(db *gorm.DB, rows []models.UserFollowModel) error {

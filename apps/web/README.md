@@ -18,12 +18,36 @@
 NUXT_API_ORIGIN=http://106.53.184.85
 ```
 
+如需跨域直连（不推荐），必须显式确认：
+
+```env
+NUXT_PUBLIC_API_BASE=https://your-api-origin
+NUXT_PUBLIC_ALLOW_CROSS_ORIGIN_API_BASE=true
+```
+
 说明：
 
 - `NUXT_API_ORIGIN` 只给 Nuxt 服务端使用，浏览器请求统一走同源代理 `/_backend`
 - 如果直接把远端地址写进 `NUXT_PUBLIC_API_BASE`，本地开发会因为跨域和 cookie 策略更容易出问题
 - `NUXT_PUBLIC_*` 会暴露到浏览器，所以这里只放确实需要公开的配置
 - 数据库、Redis、JWT、SMTP 这类敏感变量继续留在后端环境里，不要写进 `apps/web`
+
+### 跨域凭据策略（仅在你确认要跨域时）
+
+如果你明确要让浏览器直接请求远端 API，请确保至少满足以下条件，否则“刷新后掉登录”很容易出现：
+
+1. 前端请求带凭据：`credentials: include`（本项目已配置）
+2. 后端 CORS：
+   - `AllowCredentials = true`
+   - `AllowOrigins` 必须是明确域名（不能是 `*`）
+   - 允许 `Authorization` 等必要请求头
+3. 刷新令牌 Cookie：
+   - `HttpOnly` 建议保持开启
+   - 跨站场景通常需要 `SameSite=None`
+   - `Secure=true`（要求 HTTPS）
+4. 前后端协议与域名要一致规划（避免混用 `http/https`、IP/域名 导致 cookie 不发送）
+
+结论：除非有明确网关/跨域架构需求，否则优先使用 `/_backend` 同源代理。
 
 ## 安装依赖
 

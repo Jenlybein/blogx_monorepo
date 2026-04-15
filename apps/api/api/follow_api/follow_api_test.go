@@ -24,13 +24,13 @@ type followResponse struct {
 }
 
 type followListPayload struct {
-	List  []FollowListResponse `json:"list"`
-	Count int                  `json:"count"`
+	List    []FollowListResponse `json:"list"`
+	HasMore bool                 `json:"has_more"`
 }
 
 type fansListPayload struct {
-	List  []FansListResponse `json:"list"`
-	Count int                `json:"count"`
+	List    []FansListResponse `json:"list"`
+	HasMore bool               `json:"has_more"`
 }
 
 func newFollowAPI() FollowApi {
@@ -132,8 +132,8 @@ func TestFollowListView(t *testing.T) {
 		if body.Code != 0 {
 			t.Fatalf("查询关注列表应成功, body=%s", w.Body.String())
 		}
-		if body.Data.Count != 2 {
-			t.Fatalf("关注列表数量错误: %d", body.Data.Count)
+		if body.Data.HasMore {
+			t.Fatalf("关注列表 has_more 应为 false")
 		}
 		if len(body.Data.List) != 2 {
 			t.Fatalf("关注列表长度错误: %d", len(body.Data.List))
@@ -160,7 +160,10 @@ func TestFollowListView(t *testing.T) {
 		if body.Code != 0 {
 			t.Fatalf("按关注对象过滤应成功, body=%s", w.Body.String())
 		}
-		if body.Data.Count != 1 || len(body.Data.List) != 1 {
+		if body.Data.HasMore {
+			t.Fatalf("按关注对象过滤后 has_more 应为 false")
+		}
+		if len(body.Data.List) != 1 {
 			t.Fatalf("过滤结果异常: %+v", body.Data)
 		}
 		if body.Data.List[0].FollowedUserID != users.followedB.ID {
@@ -199,8 +202,8 @@ func TestFansListView(t *testing.T) {
 		if body.Code != 0 {
 			t.Fatalf("查询粉丝列表应成功, body=%s", w.Body.String())
 		}
-		if body.Data.Count != 2 {
-			t.Fatalf("粉丝列表数量错误: %d", body.Data.Count)
+		if body.Data.HasMore {
+			t.Fatalf("粉丝列表 has_more 应为 false")
 		}
 		if len(body.Data.List) != 2 {
 			t.Fatalf("粉丝列表长度错误: %d", len(body.Data.List))
@@ -227,7 +230,10 @@ func TestFansListView(t *testing.T) {
 		if body.Code != 0 {
 			t.Fatalf("按粉丝过滤应成功, body=%s", w.Body.String())
 		}
-		if body.Data.Count != 1 || len(body.Data.List) != 1 {
+		if body.Data.HasMore {
+			t.Fatalf("按粉丝过滤后 has_more 应为 false")
+		}
+		if len(body.Data.List) != 1 {
 			t.Fatalf("过滤结果异常: %+v", body.Data)
 		}
 		if body.Data.List[0].FansUserID != users.fansB.ID {

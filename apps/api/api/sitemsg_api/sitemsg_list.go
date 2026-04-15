@@ -27,7 +27,7 @@ func (h *SitemsgApi) SitemsgListView(c *gin.Context) {
 
 	claims := jwts.MustGetClaimsByGin(c)
 
-	list, count, err := common.ListQuery(models.ArticleMessageModel{
+	list, hasMore, err := common.ListQueryHasMore(models.ArticleMessageModel{
 		ReceiverID: claims.UserID,
 	}, common.Options{
 		DB:       app.DB,
@@ -39,5 +39,5 @@ func (h *SitemsgApi) SitemsgListView(c *gin.Context) {
 		return
 	}
 
-	res.OkWithList(list, count, c)
+	res.OkWithHasMoreList(list, hasMore, c)
 }

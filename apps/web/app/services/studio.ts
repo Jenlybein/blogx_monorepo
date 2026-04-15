@@ -1,5 +1,4 @@
 import type {
-  CommentManageListData,
   FanUserListData,
   FollowUserListData,
   HistoryArticleListData,
@@ -25,23 +24,6 @@ export function deleteHistoryArticles(idList: string[]) {
     body: {
       id_list: idList,
     },
-  });
-}
-
-export function getManageComments(params: { page?: number; limit?: number; type?: 1 | 2; status?: number }) {
-  return useNuxtApp().$api.request<CommentManageListData>("/api/comments/man", {
-    query: {
-      page: params.page ?? 1,
-      limit: params.limit ?? 10,
-      type: params.type ?? 1,
-      ...(params.status != null ? { status: params.status } : {}),
-    },
-  });
-}
-
-export function deleteCommentById(id: string) {
-  return useNuxtApp().$api.request(`/api/comments/${id}`, {
-    method: "DELETE",
   });
 }
 

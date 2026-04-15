@@ -1,6 +1,8 @@
 import { loginWithEmailCode, loginWithPassword, logoutCurrentSession, registerWithEmail } from "~/services/auth";
+import { isAuthLikeError } from "~/services/http/errors";
 import { getSelfUserDetail } from "~/services/user";
 import type { UserSelfDetail } from "~/types/api";
+import { resolveAvatarUrl } from "~/utils/avatar";
 
 export const useAuthStore = defineStore("auth", () => {
   const tokenStorageKey = "blogx_access_token";
@@ -45,6 +47,8 @@ export const useAuthStore = defineStore("auth", () => {
   let initPromise: Promise<boolean> | null = null;
   let refreshPromise: Promise<boolean> | null = null;
 
+  const pickAvatar = resolveAvatarUrl;
+
   function persistCurrentUser(user: UserSelfDetail | null) {
     if (!import.meta.client) {
       return;
@@ -74,7 +78,10 @@ export const useAuthStore = defineStore("auth", () => {
         localStorage.removeItem(profileStorageKey);
         return null;
       }
-      currentUser.value = parsed;
+      currentUser.value = {
+        ...parsed,
+        avatar: pickAvatar(parsed),
+      };
       return parsed;
     } catch {
       localStorage.removeItem(profileStorageKey);
@@ -104,17 +111,35 @@ export const useAuthStore = defineStore("auth", () => {
     useChatStore().resetSocketState();
   }
 
-  async function fetchCurrentUser() {
+  async function fetchCurrentUser(options: { throwOnError?: boolean } = {}) {
     if (!accessToken.value) {
       currentUser.value = null;
       return null;
     }
 
     try {
-      currentUser.value = await getSelfUserDetail();
+      const detail = await getSelfUserDetail();
+      currentUser.value = {
+        ...detail,
+        avatar: pickAvatar(detail),
+      };
+      if (import.meta.dev && import.meta.client) {
+        console.debug("[auth] fetchCurrentUser resolved", {
+          id: currentUser.value.id,
+          nickname: currentUser.value.nickname,
+          avatar: currentUser.value.avatar,
+          profileAvatar: pickAvatar(currentUser.value),
+        });
+      }
       persistCurrentUser(currentUser.value);
       return currentUser.value;
-    } catch {
+    } catch (error) {
+      if (import.meta.dev && import.meta.client) {
+        console.debug("[auth] fetchCurrentUser failed", error);
+      }
+      if (options.throwOnError) {
+        throw error;
+      }
       return null;
     }
   }
@@ -155,36 +180,67 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   async function initializeSession() {
-    if (initialized.value) return !!accessToken.value;
+    if (import.meta.client) {
+      if (!accessToken.value) {
+        const cached = localStorage.getItem(tokenStorageKey) || "";
+        if (cached) {
+          setAccessToken(cached);
+        }
+      }
+      if (accessToken.value && !currentUser.value) {
+        restoreCachedProfile();
+      }
+      if (import.meta.dev) {
+        console.debug("[auth] initializeSession start", {
+          hasToken: Boolean(accessToken.value),
+          initialized: initialized.value,
+          cachedAvatar: pickAvatar(currentUser.value),
+          currentUser: currentUser.value,
+        });
+      }
+    }
+
+    if (initialized.value) {
+      if (accessToken.value && !currentUser.value) {
+        try {
+          await fetchCurrentUser({ throwOnError: true });
+        } catch (error) {
+          if (isAuthLikeError(error)) {
+            clearSession();
+          }
+        }
+      }
+      return !!accessToken.value;
+    }
     if (initPromise) return initPromise;
 
     initPromise = (async () => {
-      if (import.meta.client) {
-        if (!accessToken.value) {
-          const cached = localStorage.getItem(tokenStorageKey) || "";
-          if (cached) {
-            setAccessToken(cached);
-          }
-        }
-        if (accessToken.value && !currentUser.value) {
-          restoreCachedProfile();
-        }
-      }
-
       if (!accessToken.value) {
         initialized.value = true;
         initPromise = null;
         return false;
       }
 
-      const restored = await fetchCurrentUser();
-      if (!restored) {
-        clearSession();
+      try {
+        await fetchCurrentUser({ throwOnError: true });
+      } catch (error) {
+        // 仅在明确鉴权失败时清会话；网络波动/服务短暂异常不应直接踢掉本地登录态。
+        if (isAuthLikeError(error)) {
+          clearSession();
+        }
       }
 
       initialized.value = true;
+      if (import.meta.dev && import.meta.client) {
+        console.debug("[auth] initializeSession done", {
+          hasToken: Boolean(accessToken.value),
+          initialized: initialized.value,
+          avatar: pickAvatar(currentUser.value),
+          currentUser: currentUser.value,
+        });
+      }
       initPromise = null;
-      return !!restored;
+      return !!accessToken.value;
     })();
 
     return initPromise;
@@ -251,6 +307,7 @@ export const useAuthStore = defineStore("auth", () => {
     }
     return currentUser.value.nickname || currentUser.value.username || "";
   });
+  const profileAvatar = computed(() => pickAvatar(currentUser.value));
 
   return {
     accessToken,
@@ -260,6 +317,7 @@ export const useAuthStore = defineStore("auth", () => {
     isLoggedIn,
     profileId,
     profileName,
+    profileAvatar,
     setAccessToken,
     clearSession,
     fetchCurrentUser,

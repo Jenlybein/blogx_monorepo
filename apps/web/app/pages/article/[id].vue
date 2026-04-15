@@ -16,6 +16,7 @@ import { getUserBaseInfo } from "~/services/user";
 import type { CommentReplyItem } from "~/types/api";
 import { formatCount, formatDateTimeLabel } from "~/utils/format";
 import { getAuthorButtonLabel, isFollowing } from "~/utils/relation";
+import { resolveAvatarInitial, resolveAvatarUrl } from "~/utils/avatar";
 import katexCssUrl from "katex/dist/katex.min.css?url";
 import highlightCssUrl from "highlight.js/styles/github.min.css?url";
 import githubMarkdownCssUrl from "github-markdown-css/github-markdown-light.css?url";
@@ -148,7 +149,7 @@ const { activeHeadingId, progressPercent } = useReadingProgress(
   computed(() => articleHeadings.value.map((heading) => heading.id)),
   (id) => shadowPreviewRef.value?.getHeadingElement(id) ?? null,
 );
-const authorInitial = computed(() => article.value?.author_name?.slice(0, 1).toUpperCase() || "A");
+const authorInitial = computed(() => resolveAvatarInitial(article.value?.author_name, "A"));
 const authorRelationText = computed(() => getAuthorButtonLabel(authorProfile.value?.relation));
 const isSelfAuthor = computed(() => authStore.profileId != null && String(authStore.profileId) === authorId.value);
 
@@ -565,8 +566,10 @@ useSeoMeta({
           <section class="surface-card p-5 md:p-6">
             <div class="eyebrow">Author</div>
             <div class="mt-3 flex items-start gap-4">
-              <NAvatar round :size="72" :src="article?.author_avatar || undefined">
-                {{ authorInitial }}
+              <NAvatar round :size="72" :src="resolveAvatarUrl(article?.author_avatar) || undefined">
+                <template #fallback>
+                  {{ authorInitial }}
+                </template>
               </NAvatar>
               <div class="min-w-0">
                 <div class="flex flex-wrap items-center gap-2">

@@ -1,16 +1,19 @@
 <script setup lang="ts">
+import { nextTick, useTemplateRef, watch } from "vue";
 import { NAvatar, NButton, NList, NListItem, NSpace, NTag, NThing } from "naive-ui";
 import type { SiteMessageItem } from "~/types/api";
 import type { SiteMessageGroup } from "~/composables/useInboxCenter";
 import { formatDateTimeLabel } from "~/utils/format";
+import { resolveAvatarInitial, resolveAvatarUrl } from "~/utils/avatar";
 
 type InboxMessageGroup = SiteMessageGroup | "global";
 
-defineProps<{
+const props = defineProps<{
   categories: Array<{ key: InboxMessageGroup; label: string; hint: string; count: number }>;
   activeGroup: InboxMessageGroup;
   items: SiteMessageItem[];
   pending: boolean;
+  hasMore: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -18,7 +21,40 @@ const emit = defineEmits<{
   markAllRead: [];
   remove: [id: string];
   clearGroup: [];
+  loadMore: [];
 }>();
+
+const listScrollerRef = useTemplateRef<HTMLDivElement>("listScroller");
+
+function tryLoadMore() {
+  const scroller = listScrollerRef.value;
+  if (!scroller || props.pending || !props.hasMore) {
+    return;
+  }
+  const distanceToBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+  if (distanceToBottom <= 80) {
+    emit("loadMore");
+  }
+}
+
+watch(
+  () => listScrollerRef.value,
+  async (scroller) => {
+    if (!scroller) {
+      return;
+    }
+    await nextTick();
+    tryLoadMore();
+  },
+);
+
+watch(
+  () => [props.items.length, props.hasMore, props.pending],
+  async () => {
+    await nextTick();
+    tryLoadMore();
+  },
+);
 
 function typeLabel(type: number) {
   if (type === 1 || type === 2) return "评论";
@@ -59,13 +95,19 @@ function typeLabel(type: number) {
           </NSpace>
         </div>
 
-        <div v-if="items.length" class="space-y-3">
+        <div
+          v-if="items.length"
+          ref="listScroller"
+          class="space-y-3 max-h-[640px] overflow-y-auto pr-1"
+          @scroll.passive="tryLoadMore()">
           <NList>
             <NListItem v-for="item in items" :key="item.id">
               <NThing :title="item.link_title || item.article_title" :description="item.content">
                 <template #avatar>
-                  <NAvatar round :src="item.action_user_avatar || undefined">
-                    {{ (item.action_user_nickname || "系").slice(0, 1) }}
+                  <NAvatar round :src="resolveAvatarUrl(item.action_user_avatar) || undefined">
+                    <template #fallback>
+                      {{ resolveAvatarInitial(item.action_user_nickname, "系") }}
+                    </template>
                   </NAvatar>
                 </template>
                 <template #header-extra>
@@ -86,6 +128,12 @@ function typeLabel(type: number) {
               </template>
             </NListItem>
           </NList>
+
+          <div class="mt-3 flex items-center justify-center text-sm muted">
+            <span v-if="pending">正在加载更多消息…</span>
+            <span v-else-if="hasMore">继续下滑以加载更多</span>
+            <span v-else>已经到底了</span>
+          </div>
         </div>
 
         <StudioEmptyState

@@ -35,10 +35,10 @@ func (h *FollowApi) FollowListView(c *gin.Context) {
 	}
 
 	queryService := follow_service.NewQueryService(h.App.DB)
-	list, count, err := queryService.ListFollowing(cr.UserID, claims.UserID, cr.FollowedUserID, cr.PageInfo)
+	list, hasMore, err := queryService.ListFollowing(cr.UserID, claims.UserID, cr.FollowedUserID, cr.PageInfo)
 	if err != nil {
 		res.FailWithError(err, c)
 		return
 	}
-	res.OkWithList(list, count, c)
+	res.OkWithHasMoreList(list, hasMore, c)
 }

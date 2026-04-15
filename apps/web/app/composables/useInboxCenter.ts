@@ -21,6 +21,7 @@ import type {
 
 export type InboxTab = "site" | "global" | "chat";
 export type SiteMessageGroup = 1 | 2 | 3;
+const MESSAGE_PAGE_SIZE = 9;
 
 export function useInboxCenter() {
   const authStore = useAuthStore();
@@ -30,6 +31,10 @@ export function useInboxCenter() {
 
   const activeTab = shallowRef<InboxTab>("site");
   const activeSiteGroup = shallowRef<SiteMessageGroup>(1);
+  const sitePage = shallowRef(1);
+  const globalPage = shallowRef(1);
+  const siteHasMore = shallowRef(false);
+  const globalHasMore = shallowRef(false);
   const siteMessages = ref<SiteMessageItem[]>([]);
   const globalNotices = ref<GlobalNoticeItem[]>([]);
   const chatSessions = ref<ChatSessionItem[]>([]);
@@ -62,39 +67,43 @@ export function useInboxCenter() {
     {
       key: 1 as const,
       label: "评论与回复",
-      hint: "评论文章、回复与楼层互动",
+      hint: "",
       count: messageStore.summary.comment_msg_count,
     },
     {
       key: 2 as const,
       label: "点赞与收藏",
-      hint: "点赞、取消点赞、收藏与取消收藏",
+      hint: "",
       count: messageStore.summary.digg_favor_msg_count,
     },
     {
       key: 3 as const,
       label: "系统通知",
-      hint: "审核通知、系统提醒与公告",
+      hint: "",
       count: messageStore.summary.system_msg_count,
     },
   ]);
 
-  async function loadSiteMessages() {
+  async function loadSiteMessages(page = sitePage.value, options: { append?: boolean } = {}) {
     sitePending.value = true;
     try {
-      const payload = await getSiteMessages({ group: activeSiteGroup.value, page: 1, limit: 30 });
-      siteMessages.value = payload.list;
+      const payload = await getSiteMessages({ group: activeSiteGroup.value, page, limit: MESSAGE_PAGE_SIZE });
+      sitePage.value = page;
+      siteHasMore.value = payload.has_more;
+      siteMessages.value = options.append ? [...siteMessages.value, ...payload.list] : payload.list;
       return payload.list;
     } finally {
       sitePending.value = false;
     }
   }
 
-  async function loadGlobalNotices() {
+  async function loadGlobalNotices(page = globalPage.value, options: { append?: boolean } = {}) {
     globalPending.value = true;
     try {
-      const payload = await getGlobalNotices({ page: 1, limit: 30, type: 1 });
-      globalNotices.value = payload.list;
+      const payload = await getGlobalNotices({ page, limit: MESSAGE_PAGE_SIZE, type: 1 });
+      globalPage.value = page;
+      globalHasMore.value = payload.has_more;
+      globalNotices.value = options.append ? [...globalNotices.value, ...payload.list] : payload.list;
       return payload.list;
     } finally {
       globalPending.value = false;
@@ -138,24 +147,28 @@ export function useInboxCenter() {
 
   async function markCurrentSiteGroupRead() {
     await markSiteMessageRead({ group: activeSiteGroup.value });
-    await Promise.all([messageStore.refreshSummary(), loadSiteMessages()]);
+    sitePage.value = 1;
+    await Promise.all([messageStore.refreshSummary(), loadSiteMessages(1)]);
   }
 
   async function removeSiteMessage(payload: { id?: string; group?: SiteMessageGroup }) {
     await deleteSiteMessage(payload);
-    await Promise.all([messageStore.refreshSummary(), loadSiteMessages()]);
+    sitePage.value = 1;
+    await Promise.all([messageStore.refreshSummary(), loadSiteMessages(1)]);
   }
 
   async function markAllGlobalRead() {
     const unreadIds = globalNotices.value.filter((item) => !item.is_read).map((item) => item.id);
     if (!unreadIds.length) return;
     await markGlobalNoticeRead(unreadIds);
-    await Promise.all([messageStore.refreshSummary(), loadGlobalNotices()]);
+    globalPage.value = 1;
+    await Promise.all([messageStore.refreshSummary(), loadGlobalNotices(1)]);
   }
 
   async function removeGlobalNotice(id: string) {
     await deleteGlobalNoticeForCurrentUser([id]);
-    await Promise.all([messageStore.refreshSummary(), loadGlobalNotices()]);
+    globalPage.value = 1;
+    await Promise.all([messageStore.refreshSummary(), loadGlobalNotices(1)]);
   }
 
   async function removeChatSession(sessionId: string) {
@@ -213,7 +226,8 @@ export function useInboxCenter() {
     () => activeSiteGroup.value,
     async () => {
       if (activeTab.value === "site") {
-        await loadSiteMessages();
+        sitePage.value = 1;
+        await loadSiteMessages(1);
       }
     },
   );
@@ -222,12 +236,14 @@ export function useInboxCenter() {
     () => activeTab.value,
     async (tab) => {
       if (tab === "site") {
-        await loadSiteMessages();
+        sitePage.value = 1;
+        await loadSiteMessages(1);
         return;
       }
 
       if (tab === "global") {
-        await loadGlobalNotices();
+        globalPage.value = 1;
+        await loadGlobalNotices(1);
         return;
       }
 
@@ -257,6 +273,20 @@ export function useInboxCenter() {
     },
   );
 
+  async function loadMoreSiteMessages() {
+    if (sitePending.value || !siteHasMore.value) {
+      return [];
+    }
+    return loadSiteMessages(sitePage.value + 1, { append: true });
+  }
+
+  async function loadMoreGlobalNotices() {
+    if (globalPending.value || !globalHasMore.value) {
+      return [];
+    }
+    return loadGlobalNotices(globalPage.value + 1, { append: true });
+  }
+
   return {
     activeTab,
     activeSiteGroup,
@@ -266,6 +296,10 @@ export function useInboxCenter() {
     }),
     activeSession,
     siteCategories,
+    sitePage,
+    siteHasMore,
+    globalPage,
+    globalHasMore,
     siteMessages,
     globalNotices,
     chatSessions,
@@ -281,6 +315,8 @@ export function useInboxCenter() {
     socketError,
     loadSiteMessages,
     loadGlobalNotices,
+    loadMoreSiteMessages,
+    loadMoreGlobalNotices,
     loadChatSessions,
     loadChatMessages,
     markCurrentSiteGroupRead,

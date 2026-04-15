@@ -11,7 +11,12 @@ definePageMeta({
 });
 
 const message = useMessage();
-const { data, pending, refresh } = await useAsyncData("studio-fans", () => getFanUsers({ page: 1, limit: 30 }));
+const page = shallowRef(1);
+const { data, pending, refresh } = await useAsyncData(
+  () => `studio-fans:${page.value}`,
+  () => getFanUsers({ page: page.value, limit: 30 }),
+  { watch: [page] },
+);
 
 async function toggleFollow(id: string, relation: number) {
   try {
@@ -23,9 +28,22 @@ async function toggleFollow(id: string, relation: number) {
       message.success("已回关");
     }
     await refresh();
+    if (!data.value?.list.length && page.value > 1) {
+      page.value -= 1;
+    }
   } catch (error) {
     message.error(error instanceof Error ? error.message : "关注操作失败");
   }
+}
+
+function previousPage() {
+  if (page.value <= 1) return;
+  page.value -= 1;
+}
+
+function nextPage() {
+  if (!data.value?.has_more) return;
+  page.value += 1;
 }
 
 useSeoMeta({
@@ -35,12 +53,6 @@ useSeoMeta({
 
 <template>
   <div class="page-stack">
-    <StudioPageHeader
-      title="粉丝列表"
-      description="把关注你的人拉成独立页面，方便做回关、回访主页和关系整理，而不是只在公开主页里被动展示一个数字。"
-      eyebrow="Fans"
-    />
-
     <section class="studio-list-card">
       <NList v-if="data?.list.length">
         <NListItem v-for="item in data?.list" :key="item.fans_user_id">
@@ -69,6 +81,14 @@ useSeoMeta({
         title="你还没有粉丝"
         :description="pending ? '正在读取粉丝列表…' : '继续发布内容和参与互动后，这里会逐渐出现新的关系沉淀。'"
       />
+
+      <div v-if="data?.list.length" class="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm muted">
+        <span>第 {{ page }} 页</span>
+        <div class="flex items-center gap-3">
+          <NButton quaternary size="small" :disabled="page <= 1 || pending" @click="previousPage()">上一页</NButton>
+          <NButton quaternary size="small" :disabled="!data?.has_more || pending" @click="nextPage()">下一页</NButton>
+        </div>
+      </div>
     </section>
   </div>
 </template>
