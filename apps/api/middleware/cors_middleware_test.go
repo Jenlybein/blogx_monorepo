@@ -54,3 +54,47 @@ func TestCorsMiddlewarePreflightAndActualRequest(t *testing.T) {
 		}
 	}
 }
+
+func TestCorsMiddlewareRejectsUnknownOrigin(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(middleware.CorsMiddleware())
+	r.POST("/api/users/login", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodOptions, "/api/users/login", nil)
+	req.Header.Set("Origin", "https://evil.example")
+	req.Header.Set("Access-Control-Request-Method", http.MethodPost)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("未知来源预检请求应被拒绝: %d", w.Code)
+	}
+	if got := w.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("未知来源不应返回 CORS 允许头: %q", got)
+	}
+}
+
+func TestOriginAllowlistFromEnv(t *testing.T) {
+	t.Setenv("BLOGX_CORS_ALLOWED_ORIGINS", "https://front.example.com, http://localhost:4000/")
+
+	if !middleware.IsAllowedOrigin("https://front.example.com") {
+		t.Fatal("环境变量中的正式来源应被允许")
+	}
+	if !middleware.IsAllowedOrigin("http://localhost:4000") {
+		t.Fatal("环境变量中的本地来源应被允许")
+	}
+	if middleware.IsAllowedOrigin("http://localhost:3000") {
+		t.Fatal("设置环境变量后应替换默认白名单，而不是继续合并默认值")
+	}
+}
+
+func TestOriginAllowlistRejectsUnsafeOrigins(t *testing.T) {
+	for _, origin := range []string{"*", "null", "file://local/index.html", "https://blog.gentlybeing.cn/path"} {
+		if middleware.IsAllowedOrigin(origin) {
+			t.Fatalf("不安全或非法来源应被拒绝: %q", origin)
+		}
+	}
+}

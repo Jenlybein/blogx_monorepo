@@ -52,6 +52,28 @@ function normalizeOrigin(value: string) {
   return value.endsWith('/') ? value.slice(0, -1) : value
 }
 
+function normalizePathSegments(value: string) {
+  return value.replace(/^\/+|\/+$/gu, '').split('/').filter(Boolean)
+}
+
+function joinOriginPath(origin: string, path: string) {
+  const targetUrl = new URL(normalizeOrigin(origin))
+  const originSegments = normalizePathSegments(targetUrl.pathname)
+  const pathSegments = normalizePathSegments(path)
+
+  if (
+    originSegments.length > 0 &&
+    pathSegments.length > 0 &&
+    originSegments[originSegments.length - 1] === pathSegments[0]
+  ) {
+    pathSegments.shift()
+  }
+
+  const targetPath = [...originSegments, ...pathSegments].join('/')
+  targetUrl.pathname = targetPath ? `/${targetPath}` : '/'
+  return normalizeOrigin(targetUrl.toString())
+}
+
 const apiUpstream = normalizeOrigin(
   process.env.BLOGX_WEB_API_UPSTREAM ||
     process.env.NUXT_API_ORIGIN ||
@@ -63,10 +85,11 @@ const siteUrl = normalizeOrigin(process.env.BLOGX_WEB_SITE_URL || 'http://localh
 const apiBase = String(process.env.BLOGX_WEB_API_BASE || '/api').trim() || '/api'
 const wsPath = String(process.env.BLOGX_WEB_WS_PATH || '/api/chat/ws').trim() || '/api/chat/ws'
 const assetProxyBase = String(process.env.BLOGX_WEB_ASSET_PROXY_BASE || '/_origin').trim() || '/_origin'
-const devProxy = wsPath.startsWith('/')
+const apiProxyTarget = joinOriginPath(apiUpstream, apiBase)
+const devProxy = apiBase.startsWith('/')
   ? {
-      [wsPath]: {
-        target: apiUpstream,
+      [apiBase]: {
+        target: apiProxyTarget,
         changeOrigin: true,
         ws: true,
       },

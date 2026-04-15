@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"myblogx/common/res"
+	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/enum/chat_msg_enum"
 	"myblogx/service/chat_service"
@@ -13,7 +14,6 @@ import (
 	"myblogx/service/redis_service/redis_ws_ticket"
 	"myblogx/service/user_service"
 	"myblogx/utils/jwts"
-	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -32,11 +32,7 @@ const (
 var chatWSUpgrader = websocket.Upgrader{
 	ReadBufferSize:  chatWSReadBufferSize,
 	WriteBufferSize: chatWSWriteBufferSize,
-	// 当前聊天 ws 主要给浏览器端使用，开发阶段先放开同源校验，
-	// 避免本地前后端不同端口时升级握手被浏览器跨域策略拦截。
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
+	CheckOrigin:     middleware.IsAllowedOriginRequest,
 }
 
 // ChatWsTicketView 生成聊天票据
