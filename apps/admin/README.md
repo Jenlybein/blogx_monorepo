@@ -1,75 +1,28 @@
-# Nuxt Minimal Starter
+# BlogX Admin
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+BlogX 后台管理端，默认挂载在 `/admin/`。
 
-## Setup
-
-Make sure to install dependencies:
+## 开发
 
 ```bash
-# npm
-npm install
-
-# pnpm
-pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
-```
-
-## Development Server
-
-Start the development server on `http://localhost:3000`:
-
-```bash
-# npm
-npm run dev
-
-# pnpm
 pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
+pnpm dev:local-local
+pnpm dev:local-test
+pnpm build:test
+pnpm build:production
 ```
 
-## Production
+这些脚本会设置 `BLOGX_ADMIN_ENV_PROFILE`，再运行 Nuxt 命令。
 
-Build the application for production:
+## 容器运行时配置
 
-```bash
-# npm
-npm run build
+Admin 容器镜像不再通过 Docker `build.args` 烘焙环境配置；compose 会在运行阶段把现有
+`BLOGX_ADMIN_*` 映射为 Nuxt 标准的 `NUXT_*` 运行时变量：
 
-# pnpm
-pnpm build
+- `BLOGX_ADMIN_API_UPSTREAM` -> `NUXT_API_UPSTREAM`
+- `BLOGX_ADMIN_SITE_URL` -> `NUXT_PUBLIC_SITE_URL`
+- `BLOGX_ADMIN_API_BASE` -> `NUXT_PUBLIC_API_BASE`
+- `BLOGX_ADMIN_WEB_SITE_URL` -> `NUXT_PUBLIC_WEB_SITE_URL`
 
-# yarn
-yarn build
-
-# bun
-bun run build
-```
-
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+同一个 `blogx-admin:1` 镜像可以在不同运行环境下复用。`/admin/` 是后台资源路径的构建约束，
+不要在同一个已构建镜像里随意切成 `/`，否则静态资源路径可能不一致。

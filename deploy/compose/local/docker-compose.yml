@@ -466,19 +466,22 @@
 
   blogx_web:
     container_name: blogx-web
-    image: "blogx-web:ssr-local"
+    image: "blogx-web:1"
     restart: unless-stopped
     build:
       context: ../../..
       dockerfile: deploy/docker/web/Dockerfile
-      args:
-        BLOGX_WEB_ENV_PROFILE: "${BLOGX_WEB_ENV_PROFILE:-local-local}"
-        BLOGX_WEB_SITE_URL: "${BLOGX_WEB_SITE_URL:-http://localhost}"
-        BLOGX_WEB_API_UPSTREAM: "${BLOGX_WEB_API_UPSTREAM:-http://blogx_server:8080}"
     environment:
       NODE_ENV: "production"
       NITRO_HOST: "0.0.0.0"
       NITRO_PORT: "3000"
+      NUXT_ENV_PROFILE: "${BLOGX_WEB_ENV_PROFILE:-local-local}"
+      NUXT_API_UPSTREAM: "${BLOGX_WEB_API_UPSTREAM:-http://blogx_server:8080}"
+      NUXT_PUBLIC_ENV_PROFILE: "${BLOGX_WEB_ENV_PROFILE:-local-local}"
+      NUXT_PUBLIC_SITE_URL: "${BLOGX_WEB_SITE_URL:-http://localhost}"
+      NUXT_PUBLIC_API_BASE: "${BLOGX_WEB_API_BASE:-/api}"
+      NUXT_PUBLIC_WS_PATH: "${BLOGX_WEB_WS_PATH:-/api/chat/ws}"
+      NUXT_PUBLIC_ASSET_PROXY_BASE: "${BLOGX_WEB_ASSET_PROXY_BASE:-/_origin}"
     depends_on:
       blogx_server:
         condition: service_started
@@ -497,21 +500,21 @@
 
   blogx_admin:
     container_name: blogx-admin
-    image: "blogx-admin:ssr-local"
+    image: "blogx-admin:1"
     restart: unless-stopped
     build:
       context: ../../..
       dockerfile: deploy/docker/admin/Dockerfile
-      args:
-        BLOGX_ADMIN_ENV_PROFILE: "${BLOGX_ADMIN_ENV_PROFILE:-local-local}"
-        BLOGX_ADMIN_SITE_URL: "${BLOGX_ADMIN_SITE_URL:-http://localhost/admin}"
-        BLOGX_ADMIN_WEB_SITE_URL: "${BLOGX_ADMIN_WEB_SITE_URL:-http://localhost}"
-        BLOGX_ADMIN_API_UPSTREAM: "${BLOGX_ADMIN_API_UPSTREAM:-http://blogx_server:8080}"
-        BLOGX_ADMIN_BASE_URL: "${BLOGX_ADMIN_BASE_URL:-/admin/}"
     environment:
       NODE_ENV: "production"
       NITRO_HOST: "0.0.0.0"
       NITRO_PORT: "3001"
+      NUXT_ENV_PROFILE: "${BLOGX_ADMIN_ENV_PROFILE:-local-local}"
+      NUXT_API_UPSTREAM: "${BLOGX_ADMIN_API_UPSTREAM:-http://blogx_server:8080}"
+      NUXT_PUBLIC_ENV_PROFILE: "${BLOGX_ADMIN_ENV_PROFILE:-local-local}"
+      NUXT_PUBLIC_API_BASE: "${BLOGX_ADMIN_API_BASE:-/api}"
+      NUXT_PUBLIC_SITE_URL: "${BLOGX_ADMIN_SITE_URL:-http://localhost/admin}"
+      NUXT_PUBLIC_WEB_SITE_URL: "${BLOGX_ADMIN_WEB_SITE_URL:-http://localhost}"
     depends_on:
       blogx_server:
         condition: service_started

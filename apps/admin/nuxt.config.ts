@@ -82,6 +82,7 @@ function isModulePreloadSourcemapWarning(message: string) {
 
 const envProfile =
   (
+    process.env.NUXT_ENV_PROFILE ||
     process.env.BLOGX_ADMIN_ENV_PROFILE ||
     process.env.BLOGX_WEB_ENV_PROFILE ||
     "local-local"
@@ -91,14 +92,16 @@ hydrateProcessEnv(`env/${envProfile}.env`, { overrideHydrated: true });
 
 const apiBase =
   String(
-    process.env.BLOGX_ADMIN_API_BASE ||
+    process.env.NUXT_PUBLIC_API_BASE ||
+      process.env.BLOGX_ADMIN_API_BASE ||
       process.env.BLOGX_WEB_API_BASE ||
       "/api",
   ).trim() || "/api";
 const adminBaseURL =
-  String(process.env.BLOGX_ADMIN_BASE_URL || "/").trim() || "/";
+  String(process.env.NUXT_APP_BASE_URL || process.env.BLOGX_ADMIN_BASE_URL || "/admin/").trim() || "/admin/";
 const apiUpstream = normalizeOrigin(
-  process.env.BLOGX_ADMIN_API_UPSTREAM ||
+  process.env.NUXT_API_UPSTREAM ||
+    process.env.BLOGX_ADMIN_API_UPSTREAM ||
     process.env.BLOGX_WEB_API_UPSTREAM ||
     process.env.NUXT_API_ORIGIN ||
     "http://127.0.0.1:8080",
@@ -170,8 +173,12 @@ export default defineNuxtConfig({
     public: {
       envProfile,
       apiBase,
-      siteUrl: process.env.BLOGX_ADMIN_SITE_URL || "http://localhost:3001",
+      siteUrl:
+        process.env.NUXT_PUBLIC_SITE_URL ||
+        process.env.BLOGX_ADMIN_SITE_URL ||
+        "http://localhost:3001/admin",
       webSiteUrl:
+        process.env.NUXT_PUBLIC_WEB_SITE_URL ||
         process.env.BLOGX_ADMIN_WEB_SITE_URL ||
         process.env.BLOGX_WEB_SITE_URL ||
         "http://localhost:3000",

@@ -104,6 +104,18 @@ Nuxt SSR 容器 Dockerfile 在：
 node .output/server/index.mjs
 ```
 
+容器镜像不再通过 Docker `build.args` 烘焙环境配置；compose 会在运行阶段把现有 `BLOGX_*`
+映射为 Nuxt 标准的 `NUXT_*` 运行时变量：
+
+- `BLOGX_WEB_API_UPSTREAM` -> `NUXT_API_UPSTREAM`
+- `BLOGX_WEB_SITE_URL` -> `NUXT_PUBLIC_SITE_URL`
+- `BLOGX_WEB_API_BASE` -> `NUXT_PUBLIC_API_BASE`
+- `BLOGX_WEB_WS_PATH` -> `NUXT_PUBLIC_WS_PATH`
+- `BLOGX_WEB_ASSET_PROXY_BASE` -> `NUXT_PUBLIC_ASSET_PROXY_BASE`
+
+因此同一个 `blogx-web:1` 镜像可以在不同运行环境下复用；改 upstream/siteUrl 后重启容器即可生效，
+不需要为了这些运行时配置重新 build。
+
 ### Nginx 固定配置
 
 Nginx 不再使用模板渲染，改成固定配置文件：

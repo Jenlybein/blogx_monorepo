@@ -44,7 +44,8 @@ function hydrateProcessEnv(relativePath: string, options: { overrideHydrated?: b
   }
 }
 
-const envProfile = (process.env.BLOGX_WEB_ENV_PROFILE || 'local-local').trim() || 'local-local'
+const envProfile =
+  (process.env.NUXT_ENV_PROFILE || process.env.BLOGX_WEB_ENV_PROFILE || 'local-local').trim() || 'local-local'
 hydrateProcessEnv('env/common.env')
 hydrateProcessEnv(`env/${envProfile}.env`, { overrideHydrated: true })
 
@@ -95,16 +96,19 @@ const naiveUiFoundationPackages = [
 ]
 
 const apiUpstream = normalizeOrigin(
-  process.env.BLOGX_WEB_API_UPSTREAM ||
+  process.env.NUXT_API_UPSTREAM ||
+    process.env.BLOGX_WEB_API_UPSTREAM ||
     process.env.NUXT_API_ORIGIN ||
     process.env.NUXT_PUBLIC_API_BASE ||
     'http://127.0.0.1:8080',
 )
 
-const siteUrl = normalizeOrigin(process.env.BLOGX_WEB_SITE_URL || 'http://localhost:3000')
-const apiBase = String(process.env.BLOGX_WEB_API_BASE || '/api').trim() || '/api'
-const wsPath = String(process.env.BLOGX_WEB_WS_PATH || '/api/chat/ws').trim() || '/api/chat/ws'
-const assetProxyBase = String(process.env.BLOGX_WEB_ASSET_PROXY_BASE || '/_origin').trim() || '/_origin'
+const siteUrl = normalizeOrigin(process.env.NUXT_PUBLIC_SITE_URL || process.env.BLOGX_WEB_SITE_URL || 'http://localhost:3000')
+const apiBase = String(process.env.NUXT_PUBLIC_API_BASE || process.env.BLOGX_WEB_API_BASE || '/api').trim() || '/api'
+const wsPath = String(process.env.NUXT_PUBLIC_WS_PATH || process.env.BLOGX_WEB_WS_PATH || '/api/chat/ws').trim() || '/api/chat/ws'
+const assetProxyBase =
+  String(process.env.NUXT_PUBLIC_ASSET_PROXY_BASE || process.env.BLOGX_WEB_ASSET_PROXY_BASE || '/_origin').trim() ||
+  '/_origin'
 const apiProxyTarget = joinOriginPath(apiUpstream, apiBase)
 const devProxy = apiBase.startsWith('/')
   ? {

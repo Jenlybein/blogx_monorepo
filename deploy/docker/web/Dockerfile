@@ -11,14 +11,6 @@ RUN pnpm install --filter web... --frozen-lockfile
 
 COPY apps/web ./apps/web
 
-ARG BLOGX_WEB_ENV_PROFILE=production
-ARG BLOGX_WEB_SITE_URL=https://blogx.gentlybeing.cn
-ARG BLOGX_WEB_API_UPSTREAM=http://blogx_server:8080
-
-ENV BLOGX_WEB_ENV_PROFILE=${BLOGX_WEB_ENV_PROFILE}
-ENV BLOGX_WEB_SITE_URL=${BLOGX_WEB_SITE_URL}
-ENV BLOGX_WEB_API_UPSTREAM=${BLOGX_WEB_API_UPSTREAM}
-
 WORKDIR /app/apps/web
 
 RUN pnpm exec nuxt build
