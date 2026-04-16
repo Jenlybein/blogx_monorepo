@@ -465,8 +465,9 @@ docker compose logs -f es
    - Compose 里保留了 Kafka 片段，但默认注释掉，不属于当前最小可运行环境。
 
 4. `nginx` 当前是静态站点容器兼反向代理入口。
-   - 它不会自动构建 `apps/web` 和 `apps/admin`。
-   - 前端产物如果要进入 Nginx，需要单独构建并放到对应目录。
+   - `web` 仍按原静态站点方式接入。
+   - `admin` 已改为独立 Nuxt SSR 容器 `blogx_admin`，由 Nginx 通过同域路径 `/admin/` 反向代理。
+   - 线上不需要额外增加管理端子域名；访问入口形如 `https://blogx.gentlybeing.cn/admin/`。
 
 5. 当前前端开发环境依赖 Nuxt 4，对 Node 版本有明确要求。
    - 本地联调建议直接使用 Node `20.12.0+`，更推荐 Node 22 LTS。
@@ -479,6 +480,7 @@ docker compose logs -f es
 7. `web` 与 `admin` 在并发开发时需要独立端口。
    - 当前仓库已固定 `web` 开发端口为 `3000`、`admin` 为 `3001`。
    - 同时也为两边分配了不同的开发期 WebSocket / HMR 端口，避免并发启动时互相抢占。
+   - `admin` 本地直连开发仍使用根路径 `/`；通过 Docker Compose + Nginx 访问时使用 `/admin/`，由 `BLOGX_ADMIN_BASE_URL` 控制。
 
 8. Compose 网络现在使用 Docker 默认桥接网络分配，不再依赖固定子网和静态 IP。
    - 服务间通信应使用服务名，例如 `mysql-master`、`redis`、`blogx_server`，而不是写死容器 IP。
@@ -1604,15 +1606,22 @@ sudo bash scripts/apply-cert.sh --domain 你的域名 --email 你的邮箱
 
 ## 配置切换
 
-### "本地web+api"
+### 本地 Docker：本地 web + admin + api
 
-** .envrc**
+**.envrc**
 
 ```bash
 export BLOGX_NGINX_ENV='local'
+
 export BLOGX_WEB_ENV_PROFILE='local-local'
 export BLOGX_WEB_SITE_URL='http://localhost'
 export BLOGX_WEB_API_UPSTREAM='http://blogx_server:8080'
+
+export BLOGX_ADMIN_ENV_PROFILE='local-local'
+export BLOGX_ADMIN_SITE_URL='http://localhost/admin'
+export BLOGX_ADMIN_WEB_SITE_URL='http://localhost'
+export BLOGX_ADMIN_API_UPSTREAM='http://blogx_server:8080'
+export BLOGX_ADMIN_BASE_URL='/admin/'
 ```
 
 因为本地无法接收到七牛云的回调，所以需要手动打进`/complete`接口
@@ -1623,24 +1632,22 @@ export BLOGX_WEB_API_UPSTREAM='http://blogx_server:8080'
 docker compose -f deploy/compose/local/docker-compose.yml up -d
 ```
 
-### "本地web+测试服务器api"
+访问(nginx 会把宿主机的 80 端口暴露出来)：
+
+```
+前台：http://localhost/
+后台：http://localhost/admin/ 
+```
+
+### 本地电脑 pnpm 跑前端，连接测试服务器 api
 
 **服务器上的 .envrc**
 服务器只跑后端 Docker + API-only Nginx，所以建议这样：
 
 ```bash
 export BLOGX_NGINX_ENV='api-only'
-export BLOGX_WEB_ENV_PROFILE='local-test'
-export BLOGX_WEB_SITE_URL='https://blog.gentlybeing.cn'
-export BLOGX_WEB_API_UPSTREAM='http://blogx_server:8080'
 export BLOGX_QINIU_CALLBACK_URL='https://blog.gentlybeing.cn/api/images/qiniu/callback'
 ```
-
-这里关键是：
-
-- `BLOGX_NGINX_ENV='api-only'`：让服务器 Nginx 挂 nginx.api-only.conf
-- `BLOGX_WEB_API_UPSTREAM='http://blogx_server:8080'`：这是容器内部地址，给 Docker 内部用
-- `BLOGX_WEB_ENV_PROFILE` 和 `BLOGX_WEB_SITE_URL` 在你不启动 blogx_web 时其实不重要，但填成 local-test / 测试域名更不容易误解
 
 然后启动：
 
@@ -1650,7 +1657,6 @@ docker compose -f deploy/compose/local/docker-compose.yml up -d \
 ```
 
 **本地电脑跑 Nuxt**
-本地不要用 blogx_server:8080，因为你的电脑不认识这个 Docker 内部名字。本地应该这样：
 
 ```bash
 export BLOGX_WEB_ENV_PROFILE='local-test'
@@ -1658,6 +1664,14 @@ export BLOGX_WEB_ENV_PROFILE='local-test'
 
 ```js
 pnpm dev:web:local-test
+pnpm dev:admin:local-test
+```
+
+访问：
+
+```bash
+web：http://localhost:3000/
+admin：http://localhost:3001/
 ```
 
 ### 测试环境web+api
@@ -1666,9 +1680,17 @@ pnpm dev:web:local-test
 
 ```bash
 export BLOGX_NGINX_ENV='test'
+
 export BLOGX_WEB_ENV_PROFILE='test'
 export BLOGX_WEB_SITE_URL='https://blog.gentlybeing.cn'
 export BLOGX_WEB_API_UPSTREAM='http://blogx_server:8080'
+
+export BLOGX_ADMIN_ENV_PROFILE='test'
+export BLOGX_ADMIN_SITE_URL='https://blog.gentlybeing.cn/admin'
+export BLOGX_ADMIN_WEB_SITE_URL='https://blog.gentlybeing.cn'
+export BLOGX_ADMIN_API_UPSTREAM='http://blogx_server:8080'
+export BLOGX_ADMIN_BASE_URL='/admin/'
+
 export BLOGX_QINIU_CALLBACK_URL='https://blog.gentlybeing.cn/api/images/qiniu/callback'
 ```
 
@@ -1678,7 +1700,12 @@ export BLOGX_QINIU_CALLBACK_URL='https://blog.gentlybeing.cn/api/images/qiniu/ca
 docker compose -f deploy/compose/local/docker-compose.yml up -d
 ```
 
+访问：
 
+```bash
+前台：https://blog.gentlybeing.cn/
+后台：https://blog.gentlybeing.cn/admin/ 
+```
 
 ## 启动本地环境
 

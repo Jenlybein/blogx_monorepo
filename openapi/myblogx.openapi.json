@@ -6182,7 +6182,7 @@
       "post": {
         "summary": "自然语言 AI 搜索",
         "deprecated": false,
-        "description": "使用自然语言对站内文章进行 AI 搜索，并返回结构化列表结果。",
+        "description": "使用自然语言对站内文章进行 AI 搜索，并返回结构化列表结果。响应内容与 `/api/search/articles` 保持一致，`data` 为 `ArticleSearchResponseData`，包含 `list` 和 `pagination`。\n\n说明：AI 搜索列表由后端先做意图识别、关键词改写，再合并标签命中与普通关键词命中结果，当前只返回首屏固定结果集，不作为连续翻页接口使用。因此 `pagination.mode` 固定为 `has_more`，`pagination.page` 固定为 `1`，`pagination.limit` 固定为 `10`，`pagination.has_more` 固定为 `false`。",
         "tags": [
           "AI模块/搜索"
         ],
@@ -6211,7 +6211,7 @@
         },
         "responses": {
           "200": {
-            "description": "",
+            "description": "返回结构与 `/api/search/articles` 一致；但 AI 搜索列表不支持继续翻页，`pagination.has_more` 固定为 `false`。",
             "content": {
               "application/json": {
                 "schema": {
@@ -6223,10 +6223,7 @@
                       "type": "object",
                       "properties": {
                         "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/SearchListItem"
-                          }
+                          "$ref": "#/components/schemas/ArticleSearchResponseData"
                         }
                       },
                       "required": [
@@ -6234,6 +6231,19 @@
                       ]
                     }
                   ]
+                },
+                "example": {
+                  "code": 0,
+                  "msg": "成功",
+                  "data": {
+                    "list": [],
+                    "pagination": {
+                      "mode": "has_more",
+                      "page": 1,
+                      "limit": 10,
+                      "has_more": false
+                    }
+                  }
                 }
               }
             },

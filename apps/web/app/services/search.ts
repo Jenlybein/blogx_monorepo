@@ -1,3 +1,4 @@
+import { useNuxtApp } from "#imports";
 import type { OptionItem, SearchArticleResponse } from "~/types/api";
 
 export interface SearchArticlesParams {
@@ -19,6 +20,15 @@ export function searchArticles(params: SearchArticlesParams) {
   return useNuxtApp().$api.request<SearchArticleResponse>("/api/search/articles", {
     query: query as Record<string, unknown>,
     auth,
+  });
+}
+
+export function searchArticlesWithAi(content: string) {
+  return useNuxtApp().$api.request<SearchArticleResponse>("/api/ai/search/list", {
+    method: "POST",
+    body: {
+      content,
+    },
   });
 }
 

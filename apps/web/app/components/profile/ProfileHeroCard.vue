@@ -16,6 +16,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   follow: [];
+  message: [];
 }>();
 </script>
 
@@ -38,16 +39,21 @@ const emit = defineEmits<{
       </div>
     </div>
 
-    <NButton
-      v-if="!isSelf"
-      :type="actionActive ? 'default' : 'primary'"
-      :secondary="actionActive"
-      round
-      :disabled="actionDisabled"
-      @click="emit('follow')"
-    >
-      {{ relationText || "关注作者" }}
-    </NButton>
+    <div v-if="!isSelf" class="profile-hero-actions flex flex-wrap items-center justify-end gap-3">
+      <NButton secondary round :disabled="actionDisabled" attr-type="button" @click="emit('message')">
+        私信
+      </NButton>
+      <NButton
+        :type="actionActive ? 'default' : 'primary'"
+        :secondary="actionActive"
+        round
+        attr-type="button"
+        :disabled="actionDisabled"
+        @click="emit('follow')"
+      >
+        {{ relationText || "关注作者" }}
+      </NButton>
+    </div>
     <NButton v-else secondary round @click="navigateTo('/search')">查看站内内容</NButton>
   </div>
 </template>

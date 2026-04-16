@@ -2,19 +2,22 @@
 import { computed, ref, shallowRef, watch } from "vue";
 import { NButton, NInput } from "naive-ui";
 import ArticleFeedItem from "~/components/article/ArticleFeedItem.vue";
-import { getTagOptions, searchArticles } from "~/services/search";
+import { getTagOptions, searchArticles, searchArticlesWithAi } from "~/services/search";
+
+type SearchMode = "normal" | "ai";
 
 const route = useRoute();
 const router = useRouter();
 
 useSeoMeta({
   title: "搜索文章",
-  description: "按关键词、标签与排序方式搜索公开文章。",
+  description: "通过关键词筛选或智能语义搜索查找公开文章。",
 });
 
 const key = ref("");
 const sort = ref("1");
 const tagId = ref("");
+const mode = shallowRef<SearchMode>("normal");
 const page = ref(1);
 const totalPages = ref(1);
 const totalResults = ref(0);
@@ -28,20 +31,27 @@ function parsePage(value: unknown) {
   return Math.floor(parsed);
 }
 
+function resolveSearchMode(value: unknown): SearchMode {
+  return value === "ai" ? "ai" : "normal";
+}
+
 const committedQuery = computed(() => ({
+  mode: resolveSearchMode(route.query.mode),
   key: typeof route.query.key === "string" ? route.query.key : "",
   sort: typeof route.query.sort === "string" ? route.query.sort : "1",
   tagId: typeof route.query.tag_ids === "string" ? route.query.tag_ids : "",
-  page: parsePage(route.query.page),
+  page: resolveSearchMode(route.query.mode) === "ai" ? 1 : parsePage(route.query.page),
 }));
 
 watch(
   () => route.query,
   (query) => {
+    const nextMode = resolveSearchMode(query.mode);
+    mode.value = nextMode;
     key.value = typeof query.key === "string" ? query.key : "";
-    sort.value = typeof query.sort === "string" ? query.sort : "1";
-    tagId.value = typeof query.tag_ids === "string" ? query.tag_ids : "";
-    page.value = parsePage(query.page);
+    sort.value = nextMode === "ai" ? "1" : typeof query.sort === "string" ? query.sort : "1";
+    tagId.value = nextMode === "ai" ? "" : typeof query.tag_ids === "string" ? query.tag_ids : "";
+    page.value = nextMode === "ai" ? 1 : parsePage(query.page);
   },
   { immediate: true },
 );
@@ -58,30 +68,52 @@ function formatRequestError(error: unknown) {
 const searchPager = await usePagedResourceCache({
   cacheKey: () =>
     `search:${JSON.stringify({
+      mode: committedQuery.value.mode,
       key: committedQuery.value.key.trim(),
-      sort: committedQuery.value.sort,
-      tag_ids: committedQuery.value.tagId,
+      sort: committedQuery.value.mode === "normal" ? committedQuery.value.sort : undefined,
+      tag_ids: committedQuery.value.mode === "normal" ? committedQuery.value.tagId : undefined,
     })}`,
   pageSize: () => 9,
   initialPage: () => committedQuery.value.page,
   fetchPage: async (nextPage, limit) => {
     try {
       requestError.value = null;
-      const payload = await searchArticles({
-        key: committedQuery.value.key || undefined,
-        type: 1,
-        sort: Number(committedQuery.value.sort || "1") as 1 | 2 | 3 | 4 | 5 | 6,
-        tag_ids: committedQuery.value.tagId || undefined,
-        page: nextPage,
-        limit,
-        page_mode: "count",
-      });
-      totalPages.value = Math.max(payload.pagination.total_pages ?? 1, 1);
-      totalResults.value = Math.max(payload.pagination.total ?? 0, 0);
+      if (committedQuery.value.mode === "ai" && !committedQuery.value.key.trim()) {
+        totalPages.value = 1;
+        totalResults.value = 0;
+        return {
+          items: [],
+          hasMore: false,
+        };
+      }
+
+      const payload =
+        committedQuery.value.mode === "ai"
+          ? await searchArticlesWithAi(committedQuery.value.key.trim())
+          : await searchArticles({
+              key: committedQuery.value.key || undefined,
+              type: 1,
+              sort: Number(committedQuery.value.sort || "1") as 1 | 2 | 3 | 4 | 5 | 6,
+              tag_ids: committedQuery.value.tagId || undefined,
+              page: nextPage,
+              limit,
+              page_mode: "count",
+            });
+
+      if (committedQuery.value.mode === "ai") {
+        totalPages.value = 1;
+        totalResults.value = payload.pagination.total ?? payload.list.length;
+      } else {
+        totalPages.value = Math.max(payload.pagination.total_pages ?? 1, 1);
+        totalResults.value = Math.max(payload.pagination.total ?? 0, 0);
+      }
 
       return {
         items: payload.list,
-        hasMore: nextPage < Math.max(payload.pagination.total_pages ?? 1, 1),
+        hasMore:
+          committedQuery.value.mode === "ai"
+            ? false
+            : nextPage < Math.max(payload.pagination.total_pages ?? 1, 1),
       };
     } catch (error) {
       requestError.value = error;
@@ -125,36 +157,72 @@ const articles = computed(() => searchPager.currentItems.value);
 const pending = computed(() => searchPager.pending.value);
 const cachedPageCount = computed(() => Object.keys(searchPager.pages.value).length);
 const currentSearchPage = computed(() => searchPager.currentPage.value);
-const showPager = computed(() => totalResults.value > 0 || currentSearchPage.value > 1);
+const isAiMode = computed(() => mode.value === "ai");
+const searchPlaceholder = computed(() =>
+  isAiMode.value
+    ? "直接通过对话形式，输入你想要找怎么样的文章"
+    : "输入关键字搜索文章标题、摘要或内容…",
+);
+const searchModeToggleLabel = computed(() => (isAiMode.value ? "切换到普通搜索" : "切换到智能搜索"));
+const resultTitle = computed(() => (isAiMode.value ? "智能搜索结果" : "搜索结果"));
+const emptyText = computed(() => {
+  if (pending.value) {
+    return isAiMode.value ? "正在理解你的问题并搜索文章..." : "正在搜索中...";
+  }
+  if (requestError.value) {
+    return isAiMode.value ? "智能搜索失败，请稍后重试或切换到普通搜索。" : "文章加载失败，请检查前端 API 地址或测试环境状态。";
+  }
+  return isAiMode.value ? "没有找到合适的文章，试着换一种更具体的描述。" : "没有匹配结果，换个关键词或筛选条件试试。";
+});
+const showPager = computed(() => !isAiMode.value && (totalResults.value > 0 || currentSearchPage.value > 1));
 
 function handleReset() {
   key.value = "";
   sort.value = "1";
   tagId.value = "";
   page.value = 1;
-  router.push({ path: "/search" });
+  router.push({
+    path: "/search",
+    query: isAiMode.value ? { mode: "ai" } : {},
+  });
 }
 
 function handleSearch() {
   page.value = 1;
   router.push({
     path: "/search",
-    query: {
-      ...(key.value ? { key: key.value } : {}),
-      ...(sort.value && sort.value !== "1" ? { sort: sort.value } : {}),
-      ...(tagId.value ? { tag_ids: tagId.value } : {}),
-      ...(page.value > 1 ? { page: String(page.value) } : {}),
-    },
+    query: buildQuery(1, mode.value),
   });
 }
 
-function buildQuery(targetPage = 1) {
+function buildQuery(targetPage = 1, targetMode: SearchMode = mode.value) {
+  if (targetMode === "ai") {
+    return {
+      mode: "ai",
+      ...(key.value.trim() ? { key: key.value.trim() } : {}),
+    };
+  }
+
   return {
     ...(key.value ? { key: key.value } : {}),
     ...(sort.value && sort.value !== "1" ? { sort: sort.value } : {}),
     ...(tagId.value ? { tag_ids: tagId.value } : {}),
     ...(targetPage > 1 ? { page: String(targetPage) } : {}),
   };
+}
+
+function handleToggleSearchMode() {
+  const nextMode: SearchMode = isAiMode.value ? "normal" : "ai";
+  page.value = 1;
+  if (nextMode === "ai") {
+    sort.value = "1";
+    tagId.value = "";
+  }
+
+  router.push({
+    path: "/search",
+    query: buildQuery(1, nextMode),
+  });
 }
 
 function handlePageChange(nextPage: number) {
@@ -202,11 +270,11 @@ watch(
           aria-label="搜索文章关键字"
           round
           clearable
-          placeholder="输入关键字搜索文章标题、摘要或内容…"
+          :placeholder="searchPlaceholder"
           @keydown.enter.prevent="handleSearch"
         />
 
-        <div class="grid gap-4 md:grid-cols-2">
+        <div v-if="!isAiMode" class="grid gap-4 md:grid-cols-2">
           <label class="flex items-center">
             <select v-model="tagId" name="tag_ids" aria-label="标签筛选" class="h-12 w-full rounded-full border border-white/70 bg-white/78 px-4 text-sm text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] backdrop-blur">
               <option value="">全部标签</option>
@@ -225,19 +293,27 @@ watch(
           </label>
         </div>
 
-        <div class="flex items-center justify-end gap-3">
-          <NButton quaternary @click="handleReset">重置</NButton>
-          <NButton type="primary" @click="handleSearch">搜索</NButton>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <NButton secondary round @click="handleToggleSearchMode">{{ searchModeToggleLabel }}</NButton>
+          <div class="flex items-center gap-3">
+            <NButton quaternary @click="handleReset">重置</NButton>
+            <NButton type="primary" @click="handleSearch">搜索</NButton>
+          </div>
         </div>
       </div>
     </section>
 
     <section class="surface-card p-5 md:p-6">
       <div class="mb-5 flex items-center justify-between">
-        <div class="section-title">搜索结果</div>
+        <div class="section-title">{{ resultTitle }}</div>
         <div class="text-sm muted">
-          共 {{ totalResults }} 条结果，每页 9 篇，当前第 {{ currentSearchPage }} / {{ Math.max(totalPages, 1) }} 页，本次已缓存
-          {{ cachedPageCount }} 页。
+          <template v-if="isAiMode">
+            共 {{ totalResults }} 条结果。
+          </template>
+          <template v-else>
+            共 {{ totalResults }} 条结果，每页 9 篇，当前第 {{ currentSearchPage }} / {{ Math.max(totalPages, 1) }} 页，本次已缓存
+            {{ cachedPageCount }} 页。
+          </template>
         </div>
       </div>
 
@@ -251,13 +327,7 @@ watch(
       </div>
 
       <div v-else class="surface-section flex min-h-[240px] items-center justify-center p-6 text-sm muted">
-        {{
-          pending
-            ? "正在搜索中..."
-            : requestError
-              ? "文章加载失败，请检查前端 API 地址或测试环境状态。"
-              : "没有匹配结果，换个关键词或筛选条件试试。"
-        }}
+        {{ emptyText }}
       </div>
 
       <div v-if="showPager" class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/60 pt-5 text-sm muted">

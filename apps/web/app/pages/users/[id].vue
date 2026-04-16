@@ -8,6 +8,7 @@ import ProfileRelationList from "~/components/profile/ProfileRelationList.vue";
 import { getPublicFavoriteFolders, getOwnFavoriteFolders, getFavoriteFolderArticles } from "~/services/favorite";
 import { getFansList, getFollowList, followUser, unfollowUser } from "~/services/follow";
 import { getSelfUserDetail, getUserBaseInfo } from "~/services/user";
+import type { InboxDraftSessionSeed } from "~/utils/chat";
 import { formatCount } from "~/utils/format";
 import { getAuthorButtonLabel, getRelationLabel, isFollowing } from "~/utils/relation";
 
@@ -241,6 +242,36 @@ async function handleFollow() {
   }
 }
 
+function handlePrivateMessage() {
+  if (!profile.value) return;
+  if (profileLoadFailed.value) {
+    message.error("作者资料加载失败，当前无法发起私信");
+    return;
+  }
+  if (!authStore.isLoggedIn) {
+    uiStore.openAuthModal();
+    return;
+  }
+
+  const draftSessionSeed: InboxDraftSessionSeed = {
+    receiverId: profile.value.id,
+    receiverNickname: profile.value.nickname || "新会话",
+    receiverAvatar: profile.value.avatar || "",
+    relation: profile.value.relation ?? 0,
+  };
+
+  void router.push({
+    path: "/studio/inbox",
+    query: {
+      tab: "chat",
+      draft_receiver_id: draftSessionSeed.receiverId,
+      draft_receiver_nickname: draftSessionSeed.receiverNickname,
+      draft_receiver_avatar: draftSessionSeed.receiverAvatar || undefined,
+      draft_relation: String(draftSessionSeed.relation ?? 0),
+    },
+  });
+}
+
 async function handleRelationToggle(targetId: string, relation: number) {
   if (!authStore.isLoggedIn) {
     uiStore.openAuthModal();
@@ -287,6 +318,7 @@ useSeoMeta({
           :action-disabled="profileLoadFailed"
           :action-active="isFollowing(profile?.relation)"
           @follow="handleFollow"
+          @message="handlePrivateMessage"
         />
 
         <section class="surface-card p-5 md:p-6">

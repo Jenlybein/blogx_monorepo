@@ -70,13 +70,33 @@ describe("ProfileHeroCard", () => {
       actionDisabled: true,
     });
 
-    expect(wrapper.get("button").attributes("disabled")).toBeDefined();
+    const buttons = wrapper.findAll("button");
+    expect(buttons).toHaveLength(2);
+    expect(buttons.every((button) => button.attributes("disabled") != null)).toBe(true);
+  });
+
+  it("renders follow and private-message actions for other users", () => {
+    const wrapper = mountHero({ relationText: "回关" });
+    const buttons = wrapper.findAll("button");
+
+    expect(buttons).toHaveLength(2);
+    expect(buttons[0]?.text()).toContain("私信");
+    expect(buttons[1]?.text()).toContain("回关");
   });
 
   it("emits follow for other users", async () => {
     const wrapper = mountHero({ relationText: "回关" });
+    const buttons = wrapper.findAll("button");
 
-    await wrapper.get("button").trigger("click");
+    await buttons[1]!.trigger("click");
     expect(wrapper.emitted("follow")).toHaveLength(1);
+  });
+
+  it("emits message when the private-message action is clicked", async () => {
+    const wrapper = mountHero({ relationText: "回关" });
+    const buttons = wrapper.findAll("button");
+
+    await buttons[0]!.trigger("click");
+    expect(wrapper.emitted("message")).toHaveLength(1);
   });
 });

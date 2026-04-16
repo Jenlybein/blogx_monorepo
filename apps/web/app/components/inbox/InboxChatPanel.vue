@@ -1,18 +1,21 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { IconLoader2, IconPlugConnected, IconPlugConnectedX } from "@tabler/icons-vue";
 import { NButton, NInput, NSpace, NTag } from "naive-ui";
 import AppAvatar from "~/components/common/AppAvatar.vue";
 import type { ChatMessageItem, ChatSessionItem } from "~/types/api";
+import { isDraftChatSessionId } from "~/utils/chat";
 import { formatDateTimeLabel } from "~/utils/format";
 import { getRelationLabel } from "~/utils/relation";
 
-defineProps<{
+const props = defineProps<{
   sessions: ChatSessionItem[];
   activeSessionId: string | null;
   currentSession: ChatSessionItem | null;
   items: ChatMessageItem[];
   keyword: string;
   draft: string;
+  preparedSession?: boolean;
   sessionPending: boolean;
   messagePending: boolean;
   socketStatus: string;
@@ -29,6 +32,9 @@ const emit = defineEmits<{
   reconnect: [];
 }>();
 
+const isPreparedSession = computed(() =>
+  props.preparedSession ?? (props.currentSession ? isDraftChatSessionId(props.currentSession.session_id) : false),
+);
 </script>
 
 <template>
@@ -80,8 +86,11 @@ const emit = defineEmits<{
             <div class="flex items-center gap-2">
               <h2 class="section-title">{{ currentSession.receiver_nickname }}</h2>
               <NTag size="small">{{ getRelationLabel(currentSession.relation) }}</NTag>
+              <NTag v-if="isPreparedSession" size="small" type="warning">预备会话</NTag>
             </div>
-            <p class="muted mt-1">当前会话会自动拉取历史消息，并尝试连接实时推送。</p>
+            <p class="muted mt-1">
+              {{ isPreparedSession ? "首条消息发出后才会创建真实会话并拉取历史记录。" : "当前会话会自动拉取历史消息，并尝试连接实时推送。" }}
+            </p>
           </div>
           <div v-else>
             <h2 class="section-title">选择一个会话</h2>
@@ -130,7 +139,7 @@ const emit = defineEmits<{
           <StudioEmptyState
             v-else
             title="这个会话还没有消息"
-            :description="messagePending ? '正在拉取消息记录…' : '可以先发送一条文本消息验证链路。'"
+            :description="messagePending ? '正在拉取消息记录…' : isPreparedSession ? '先发出第一条消息，这里就会切换成真实会话。' : '可以先发送一条文本消息验证链路。'"
           />
 
           <div class="studio-chat-composer">
@@ -145,9 +154,9 @@ const emit = defineEmits<{
             <div class="flex flex-wrap items-center justify-between gap-3">
               <NSpace>
                 <NButton type="primary" :loading="messagePending" @click="emit('send')">发送文本</NButton>
-                <NButton quaternary @click="emit('removeSession', currentSession.session_id)">删除会话</NButton>
+                <NButton v-if="!isPreparedSession" quaternary @click="emit('removeSession', currentSession.session_id)">删除会话</NButton>
               </NSpace>
-              <span class="muted text-sm">当前仅接入文本发送，图片与 Markdown 仍待补协议联调。</span>
+              <span class="muted text-sm">{{ isPreparedSession ? "这个预备会话只保存在前端，首条消息发出前不会请求后端。" : "当前仅接入文本发送，图片与 Markdown 仍待补协议联调。" }}</span>
             </div>
           </div>
         </div>

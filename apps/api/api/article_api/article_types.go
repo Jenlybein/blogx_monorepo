@@ -88,7 +88,7 @@ type ArticleUpdateRequest struct {
 type ArticleReviewTaskListRequest struct {
 	Page   int                            `form:"page"`
 	Limit  int                            `form:"limit"`
-	Status models.ArticleReviewTaskStatus `form:"status"`
+	Status models.ArticleReviewTaskStatus `form:"status" binding:"omitempty,oneof=pending approved rejected canceled"`
 }
 
 type ArticleReviewTaskItem struct {

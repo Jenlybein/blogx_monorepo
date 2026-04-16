@@ -33,7 +33,7 @@ func resolvePublishStatus(requestStatus enum.ArticleStatus, skipExamining bool) 
 	}
 }
 
-func cancelPendingReviewTasks(tx *gorm.DB, articleID, operatorID ctype.ID, reason string) error {
+func cancelPendingReviewTasks(tx *gorm.DB, articleID, operatorID ctype.ID, articlePublishStatus enum.ArticleStatus, reason string) error {
 	if tx == nil || articleID == 0 {
 		return nil
 	}
@@ -64,10 +64,11 @@ func cancelPendingReviewTasks(tx *gorm.DB, articleID, operatorID ctype.ID, reaso
 	if err := tx.Model(&models.ArticleReviewTaskModel{}).
 		Where("id IN ?", taskIDs).
 		Updates(map[string]any{
-			"status":      models.ArticleReviewTaskCanceled,
-			"reason":      reason,
-			"reviewed_at": &now,
-			"reviewed_by": &operatorID,
+			"status":                 models.ArticleReviewTaskCanceled,
+			"reason":                 reason,
+			"reviewed_at":            &now,
+			"reviewed_by":            &operatorID,
+			"article_publish_status": articlePublishStatus,
 		}).Error; err != nil {
 		return err
 	}
@@ -81,12 +82,19 @@ func createReviewTask(tx *gorm.DB, article models.ArticleModel, source models.Ar
 	if tx == nil {
 		return nil, nil
 	}
+	var author models.UserModel
+	if err := tx.Select("nickname").Take(&author, "id = ?", article.AuthorID).Error; err != nil {
+		return nil, err
+	}
 	task := &models.ArticleReviewTaskModel{
-		ArticleID: article.ID,
-		AuthorID:  article.AuthorID,
-		Stage:     models.ArticleReviewTaskStageManual,
-		Source:    source,
-		Status:    models.ArticleReviewTaskPending,
+		ArticleID:            article.ID,
+		AuthorID:             article.AuthorID,
+		ArticleTitle:         article.Title,
+		AuthorName:           author.Nickname,
+		ArticlePublishStatus: article.EffectivePublishStatus(),
+		Stage:                models.ArticleReviewTaskStageManual,
+		Source:               source,
+		Status:               models.ArticleReviewTaskPending,
 	}
 	if err := tx.Create(task).Error; err != nil {
 		return nil, err

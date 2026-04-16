@@ -246,7 +246,7 @@ func (h *articleWriteService) UpdateArticle(articleID ctype.ID, claims *jwts.MyC
 			}
 		}
 		if nextPublishStatus == enum.ArticleStatusDraft {
-			if err := cancelPendingReviewTasks(tx, article.ID, claims.UserID, "作者改回草稿"); err != nil {
+			if err := cancelPendingReviewTasks(tx, article.ID, claims.UserID, nextPublishStatus, "作者改回草稿"); err != nil {
 				return err
 			}
 		}
@@ -255,11 +255,14 @@ func (h *articleWriteService) UpdateArticle(articleID ctype.ID, claims *jwts.MyC
 			if submitRequested && article.EffectivePublishStatus() == enum.ArticleStatusDraft {
 				reason = "作者提交审核"
 			}
-			if err := cancelPendingReviewTasks(tx, article.ID, claims.UserID, reason); err != nil {
+			if err := cancelPendingReviewTasks(tx, article.ID, claims.UserID, nextPublishStatus, reason); err != nil {
 				return err
 			}
 			updatedArticle := article
 			updatedArticle.PublishStatus = nextPublishStatus
+			if title, ok := updateMap["title"].(string); ok {
+				updatedArticle.Title = title
+			}
 			if _, err := createReviewTask(tx, updatedArticle, models.ArticleReviewTaskSourceEdit, claims.UserID); err != nil {
 				return err
 			}

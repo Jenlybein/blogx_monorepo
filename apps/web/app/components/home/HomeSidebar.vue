@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import { NSkeleton, NTag } from "naive-ui";
+import { computed, ref } from "vue";
+import { NButton, NSkeleton, NTag } from "naive-ui";
 import AppAvatar from "~/components/common/AppAvatar.vue";
+import HomeAiChatDialog from "~/components/home/HomeAiChatDialog.vue";
+import { useAuthStore } from "~/stores/auth";
+import { useUiStore } from "~/stores/ui";
 import type { SearchArticleItem, SiteAiInfo, SiteRuntimeConfig } from "~/types/api";
 import { resolveAvatarInitial, resolveAvatarUrl } from "~/utils/avatar";
 
@@ -98,6 +101,28 @@ const projectAbstract = computed(
   () => props.runtimeConfig?.project?.abstract || props.runtimeConfig?.site_info?.subtitle || "为开发者写作、搜索与知识整理提供稳定的内容入口。",
 );
 const aiAvatarUrl = computed(() => resolveAvatarUrl(props.aiInfo?.avatar ?? ""));
+const authStore = useAuthStore();
+const uiStore = useUiStore();
+const aiDialogOpen = ref(false);
+const aiDisplayName = computed(() => props.aiInfo?.nickname || "BlogX 助手");
+const aiDescription = computed(
+  () => props.aiInfo?.abstract || "可以直接提问文章搜索、写作改写、结构诊断与内容整理问题。",
+);
+const aiCapabilities = ["站内搜索", "写作建议", "结构诊断", "Markdown 回复"];
+
+async function handleOpenAiDialog() {
+  if (!props.aiInfo?.enable) {
+    return;
+  }
+
+  const isLoggedIn = await authStore.initializeSession();
+  if (!isLoggedIn) {
+    uiStore.openAuthModal();
+    return;
+  }
+
+  aiDialogOpen.value = true;
+}
 </script>
 
 <template>
@@ -173,40 +198,120 @@ const aiAvatarUrl = computed(() => resolveAvatarUrl(props.aiInfo?.avatar ?? ""))
       </div>
     </section>
 
-    <section class="surface-card p-5 md:p-6">
-      <div class="section-title">AI 助手</div>
-      <div class="mt-4 flex items-center gap-3">
-        <NSkeleton v-if="pending" circle height="56px" width="56px" />
-        <div v-else class="h-14 w-14 shrink-0 overflow-hidden rounded-full border border-slate-200/70 bg-neutral-100">
-          <img
-            v-if="aiAvatarUrl"
-            :src="aiAvatarUrl"
-            alt="AI 助手"
-            class="block h-full w-full object-cover object-center"
-          />
-          <div
-            v-else
-            class="flex h-full w-full items-center justify-center text-sm font-semibold text-slate-600"
-          >
-            {{ resolveAvatarInitial(aiInfo?.nickname, "AI") }}
+    <section class="surface-card overflow-hidden p-0">
+      <div class="home-ai-card">
+        <div class="home-ai-card__glow" />
+        <div class="home-ai-card__inner">
+          <div class="flex items-start gap-4">
+            <NSkeleton v-if="pending" circle height="60px" width="60px" />
+            <div
+              v-else
+              class="home-ai-card__avatar"
+            >
+              <img
+                v-if="aiAvatarUrl"
+                :src="aiAvatarUrl"
+                :alt="aiDisplayName"
+                class="block h-full w-full object-cover object-center"
+              />
+              <div
+                v-else
+                class="flex h-full w-full items-center justify-center text-base font-semibold text-slate-700"
+              >
+                {{ resolveAvatarInitial(aiInfo?.nickname, "AI") }}
+              </div>
+            </div>
+
+            <div class="min-w-0 flex-1">
+              <template v-if="pending">
+                <NSkeleton text width="72px" />
+                <NSkeleton text width="128px" class="mt-3" />
+                <NSkeleton text class="mt-3" :repeat="2" />
+              </template>
+              <template v-else>
+                <div class="text-lg font-semibold text-slate-900">
+                  {{ aiDisplayName }}
+                </div>
+                <p class="mt-2 text-sm leading-7 text-slate-600">
+                  {{ aiDescription }}
+                </p>
+              </template>
+            </div>
+          </div>
+
+          <div v-if="!pending" class="mt-5 flex flex-wrap gap-2">
+            <span
+              v-for="capability in aiCapabilities"
+              :key="capability"
+              class="home-ai-card__chip"
+            >
+              {{ capability }}
+            </span>
+          </div>
+
+          <div class="mt-5 flex items-center justify-between gap-3">
+            <NButton
+              type="primary"
+              class="ml-auto shrink-0"
+              :disabled="pending || !aiInfo?.enable"
+              @click="handleOpenAiDialog"
+            >
+              进行对话
+            </NButton>
           </div>
         </div>
-        <div>
-          <template v-if="pending">
-            <NSkeleton text width="96px" />
-            <NSkeleton text width="224px" class="mt-2" />
-          </template>
-          <template v-else>
-            <div class="text-base font-semibold">{{ aiInfo?.nickname || "AI 助手" }}</div>
-            <p class="mt-1 text-sm leading-6 muted">
-              {{ aiInfo?.abstract || "在搜索、写作和诊断场景里协助作者提高产出效率。" }}
-            </p>
-          </template>
-        </div>
       </div>
-      <NuxtLink to="/search" class="mt-4 inline-flex text-sm font-medium text-teal-700 dark:text-teal-300">
-        去搜索页体验 AI 搜索
-      </NuxtLink>
     </section>
+
+    <HomeAiChatDialog v-model:show="aiDialogOpen" :ai-info="aiInfo" />
   </aside>
 </template>
+
+<style scoped>
+.home-ai-card {
+  position: relative;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.home-ai-card__glow {
+  position: absolute;
+  inset: auto -14% -34% auto;
+  width: 180px;
+  height: 180px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgb(20 184 166 / 0.08), transparent 68%);
+  pointer-events: none;
+}
+
+.home-ai-card__inner {
+  position: relative;
+  padding: 1.5rem;
+}
+
+.home-ai-card__avatar {
+  display: flex;
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  border: 1px solid rgb(226 232 240 / 0.88);
+  background: #ffffff;
+  box-shadow: 0 20px 40px rgb(15 23 42 / 0.08);
+}
+
+.home-ai-card__chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.92);
+  border: 1px solid rgb(226 232 240 / 0.86);
+  padding: 0.42rem 0.72rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: rgb(51 65 85 / 0.92);
+}
+</style>

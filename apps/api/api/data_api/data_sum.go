@@ -21,7 +21,7 @@ func (h DataApi) SumView(c *gin.Context) {
 	if err := app.DB.Raw(`
 		SELECT
 			(SELECT COUNT(*) FROM user_models) AS user_count,
-			(SELECT COUNT(*) FROM article_models WHERE status = ?) AS article_count,
+			(SELECT COUNT(*) FROM article_models WHERE `+effectiveArticlePublishStatusExpr+` = ?) AS article_count,
 			(SELECT COUNT(*) FROM chat_msg_models) AS message_count,
 			(SELECT COUNT(*) FROM comment_models) AS comment_count,
 			0 AS new_login_count,

@@ -4,7 +4,6 @@ import (
 	"myblogx/common/res"
 	"myblogx/middleware"
 	"myblogx/models"
-	"myblogx/models/enum"
 	"myblogx/service/redis_service"
 	"myblogx/service/redis_service/redis_site"
 	"time"
@@ -35,13 +34,20 @@ func (h DataApi) GrowthDataView(c *gin.Context) {
 			})
 		}
 	case 2:
-		err = app.DB.
-			Table("article_models").
-			Select("DATE(created_at) AS date, COUNT(*) AS count").
-			Where("status = ? AND created_at >= ? AND created_at < ?", enum.ArticleStatusPublished, rangeStart, tomorrowStart).
-			Group("DATE(created_at)").
-			Order("DATE(created_at) ASC").
-			Scan(&statList).Error
+		resp.DateCountList = make([]DateCountItem, 0, 7)
+		for i := 0; i < 7; i++ {
+			start := rangeStart.AddDate(0, 0, i)
+			end := start.AddDate(0, 0, 1)
+			count, countErr := countPublishedArticlesBetween(app.DB, start, end)
+			if countErr != nil {
+				err = countErr
+				break
+			}
+			resp.DateCountList = append(resp.DateCountList, DateCountItem{
+				Date:  start.Format("2006-01-02"),
+				Count: count,
+			})
+		}
 	case 3:
 		err = app.DB.
 			Model(&models.UserModel{}).
@@ -57,7 +63,7 @@ func (h DataApi) GrowthDataView(c *gin.Context) {
 		return
 	}
 
-	if cr.Type == 2 || cr.Type == 3 {
+	if cr.Type == 3 {
 		dateMap := make(map[string]int, len(statList))
 		for _, item := range statList {
 			dateMap[item.Date] = item.Count

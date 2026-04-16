@@ -112,25 +112,21 @@ func TestAIArticleSearchView(t *testing.T) {
 	}))
 	defer aiServer.Close()
 
+	esSearchIndex := 0
 	esServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			writeMockESJSON(w, 200, `{"name":"mock","cluster_name":"mock","version":{"number":"7.17.10"},"tagline":"You Know, for Search"}`)
 			return
 		}
 
-		bodyBytes, err := io.ReadAll(r.Body)
-		if err != nil {
-			t.Fatalf("读取 ES 请求失败: %v", err)
-		}
-		bodyText := string(bodyBytes)
-
-		if strings.Contains(bodyText, `"tags.title"`) {
+		esSearchIndex++
+		if esSearchIndex == 1 {
 			writeMockESJSON(w, 200, `{
 				"hits":{
 					"total":{"value":1},
 					"hits":[
 						{"_source":{
-							"id":1,
+							"id":"1",
 							"title":"Gin 中间件实践",
 							"abstract":"讲 Gin 中间件",
 							"cover":"",
@@ -155,7 +151,7 @@ func TestAIArticleSearchView(t *testing.T) {
 				"total":{"value":2},
 				"hits":[
 					{"_source":{
-						"id":1,
+						"id":"1",
 						"title":"Gin 中间件实践",
 						"abstract":"讲 Gin 中间件",
 						"cover":"",
@@ -170,7 +166,7 @@ func TestAIArticleSearchView(t *testing.T) {
 						"admin_top":false
 					}},
 					{"_source":{
-						"id":2,
+						"id":"2",
 						"title":"Go Web 基础",
 						"abstract":"讲 Go Web",
 						"cover":"",
@@ -231,19 +227,25 @@ func TestAIArticleSearchView(t *testing.T) {
 	}
 
 	var body struct {
-		Code int                                 `json:"code"`
-		Data []search_service.SearchListResponse `json:"data"`
-		Msg  string                              `json:"msg"`
+		Code int                                  `json:"code"`
+		Data search_service.ArticleSearchResponse `json:"data"`
+		Msg  string                               `json:"msg"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("解析响应失败: %v body=%s", err, w.Body.String())
 	}
 
-	if len(body.Data) != 2 {
+	if len(body.Data.List) != 2 {
 		t.Fatalf("结果数量错误: %+v", body.Data)
 	}
-	if body.Data[0].ID != 1 || body.Data[1].ID != 2 {
+	if body.Data.List[0].ID != 1 || body.Data.List[1].ID != 2 {
 		t.Fatalf("结果去重合并顺序错误: %+v", body.Data)
+	}
+	if body.Data.Pagination.Mode != search_service.PageModeHasMore || body.Data.Pagination.Page != 1 || body.Data.Pagination.Limit != 10 {
+		t.Fatalf("分页信息应与 /api/search/articles 一致: %+v", body.Data.Pagination)
+	}
+	if body.Data.Pagination.HasMore {
+		t.Fatalf("AI 搜索列表不支持继续翻页，has_more 应固定为 false: %+v", body.Data.Pagination)
 	}
 }
 
@@ -385,7 +387,7 @@ func TestAIArticleSearchLLMViewForSearchIntent(t *testing.T) {
 
 		w.Header().Set("Content-Type", "text/event-stream")
 		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"以下是关于 Gin 中间件的文章：\\n\"}}]}\n\n")
-		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"1. <a href=\\\"/article/9\\\">Gin 中间件实践</a>\"}}]}\n\n")
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"1. [Gin 中间件实践](/article/9)\"}}]}\n\n")
 		_, _ = io.WriteString(w, "data: [DONE]\n\n")
 	}))
 	defer aiServer.Close()
@@ -463,6 +465,12 @@ func TestAIArticleSearchLLMViewForSearchIntent(t *testing.T) {
 	}
 	if !strings.Contains(data.Content, `/article/9`) {
 		t.Fatalf("LLM 搜索回复内容错误: %+v", data)
+	}
+	if strings.Contains(data.Content, "<a href=") {
+		t.Fatalf("LLM 搜索回复不应包含 HTML 链接: %+v", data)
+	}
+	if !strings.Contains(data.Content, "[Gin 中间件实践](/article/9)") {
+		t.Fatalf("LLM 搜索回复应包含 Markdown 链接: %+v", data)
 	}
 }
 

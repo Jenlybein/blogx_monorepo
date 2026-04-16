@@ -11,6 +11,8 @@
         "dev:web:local-test": "pnpm --filter web dev:local-test",
         "start:web": "pnpm --filter web start",
         "dev:admin": "turbo run dev --filter=admin",
+        "dev:admin:local-local": "pnpm --filter admin dev:local-local",
+        "dev:admin:local-test": "pnpm --filter admin dev:local-test",
         "dev:prototype:web": "turbo run dev --filter=prototype-web",
         "dev:prototype:admin": "turbo run dev --filter=prototype-admin",
         "dev:prototype": "turbo run dev --filter=prototype-web --filter=prototype-admin",
@@ -21,6 +23,8 @@
         "build:web:test": "pnpm --filter web build:test",
         "build:web:production": "pnpm --filter web build:production",
         "build:admin": "turbo run build --filter=admin",
+        "build:admin:test": "pnpm --filter admin build:test",
+        "build:admin:production": "pnpm --filter admin build:production",
         "build:prototype:web": "turbo run build --filter=prototype-web",
         "build:prototype:admin": "turbo run build --filter=prototype-admin",
         "build:prototype": "turbo run build --filter=prototype-web --filter=prototype-admin",
@@ -31,6 +35,7 @@
         "arch:guard": "powershell -ExecutionPolicy Bypass -File ./scripts/arch_guard.ps1",
         "test:web": "pnpm --filter web test",
         "typecheck:web": "pnpm --filter web typecheck",
+        "typecheck:admin": "pnpm --filter admin typecheck",
         "test": "turbo run test --filter=api"
     },
     "devDependencies": {

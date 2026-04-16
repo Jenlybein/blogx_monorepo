@@ -47,45 +47,32 @@ func (h ArticleApi) ArticleReviewTaskListView(c *gin.Context) {
 		return
 	}
 
-	type reviewRow struct {
-		models.ArticleReviewTaskModel
-		ArticleTitle  string
-		PublishStatus enum.ArticleStatus
-		AuthorName    string
-	}
-	var rows []reviewRow
-	if err := query.Select(
-		"article_review_task_models.*",
-		"article_models.title AS article_title",
-		"CASE WHEN article_models.publish_status = 0 THEN article_models.status ELSE article_models.publish_status END AS publish_status",
-		"user_models.nickname AS author_name",
-	).
-		Joins("JOIN article_models ON article_models.id = article_review_task_models.article_id AND article_models.deleted_at IS NULL").
-		Joins("JOIN user_models ON user_models.id = article_review_task_models.author_id AND user_models.deleted_at IS NULL").
+	var tasks []models.ArticleReviewTaskModel
+	if err := query.
 		Order("article_review_task_models.created_at DESC, article_review_task_models.id DESC").
 		Offset((page - 1) * limit).
 		Limit(limit).
-		Find(&rows).Error; err != nil {
+		Find(&tasks).Error; err != nil {
 		res.FailWithMsg("查询审核任务失败", c)
 		return
 	}
 
-	list := make([]ArticleReviewTaskItem, 0, len(rows))
-	for _, row := range rows {
+	list := make([]ArticleReviewTaskItem, 0, len(tasks))
+	for _, task := range tasks {
 		list = append(list, ArticleReviewTaskItem{
-			ID:            row.ID,
-			ArticleID:     row.ArticleID,
-			AuthorID:      row.AuthorID,
-			ArticleTitle:  row.ArticleTitle,
-			AuthorName:    row.AuthorName,
-			PublishStatus: row.PublishStatus,
-			Stage:         row.Stage,
-			Source:        row.Source,
-			Status:        row.Status,
-			Reason:        row.Reason,
-			CreatedAt:     row.CreatedAt,
-			ReviewedAt:    row.ReviewedAt,
-			ReviewedBy:    row.ReviewedBy,
+			ID:            task.ID,
+			ArticleID:     task.ArticleID,
+			AuthorID:      task.AuthorID,
+			ArticleTitle:  task.ArticleTitle,
+			AuthorName:    task.AuthorName,
+			PublishStatus: task.ArticlePublishStatus,
+			Stage:         task.Stage,
+			Source:        task.Source,
+			Status:        task.Status,
+			Reason:        task.Reason,
+			CreatedAt:     task.CreatedAt,
+			ReviewedAt:    task.ReviewedAt,
+			ReviewedBy:    task.ReviewedBy,
 		})
 	}
 
@@ -131,10 +118,11 @@ func (h ArticleApi) ArticleReviewTaskHandleView(c *gin.Context) {
 
 	if err := h.App.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&task).Updates(map[string]any{
-			"status":      taskStatus,
-			"reason":      strings.TrimSpace(cr.Reason),
-			"reviewed_at": &now,
-			"reviewed_by": &claims.UserID,
+			"status":                 taskStatus,
+			"reason":                 strings.TrimSpace(cr.Reason),
+			"reviewed_at":            &now,
+			"reviewed_by":            &claims.UserID,
+			"article_publish_status": cr.Status,
 		}).Error; err != nil {
 			return err
 		}

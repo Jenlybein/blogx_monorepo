@@ -4,6 +4,7 @@ import InboxChatPanel from "~/components/inbox/InboxChatPanel.vue";
 import InboxSitePanel from "~/components/inbox/InboxSitePanel.vue";
 import type { SiteMessageItem } from "~/types/api";
 import type { SiteMessageGroup } from "~/composables/useInboxCenter";
+import { isDraftChatSessionId, type InboxDraftSessionSeed } from "~/utils/chat";
 
 definePageMeta({
   layout: "studio",
@@ -13,7 +14,30 @@ definePageMeta({
 const message = useMessage();
 const route = useRoute();
 const router = useRouter();
-const inbox = useInboxCenter();
+
+const draftSessionSeed = computed<InboxDraftSessionSeed | null>(() => {
+  const receiverId = typeof route.query.draft_receiver_id === "string" ? route.query.draft_receiver_id.trim() : "";
+  if (!receiverId) {
+    return null;
+  }
+
+  return {
+    receiverId,
+    receiverNickname:
+      typeof route.query.draft_receiver_nickname === "string" && route.query.draft_receiver_nickname.trim()
+        ? route.query.draft_receiver_nickname
+        : "新会话",
+    receiverAvatar: typeof route.query.draft_receiver_avatar === "string" ? route.query.draft_receiver_avatar : "",
+    relation:
+      typeof route.query.draft_relation === "string" && Number.isFinite(Number(route.query.draft_relation))
+        ? Number(route.query.draft_relation)
+        : 0,
+  };
+});
+
+const inbox = useInboxCenter({
+  draftSessionSeed,
+});
 const {
   activeTab,
   activeSiteGroup,
@@ -158,6 +182,26 @@ const mergedItems = computed<SiteMessageItem[]>(() => {
 
 const mergedPending = computed(() => (activeMessageGroup.value === "global" ? globalPending.value : sitePending.value));
 const mergedHasMore = computed(() => (activeMessageGroup.value === "global" ? globalHasMore.value : siteHasMore.value));
+const isPreparedSession = computed(() => {
+  const sessionId = activeSession.value?.session_id;
+  return sessionId ? isDraftChatSessionId(sessionId) : false;
+});
+
+async function clearDraftSessionQuery() {
+  if (!draftSessionSeed.value) {
+    return;
+  }
+
+  await router.replace({
+    query: {
+      ...route.query,
+      draft_receiver_id: undefined,
+      draft_receiver_nickname: undefined,
+      draft_receiver_avatar: undefined,
+      draft_relation: undefined,
+    },
+  });
+}
 
 async function handleMarkAllRead() {
   if (activeMessageGroup.value === "global") {
@@ -196,7 +240,10 @@ async function handleLoadMore() {
 
 async function handleSend() {
   try {
-    await sendCurrentChatMessage();
+    const result = await sendCurrentChatMessage();
+    if (result && result.usedPreparedSession && result.resolvedSessionId) {
+      await clearDraftSessionQuery();
+    }
     message.success("消息已发送");
   } catch (error) {
     message.error(error instanceof Error ? error.message : "发送消息失败");
@@ -206,6 +253,17 @@ async function handleSend() {
 async function handleReconnect() {
   await connectSocket();
 }
+
+watch(
+  () => [draftSessionSeed.value?.receiverId, activeSession.value?.session_id, activeSession.value?.receiver_id] as const,
+  async ([receiverId, sessionId, activeReceiverId]) => {
+    if (!receiverId || !sessionId || isDraftChatSessionId(sessionId) || activeReceiverId !== receiverId) {
+      return;
+    }
+
+    await clearDraftSessionQuery();
+  },
+);
 
 useSeoMeta({
   title: "个人中心 - 消息中心",
@@ -221,6 +279,7 @@ useSeoMeta({
 
     <InboxChatPanel v-else :sessions="filteredChatSessions" :active-session-id="activeSessionId ?? null"
       :current-session="activeSession" :items="chatMessages" :keyword="chatKeyword" :draft="chatDraft"
+      :prepared-session="isPreparedSession"
       :session-pending="sessionPending" :message-pending="messagePending" :socket-status="socketStatus"
       :socket-error="socketError" @update:active-session-id="activeSessionId = $event"
       @update:keyword="chatKeyword = $event" @update:draft="chatDraft = $event" @send="handleSend()"

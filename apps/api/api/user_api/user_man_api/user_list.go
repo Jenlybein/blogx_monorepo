@@ -16,10 +16,16 @@ func (h *UserManApi) UserListView(c *gin.Context) {
 	app := h.App
 	cr := middleware.GetBindQuery[UserListRequest](c)
 
-	_list, count, _ := common.ListQuery(models.UserModel{}, common.Options{
+	_list, count, err := common.ListQuery(models.UserModel{}, common.Options{
+		DB:       app.DB,
 		Likes:    []string{"nickname", "username"},
 		PageInfo: cr.PageInfo,
 	})
+	if err != nil {
+		app.Logger.Errorf("查询用户列表失败: %v", err)
+		res.FailWithMsg("查询用户列表失败", c)
+		return
+	}
 
 	idList := make([]ctype.ID, 0, len(_list))
 	for _, item := range _list {

@@ -495,12 +495,47 @@
     networks:
       - blogx_network
 
+  blogx_admin:
+    container_name: blogx-admin
+    image: "blogx-admin:ssr-local"
+    restart: unless-stopped
+    build:
+      context: ../../..
+      dockerfile: deploy/docker/admin/Dockerfile
+      args:
+        BLOGX_ADMIN_ENV_PROFILE: "${BLOGX_ADMIN_ENV_PROFILE:-local-local}"
+        BLOGX_ADMIN_SITE_URL: "${BLOGX_ADMIN_SITE_URL:-http://localhost/admin}"
+        BLOGX_ADMIN_WEB_SITE_URL: "${BLOGX_ADMIN_WEB_SITE_URL:-http://localhost}"
+        BLOGX_ADMIN_API_UPSTREAM: "${BLOGX_ADMIN_API_UPSTREAM:-http://blogx_server:8080}"
+        BLOGX_ADMIN_BASE_URL: "${BLOGX_ADMIN_BASE_URL:-/admin/}"
+    environment:
+      NODE_ENV: "production"
+      NITRO_HOST: "0.0.0.0"
+      NITRO_PORT: "3001"
+    depends_on:
+      blogx_server:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O /dev/null http://127.0.0.1:3001/admin/ || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - blogx_network
+
   nginx:
     image: nginx:latest
     container_name: nginx
     restart: unless-stopped
     depends_on:
       blogx_server:
+        condition: service_started
+      blogx_admin:
         condition: service_started
     volumes:
       - ../../docker/nginx/nginx.${BLOGX_NGINX_ENV:-local}.conf:/etc/nginx/nginx.conf:ro

@@ -41,13 +41,13 @@ func (h AIApi) AIArticleSearchListView(c *gin.Context) {
 		return
 	}
 
-	list, err := searchAIArticleList(rewrite, redis_service.NewDeps(app.Redis, app.Logger), app.ESClient, app.ES.Index)
+	result, err := searchAIArticles(rewrite, redis_service.NewDeps(app.Redis, app.Logger), app.ESClient, app.ES.Index)
 	if err != nil {
 		res.FailWithMsg(err.Error(), c)
 		return
 	}
 
-	res.OkWithData(list, c)
+	res.OkWithData(result, c)
 }
 
 func (h AIApi) AIArticleSearchLLMView(c *gin.Context) {
@@ -82,13 +82,13 @@ func (h AIApi) AIArticleSearchLLMView(c *gin.Context) {
 		return
 	}
 
-	list, err := searchAIArticleList(rewrite, redis_service.NewDeps(app.Redis, app.Logger), app.ESClient, app.ES.Index)
+	result, err := searchAIArticles(rewrite, redis_service.NewDeps(app.Redis, app.Logger), app.ESClient, app.ES.Index)
 	if err != nil {
 		res.SSEFail(err.Error(), c)
 		return
 	}
 
-	contentChan, errChan, err := ai_search.AnalyzeArticleSearchStream(aiConf, cr.Content, list)
+	contentChan, errChan, err := ai_search.AnalyzeArticleSearchStream(aiConf, cr.Content, result.List)
 	if err != nil {
 		res.SSEFail(err.Error(), c)
 		return
@@ -150,39 +150,56 @@ func appendUniqueSearchResults(
 	return list
 }
 
-func searchAIArticleList(rewrite *ai_search.ArticleSearchRewrite, redisDeps redis_service.Deps, esClient *elasticsearch.Client, index string) ([]search_service.SearchListResponse, error) {
+func searchAIArticles(rewrite *ai_search.ArticleSearchRewrite, redisDeps redis_service.Deps, esClient *elasticsearch.Client, index string) (search_service.ArticleSearchResponse, error) {
 	key := buildAIArticleSearchKey(rewrite.Query)
+	limit := common.PageInfo{Page: 1, Limit: 10}.GetLimit()
+	result := search_service.ArticleSearchResponse{
+		List: []search_service.SearchListResponse{},
+		Pagination: search_service.SearchPagination{
+			Mode:    search_service.PageModeHasMore,
+			Page:    1,
+			Limit:   limit,
+			HasMore: false,
+		},
+	}
 	if key == "" {
-		return nil, nil
+		return result, nil
 	}
 
-	list := make([]search_service.SearchListResponse, 0, 20)
-	seen := make(map[ctype.ID]struct{}, 20)
+	list := make([]search_service.SearchListResponse, 0, limit+1)
+	seen := make(map[ctype.ID]struct{}, limit+1)
 
 	if len(rewrite.TagList) > 0 {
-		tagList, err := search_service.SearchArticleList(search_service.ArticleSearchRequest{
+		tagResult, err := search_service.SearchArticles(search_service.ArticleSearchRequest{
 			Type:          1,
 			Sort:          rewrite.Sort,
+			PageMode:      search_service.PageModeHasMore,
 			LegacyTagList: rewrite.TagList,
 			Key:           key,
-			PageInfo:      common.PageInfo{Page: 1, Limit: 10},
+			PageInfo:      common.PageInfo{Page: 1, Limit: limit},
 		}, nil, nil, redisDeps, esClient, index)
 		if err != nil {
-			return nil, err
+			return search_service.ArticleSearchResponse{}, err
 		}
-		list = appendUniqueSearchResults(list, seen, tagList)
+		list = appendUniqueSearchResults(list, seen, tagResult.List)
 	}
 
-	queryList, err := search_service.SearchArticleList(search_service.ArticleSearchRequest{
+	queryResult, err := search_service.SearchArticles(search_service.ArticleSearchRequest{
 		Type:     1,
 		Sort:     rewrite.Sort,
+		PageMode: search_service.PageModeHasMore,
 		Key:      key,
-		PageInfo: common.PageInfo{Page: 1, Limit: 10},
+		PageInfo: common.PageInfo{Page: 1, Limit: limit},
 	}, nil, nil, redisDeps, esClient, index)
 	if err != nil {
-		return nil, err
+		return search_service.ArticleSearchResponse{}, err
 	}
-	list = appendUniqueSearchResults(list, seen, queryList)
+	list = appendUniqueSearchResults(list, seen, queryResult.List)
 
-	return list, nil
+	if len(list) > limit {
+		list = list[:limit]
+	}
+	result.Pagination.HasMore = false
+	result.List = list
+	return result, nil
 }

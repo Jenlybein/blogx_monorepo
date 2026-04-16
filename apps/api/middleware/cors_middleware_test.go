@@ -19,7 +19,7 @@ func TestCorsMiddlewarePreflightAndActualRequest(t *testing.T) {
 		c.Status(http.StatusOK)
 	})
 
-	origin := "http://localhost:5173"
+	origin := "http://localhost:3001"
 
 	{
 		w := httptest.NewRecorder()

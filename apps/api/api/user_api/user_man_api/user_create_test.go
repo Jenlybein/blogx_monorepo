@@ -161,3 +161,31 @@ func TestAdminUserCreateView(t *testing.T) {
 		}
 	})
 }
+
+func TestUserListViewUsesAppDB(t *testing.T) {
+	api, _ := setupUserManAPI(t)
+
+	user := &models.UserModel{
+		Username: "listed_user",
+		Password: "x",
+		Nickname: "列表用户",
+		Role:     enum.RoleUser,
+	}
+	testutil.CreateUser(t, testutil.DB(), user)
+
+	c, w := newCtx()
+	c.Set("requestQuery", UserListRequest{})
+	api.UserListView(c)
+
+	if code := readCode(t, w); code != 0 {
+		t.Fatalf("用户列表应成功 body=%s", w.Body.String())
+	}
+	data := readData(t, w)
+	if got := int(data["count"].(float64)); got < 2 {
+		t.Fatalf("用户列表应返回已创建用户 got=%d body=%s", got, w.Body.String())
+	}
+	list, _ := data["list"].([]any)
+	if len(list) == 0 {
+		t.Fatalf("用户列表不应为空 body=%s", w.Body.String())
+	}
+}
