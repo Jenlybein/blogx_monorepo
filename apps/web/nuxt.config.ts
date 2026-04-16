@@ -74,6 +74,26 @@ function joinOriginPath(origin: string, path: string) {
   return normalizeOrigin(targetUrl.toString())
 }
 
+function normalizeModuleId(value: string) {
+  return value.replace(/\\/gu, '/')
+}
+
+function isModulePreloadSourcemapWarning(message: string) {
+  return (
+    message.includes('[plugin nuxt:module-preload-polyfill]') &&
+    message.includes('Sourcemap is likely to be incorrect')
+  )
+}
+
+const naiveUiFoundationPackages = [
+  '/node_modules/vueuc/',
+  '/node_modules/seemly/',
+  '/node_modules/evtd/',
+  '/node_modules/vdirs/',
+  '/node_modules/@css-render/',
+  '/node_modules/css-render/',
+]
+
 const apiUpstream = normalizeOrigin(
   process.env.BLOGX_WEB_API_UPSTREAM ||
     process.env.NUXT_API_ORIGIN ||
@@ -101,6 +121,10 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   telemetry: false,
   devtools: { enabled: true },
+  alias: {
+    '#markdown-it': resolve(appRoot, 'node_modules/markdown-it/index.mjs'),
+    '#markdown-it-ins': resolve(appRoot, 'node_modules/markdown-it-ins/index.mjs'),
+  },
   modules: ["@pinia/nuxt", "@vueuse/nuxt", "@nuxtjs/tailwindcss"],
   css: ["~/assets/css/fonts.css", "~/assets/css/tailwind.css"],
   build: {
@@ -113,11 +137,47 @@ export default defineNuxtConfig({
         "vee-validate",
         "zod",
         "@tabler/icons-vue",
+        "markdown-it/index.mjs",
         "markdown-it-katex",
-        "markdown-it-ins",
+        "markdown-it-ins/index.mjs",
         "highlight.js",
-        "mermaid",
       ],
+    },
+    build: {
+      rollupOptions: {
+        onwarn(warning, defaultHandler) {
+          if (isModulePreloadSourcemapWarning(warning.message)) {
+            return
+          }
+
+          defaultHandler(warning)
+        },
+        output: {
+          manualChunks(id) {
+            const moduleId = normalizeModuleId(id)
+
+            if (naiveUiFoundationPackages.some(packageName => moduleId.includes(packageName))) {
+              return 'vendor-naive-foundation'
+            }
+
+            if (moduleId.includes('/node_modules/lodash-es/')) {
+              return 'vendor-lodash-es'
+            }
+
+            if (moduleId.includes('/node_modules/cytoscape-cose-bilkent/')) {
+              return 'vendor-cytoscape-cose-bilkent'
+            }
+
+            if (moduleId.includes('/node_modules/cytoscape-fcose/')) {
+              return 'vendor-cytoscape-fcose'
+            }
+
+            if (moduleId.includes('/node_modules/cytoscape/')) {
+              return 'vendor-cytoscape'
+            }
+          },
+        },
+      },
     },
     ssr: {
       noExternal: ["naive-ui", "vueuc", "date-fns"],

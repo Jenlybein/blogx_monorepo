@@ -1,3 +1,7 @@
+import { navigateTo, useRouter } from "#imports";
+import { useAuthStore } from "~/stores/auth";
+import { useUiStore } from "~/stores/ui";
+
 type OpenWriteEntryOptions = {
   articleId?: string;
 };
@@ -29,8 +33,9 @@ export function useWriteEntry() {
     }
 
     const target = buildWriteLocation(options);
+    const canOpenNewTab = typeof window !== "undefined" && typeof window.open === "function";
 
-    if (!import.meta.client) {
+    if (!canOpenNewTab) {
       void navigateTo(target);
       return true;
     }

@@ -13,8 +13,7 @@ import {
   IconUsers,
   IconUserSquareRounded,
 } from "@tabler/icons-vue";
-import { NAvatar } from "naive-ui";
-import { resolveAvatarInitial } from "~/utils/avatar";
+import AppAvatar from "~/components/common/AppAvatar.vue";
 
 const route = useRoute();
 const authStore = useAuthStore();
@@ -59,11 +58,12 @@ function isItemActive(item: StudioNavItem) {
   <aside class="surface-card studio-sidebar">
     <div class="studio-sidebar__profile">
       <div class="studio-sidebar__avatar">
-        <NAvatar :key="authStore.profileAvatar || authStore.profileName" round :size="72" :src="authStore.profileAvatar || undefined">
-          <template #fallback>
-            {{ resolveAvatarInitial(authStore.profileName, "我") }}
-          </template>
-        </NAvatar>
+        <AppAvatar
+          :key="authStore.profileAvatar || authStore.profileName"
+          :size="72"
+          :src="authStore.profileAvatar"
+          :name="authStore.profileName"
+          fallback="我" />
       </div>
       <div class="min-w-0">
         <div class="eyebrow">Studio</div>

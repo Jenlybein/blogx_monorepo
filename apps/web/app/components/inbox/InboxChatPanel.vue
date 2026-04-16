@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { IconLoader2, IconPlugConnected, IconPlugConnectedX } from "@tabler/icons-vue";
-import { NAvatar, NButton, NInput, NSpace, NTag } from "naive-ui";
+import { NButton, NInput, NSpace, NTag } from "naive-ui";
+import AppAvatar from "~/components/common/AppAvatar.vue";
 import type { ChatMessageItem, ChatSessionItem } from "~/types/api";
 import { formatDateTimeLabel } from "~/utils/format";
 import { getRelationLabel } from "~/utils/relation";
-import { resolveAvatarInitial, resolveAvatarUrl } from "~/utils/avatar";
 
 defineProps<{
   sessions: ChatSessionItem[];
@@ -59,11 +59,7 @@ const emit = defineEmits<{
             :class="{ 'is-active': activeSessionId === session.session_id }"
             @click="emit('update:activeSessionId', session.session_id)"
           >
-            <NAvatar round :src="resolveAvatarUrl(session.receiver_avatar) || undefined">
-              <template #fallback>
-                {{ resolveAvatarInitial(session.receiver_nickname, "私") }}
-              </template>
-            </NAvatar>
+            <AppAvatar :src="session.receiver_avatar" :name="session.receiver_nickname" fallback="私" />
             <div class="min-w-0 flex-1 text-left">
               <div class="flex items-center justify-between gap-2">
                 <strong class="truncate">{{ session.receiver_nickname }}</strong>

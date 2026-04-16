@@ -1,7 +1,20 @@
-import MarkdownIt from "markdown-it";
+import MarkdownIt from "#markdown-it";
 import markdownItKatex from "markdown-it-katex";
-import markdownItIns from "markdown-it-ins";
-import hljs from "highlight.js";
+import markdownItIns from "#markdown-it-ins";
+import hljs from "highlight.js/lib/core";
+import bash from "highlight.js/lib/languages/bash";
+import css from "highlight.js/lib/languages/css";
+import diff from "highlight.js/lib/languages/diff";
+import go from "highlight.js/lib/languages/go";
+import javascript from "highlight.js/lib/languages/javascript";
+import json from "highlight.js/lib/languages/json";
+import markdownLanguage from "highlight.js/lib/languages/markdown";
+import plaintext from "highlight.js/lib/languages/plaintext";
+import python from "highlight.js/lib/languages/python";
+import sql from "highlight.js/lib/languages/sql";
+import typescript from "highlight.js/lib/languages/typescript";
+import xml from "highlight.js/lib/languages/xml";
+import yaml from "highlight.js/lib/languages/yaml";
 import { computed, toRef, toValue } from "vue";
 import type { MaybeRefOrGetter } from "vue";
 
@@ -15,6 +28,36 @@ export interface ArticleHeadingAnchor {
 interface RenderedArticleMarkdown {
   html: string;
   headings: ArticleHeadingAnchor[];
+}
+
+const registeredLanguages = [
+  ["bash", bash],
+  ["sh", bash],
+  ["shell", bash],
+  ["css", css],
+  ["diff", diff],
+  ["go", go],
+  ["javascript", javascript],
+  ["js", javascript],
+  ["json", json],
+  ["markdown", markdownLanguage],
+  ["md", markdownLanguage],
+  ["plaintext", plaintext],
+  ["text", plaintext],
+  ["python", python],
+  ["py", python],
+  ["sql", sql],
+  ["typescript", typescript],
+  ["ts", typescript],
+  ["html", xml],
+  ["xml", xml],
+  ["vue", xml],
+  ["yaml", yaml],
+  ["yml", yaml],
+] as const;
+
+for (const [name, language] of registeredLanguages) {
+  hljs.registerLanguage(name, language);
 }
 
 function escapeHtml(raw: string) {
@@ -68,6 +111,9 @@ const markdownRuntime = markdown as MarkdownIt & {
 const defaultFenceRenderer = markdownRuntime.renderer.rules.fence?.bind(markdownRuntime.renderer.rules);
 markdownRuntime.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const token = tokens[idx];
+  if (!token) {
+    return "";
+  }
   const language = token?.info?.trim().split(/\s+/u)[0]?.toLowerCase();
   if (language === "mermaid") {
     return `<div class="mermaid">${escapeHtml(token.content || "")}</div>\n`;

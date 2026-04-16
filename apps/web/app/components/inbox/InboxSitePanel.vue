@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { nextTick, useTemplateRef, watch } from "vue";
-import { NAvatar, NButton, NList, NListItem, NSpace, NTag, NThing } from "naive-ui";
+import { NButton, NList, NListItem, NSpace, NTag, NThing } from "naive-ui";
+import AppAvatar from "~/components/common/AppAvatar.vue";
 import type { SiteMessageItem } from "~/types/api";
 import type { SiteMessageGroup } from "~/composables/useInboxCenter";
 import { formatDateTimeLabel } from "~/utils/format";
-import { resolveAvatarInitial, resolveAvatarUrl } from "~/utils/avatar";
 
 type InboxMessageGroup = SiteMessageGroup | "global";
 
@@ -104,11 +104,7 @@ function typeLabel(type: number) {
             <NListItem v-for="item in items" :key="item.id">
               <NThing :title="item.link_title || item.article_title" :description="item.content">
                 <template #avatar>
-                  <NAvatar round :src="resolveAvatarUrl(item.action_user_avatar) || undefined">
-                    <template #fallback>
-                      {{ resolveAvatarInitial(item.action_user_nickname, "系") }}
-                    </template>
-                  </NAvatar>
+                  <AppAvatar :src="item.action_user_avatar" :name="item.action_user_nickname" fallback="系" />
                 </template>
                 <template #header-extra>
                   <NSpace size="small">

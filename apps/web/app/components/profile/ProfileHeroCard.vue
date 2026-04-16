@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { IconEye, IconHeart, IconMessageCircle2, IconThumbUp } from "@tabler/icons-vue";
-import { NAvatar, NButton } from "naive-ui";
+import { NButton } from "naive-ui";
+import AppAvatar from "~/components/common/AppAvatar.vue";
 import type { UserBaseInfo } from "~/types/api";
 import { formatCount } from "~/utils/format";
-import { resolveAvatarInitial, resolveAvatarUrl } from "~/utils/avatar";
 
 const props = defineProps<{
   profile: UserBaseInfo;
@@ -22,11 +22,7 @@ const emit = defineEmits<{
 <template>
   <div class="profile-hero">
     <div class="profile-hero-main">
-      <NAvatar class="profile-hero-avatar" :size="80" :src="resolveAvatarUrl(profile.avatar) || undefined">
-        <template #fallback>
-          {{ resolveAvatarInitial(profile.nickname, "作") }}
-        </template>
-      </NAvatar>
+      <AppAvatar class="profile-hero-avatar" :size="80" :src="profile.avatar" :name="profile.nickname" fallback="作" />
 
       <div>
         <div class="text-4xl font-semibold tracking-[-0.04em]">{{ profile.nickname }}</div>

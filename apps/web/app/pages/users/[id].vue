@@ -291,7 +291,7 @@ useSeoMeta({
 
         <section class="surface-card p-5 md:p-6">
           <div v-if="profileLoadFailed" class="mb-5 rounded-3xl border border-amber-200 bg-amber-50/85 px-4 py-3 text-sm text-amber-700">
-            当前作者资料没有成功加载出来，所以这里只展示了兜底占位内容；关注、关系判断等依赖真实用户资料的操作会被限制。
+            作者资料暂时加载失败，部分关系操作已临时禁用。
           </div>
 
           <div class="mb-5 flex flex-wrap items-center justify-between gap-3">

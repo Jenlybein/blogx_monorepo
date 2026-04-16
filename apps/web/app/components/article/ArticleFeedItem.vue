@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { IconEye, IconHeart, IconMessageCircle2, IconThumbUp } from "@tabler/icons-vue";
-import { NAvatar, NTag } from "naive-ui";
+import { NTag } from "naive-ui";
+import AppAvatar from "~/components/common/AppAvatar.vue";
 import type { SearchArticleItem } from "~/types/api";
 import { formatCount, formatDateLabel } from "~/utils/format";
-import { resolveAvatarInitial, resolveAvatarUrl } from "~/utils/avatar";
 
 const props = withDefaults(
   defineProps<{
@@ -49,11 +49,7 @@ const abstractText = computed(() => props.article.highlight?.abstract || props.a
             :to="`/users/${article.author.id}`"
             class="inline-flex items-center gap-2"
           >
-            <NAvatar round :size="30" :src="resolveAvatarUrl(article.author.avatar) || undefined">
-              <template #fallback>
-                {{ resolveAvatarInitial(article.author.nickname, "作") }}
-              </template>
-            </NAvatar>
+            <AppAvatar :size="30" :src="article.author.avatar" :name="article.author.nickname" fallback="作" />
             <span class="text-sm font-medium">{{ article.author.nickname }}</span>
           </NuxtLink>
 

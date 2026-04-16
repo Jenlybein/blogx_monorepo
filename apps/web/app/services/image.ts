@@ -1,3 +1,4 @@
+import { useNuxtApp } from "#imports";
 import type {
   CreateImageUploadTaskRequest,
   CreateImageUploadTaskResponseData,
@@ -12,6 +13,7 @@ const QINIU_UPLOAD_HOST_BY_REGION: Record<string, string> = {
   as0: "https://upload-as0.qiniup.com",
   ap: "https://upload-ap-southeast-1.qiniup.com",
 };
+const DEFAULT_QINIU_UPLOAD_HOST = QINIU_UPLOAD_HOST_BY_REGION.z0 ?? "https://upload.qiniup.com";
 
 type UploadStage =
   | "hashing"
@@ -94,9 +96,9 @@ export function getImageUploadTaskStatus(uploadId: string) {
 
 function getQiniuUploadHost(region?: string) {
   if (!region) {
-    return QINIU_UPLOAD_HOST_BY_REGION.z0;
+    return DEFAULT_QINIU_UPLOAD_HOST;
   }
-  return QINIU_UPLOAD_HOST_BY_REGION[region] || QINIU_UPLOAD_HOST_BY_REGION.z0;
+  return QINIU_UPLOAD_HOST_BY_REGION[region] ?? DEFAULT_QINIU_UPLOAD_HOST;
 }
 
 async function uploadToQiniu(params: {

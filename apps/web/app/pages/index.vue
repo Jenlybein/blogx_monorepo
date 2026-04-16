@@ -30,7 +30,7 @@ const { data: topData, pending: topPending } = await useAsyncData("home-top-arti
     return await getTopArticles();
   } catch (error) {
     topRequestError.value = error;
-    console.error(`[home-top-articles] request failed: ${formatRequestError(error)}`);
+    console.warn(`[home-top-articles] request failed, using fallback: ${formatRequestError(error)}`);
     return { list: [], count: 0 };
   }
 },
@@ -55,7 +55,7 @@ const latestPager = await usePagedResourceCache({
       };
     } catch (error) {
       latestRequestError.value = error;
-      console.error(`[home-latest-articles] request failed: ${formatRequestError(error)}`);
+      console.warn(`[home-latest-articles] request failed, using fallback: ${formatRequestError(error)}`);
       return {
         items: [],
         hasMore: false,

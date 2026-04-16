@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, shallowRef } from "vue";
+import type { ArticleHeadingAnchor } from "~/composables/useArticleMarkdown";
+import { computed, defineAsyncComponent, onMounted, ref, shallowRef } from "vue";
 import { IconEye, IconHeart, IconMessageCircle2, IconShare2, IconThumbUp } from "@tabler/icons-vue";
-import { NAvatar, NButton, NTag, useMessage } from "naive-ui";
+import { NButton, NTag, useMessage } from "naive-ui";
 import ArticleTocAnchor from "~/components/article/ArticleTocAnchor.vue";
+import AppAvatar from "~/components/common/AppAvatar.vue";
 import CommentComposer from "~/components/comment/CommentComposer.vue";
 import CommentThread from "~/components/comment/CommentThread.vue";
 import FavoriteFolderModal from "~/components/favorite/FavoriteFolderModal.vue";
-import { useArticleMarkdown } from "~/composables/useArticleMarkdown";
 import { useReadingProgress } from "~/composables/useReadingProgress";
 import { followUser, unfollowUser } from "~/services/follow";
 import { ApiBusinessError } from "~/services/http/errors";
@@ -16,7 +17,7 @@ import { getUserBaseInfo } from "~/services/user";
 import type { CommentReplyItem } from "~/types/api";
 import { formatCount, formatDateTimeLabel } from "~/utils/format";
 import { getAuthorButtonLabel, isFollowing } from "~/utils/relation";
-import { resolveAvatarInitial, resolveAvatarUrl } from "~/utils/avatar";
+import { resolveAvatarInitial } from "~/utils/avatar";
 import katexCssUrl from "katex/dist/katex.min.css?url";
 import highlightCssUrl from "highlight.js/styles/github.min.css?url";
 import githubMarkdownCssUrl from "github-markdown-css/github-markdown-light.css?url";
@@ -24,6 +25,7 @@ import githubMarkdownDarkCssUrl from "github-markdown-css/github-markdown-dark.c
 
 const route = useRoute();
 const router = useRouter();
+const ArticleMarkdownRenderer = defineAsyncComponent(() => import("~/components/common/MarkdownRenderSurface.vue"));
 const articleId = computed(() => route.params.id as string);
 const authStore = useAuthStore();
 const uiStore = useUiStore();
@@ -32,6 +34,7 @@ const shadowPreviewRef = ref<{
   scrollToHeading: (id: string) => boolean;
   getHeadingElement: (id: string) => HTMLElement | null;
 } | null>(null);
+const articleHeadings = ref<ArticleHeadingAnchor[]>([]);
 
 const ROOT_COMMENT_PAGE_SIZE = 7;
 const REPLY_COMMENT_PAGE_SIZE = 3;
@@ -142,7 +145,6 @@ function resetReplyState(rootId: string) {
   };
 }
 
-const { renderedHtml: renderedContent, headings: articleHeadings } = useArticleMarkdown(computed(() => article.value?.content));
 const articleThemeHref = computed(() => (uiStore.theme === "dark" ? githubMarkdownDarkCssUrl : githubMarkdownCssUrl));
 const markdownSupportStyleHrefs = [katexCssUrl, highlightCssUrl];
 const { activeHeadingId, progressPercent } = useReadingProgress(
@@ -370,6 +372,10 @@ function handleTocJump(id: string) {
   });
 }
 
+function handleArticleHeadingsChange(nextHeadings: ArticleHeadingAnchor[]) {
+  articleHeadings.value = nextHeadings;
+}
+
 const comments = computed(() =>
   commentsPager.currentItems.value.map((comment) => {
     const replyState = replyStates.value[comment.id];
@@ -496,12 +502,13 @@ useSeoMeta({
         <section class="surface-card overflow-hidden">
           <img v-if="article?.cover" :src="article.cover" :alt="article.title" class="h-[320px] w-full object-cover md:h-[420px]" />
           <div class="p-6 md:p-8">
-            <StudioMarkdownShadowPreview
+            <ArticleMarkdownRenderer
               ref="shadowPreviewRef"
-              :html="renderedContent"
+              :source="article?.content || ''"
               :theme-href="articleThemeHref"
               :extra-style-hrefs="markdownSupportStyleHrefs"
               article-class="markdown-body"
+              @headings-change="handleArticleHeadingsChange"
             />
           </div>
         </section>
@@ -566,11 +573,7 @@ useSeoMeta({
           <section class="surface-card p-5 md:p-6">
             <div class="eyebrow">Author</div>
             <div class="mt-3 flex items-start gap-4">
-              <NAvatar round :size="72" :src="resolveAvatarUrl(article?.author_avatar) || undefined">
-                <template #fallback>
-                  {{ authorInitial }}
-                </template>
-              </NAvatar>
+              <AppAvatar :size="72" :src="article?.author_avatar" :name="article?.author_name" :fallback="authorInitial" />
               <div class="min-w-0">
                 <div class="flex flex-wrap items-center gap-2">
                   <div class="truncate text-[22px] font-semibold tracking-[-0.02em]">{{ article?.author_name }}</div>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { NAvatar, NSkeleton, NTag } from "naive-ui";
+import { NSkeleton, NTag } from "naive-ui";
+import AppAvatar from "~/components/common/AppAvatar.vue";
 import type { SearchArticleItem, SiteAiInfo, SiteRuntimeConfig } from "~/types/api";
 import { resolveAvatarInitial, resolveAvatarUrl } from "~/utils/avatar";
 
@@ -161,11 +162,7 @@ const aiAvatarUrl = computed(() => resolveAvatarUrl(props.aiInfo?.avatar ?? ""))
           class="flex items-center justify-between gap-3 rounded-2xl px-1 py-1 transition hover:bg-slate-100/70 dark:hover:bg-slate-800/70"
         >
           <div class="flex items-center gap-3">
-            <NAvatar round :size="38" :src="author.avatar || undefined">
-              <template #fallback>
-                {{ resolveAvatarInitial(author.nickname, "作") }}
-              </template>
-            </NAvatar>
+            <AppAvatar :size="38" :src="author.avatar" :name="author.nickname" fallback="作" />
             <div>
               <div class="text-sm font-semibold">{{ author.nickname }}</div>
               <div class="text-xs muted">{{ author.articleCount }} 篇文章</div>

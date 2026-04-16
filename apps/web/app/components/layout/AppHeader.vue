@@ -9,8 +9,8 @@ import {
   IconSunHigh,
   IconUserCircle,
 } from "@tabler/icons-vue";
-import { NAvatar, NButton, NDropdown, NInput, NSkeleton } from "naive-ui";
-import { resolveAvatarInitial } from "~/utils/avatar";
+import { NButton, NDropdown, NInput, NSkeleton } from "naive-ui";
+import AppAvatar from "~/components/common/AppAvatar.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -147,16 +147,13 @@ async function handleUserMenuSelect(key: string | number) {
                 aria-label="打开个人菜单"
                 class="inline-flex w-full min-w-0 flex-nowrap items-center justify-center gap-2 rounded-full border border-slate-200/80 bg-white/70 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-teal-200 hover:text-teal-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100"
               >
-                <NAvatar
+                <AppAvatar
                   :key="authStore.profileAvatar || authStore.profileName"
                   class="shrink-0"
-                  round
                   :size="30"
-                  :src="authStore.profileAvatar || undefined">
-                  <template #fallback>
-                    {{ resolveAvatarInitial(authStore.profileName, "我") }}
-                  </template>
-                </NAvatar>
+                  :src="authStore.profileAvatar"
+                  :name="authStore.profileName"
+                  fallback="我" />
                 <span class="hidden min-w-0 max-w-[96px] truncate whitespace-nowrap leading-none md:inline">
                   {{ authStore.profileName }}
                 </span>

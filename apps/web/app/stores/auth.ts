@@ -1,12 +1,18 @@
+import { computed, ref, shallowRef } from "vue";
+import { defineStore } from "pinia";
+import { useRequestHeaders, useRuntimeConfig } from "#imports";
 import { loginWithEmailCode, loginWithPassword, logoutCurrentSession, registerWithEmail } from "~/services/auth";
 import { isAuthLikeError } from "~/services/http/errors";
 import { getSelfUserDetail } from "~/services/user";
+import { useChatStore } from "~/stores/chat";
+import { useMessageStore } from "~/stores/message";
 import type { UserSelfDetail } from "~/types/api";
 import { resolveAvatarUrl } from "~/utils/avatar";
 
 export const useAuthStore = defineStore("auth", () => {
   const tokenStorageKey = "blogx_access_token";
   const profileStorageKey = "blogx_profile_snapshot";
+  const canUseBrowserStorage = typeof window !== "undefined" && typeof localStorage !== "undefined";
   function isValidUserSnapshot(input: unknown): input is UserSelfDetail {
     if (!input || typeof input !== "object") {
       return false;
@@ -16,9 +22,9 @@ export const useAuthStore = defineStore("auth", () => {
     return typeof candidate.id === "string" && (typeof candidate.nickname === "string" || typeof candidate.username === "string");
   }
 
-  const initialToken = import.meta.client ? localStorage.getItem(tokenStorageKey) || "" : "";
+  const initialToken = canUseBrowserStorage ? localStorage.getItem(tokenStorageKey) || "" : "";
   const initialProfile = (() => {
-    if (!import.meta.client) {
+    if (!canUseBrowserStorage) {
       return null;
     }
 
@@ -50,7 +56,7 @@ export const useAuthStore = defineStore("auth", () => {
   const pickAvatar = resolveAvatarUrl;
 
   function persistCurrentUser(user: UserSelfDetail | null) {
-    if (!import.meta.client) {
+    if (!canUseBrowserStorage) {
       return;
     }
 
@@ -63,7 +69,7 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   function restoreCachedProfile() {
-    if (!import.meta.client) {
+    if (!canUseBrowserStorage) {
       return null;
     }
 
@@ -91,7 +97,7 @@ export const useAuthStore = defineStore("auth", () => {
 
   function setAccessToken(token: string) {
     accessToken.value = token;
-    if (import.meta.client) {
+    if (canUseBrowserStorage) {
       if (token) {
         localStorage.setItem(tokenStorageKey, token);
       } else {
@@ -103,7 +109,7 @@ export const useAuthStore = defineStore("auth", () => {
   function clearSession() {
     accessToken.value = "";
     currentUser.value = null;
-    if (import.meta.client) {
+    if (canUseBrowserStorage) {
       localStorage.removeItem(tokenStorageKey);
       localStorage.removeItem(profileStorageKey);
     }
@@ -123,20 +129,9 @@ export const useAuthStore = defineStore("auth", () => {
         ...detail,
         avatar: pickAvatar(detail),
       };
-      if (import.meta.dev && import.meta.client) {
-        console.debug("[auth] fetchCurrentUser resolved", {
-          id: currentUser.value.id,
-          nickname: currentUser.value.nickname,
-          avatar: currentUser.value.avatar,
-          profileAvatar: pickAvatar(currentUser.value),
-        });
-      }
       persistCurrentUser(currentUser.value);
       return currentUser.value;
     } catch (error) {
-      if (import.meta.dev && import.meta.client) {
-        console.debug("[auth] fetchCurrentUser failed", error);
-      }
       if (options.throwOnError) {
         throw error;
       }
@@ -180,7 +175,7 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   async function initializeSession() {
-    if (import.meta.client) {
+    if (canUseBrowserStorage) {
       if (!accessToken.value) {
         const cached = localStorage.getItem(tokenStorageKey) || "";
         if (cached) {
@@ -189,14 +184,6 @@ export const useAuthStore = defineStore("auth", () => {
       }
       if (accessToken.value && !currentUser.value) {
         restoreCachedProfile();
-      }
-      if (import.meta.dev) {
-        console.debug("[auth] initializeSession start", {
-          hasToken: Boolean(accessToken.value),
-          initialized: initialized.value,
-          cachedAvatar: pickAvatar(currentUser.value),
-          currentUser: currentUser.value,
-        });
       }
     }
 
@@ -231,14 +218,6 @@ export const useAuthStore = defineStore("auth", () => {
       }
 
       initialized.value = true;
-      if (import.meta.dev && import.meta.client) {
-        console.debug("[auth] initializeSession done", {
-          hasToken: Boolean(accessToken.value),
-          initialized: initialized.value,
-          avatar: pickAvatar(currentUser.value),
-          currentUser: currentUser.value,
-        });
-      }
       initPromise = null;
       return !!accessToken.value;
     })();

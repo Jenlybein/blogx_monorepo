@@ -10,6 +10,10 @@
     "build:test": "node ../../scripts/run-web-env.mjs test build",
     "build:production": "node ../../scripts/run-web-env.mjs production build",
     "start": "node .output/server/index.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "nuxi typecheck",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
@@ -43,5 +47,14 @@
     "vue-echarts": "^7.0.3",
     "vue-router": "^5.0.4",
     "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@pinia/testing": "^1.0.3",
+    "@vitejs/plugin-vue": "^6.0.5",
+    "@vitest/coverage-v8": "^4.1.4",
+    "@vue/test-utils": "^2.4.6",
+    "happy-dom": "^20.9.0",
+    "vitest": "^4.1.4",
+    "vue-tsc": "^3.2.6"
   }
 }

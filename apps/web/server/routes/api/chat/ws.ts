@@ -1,15 +1,32 @@
 import WebSocket from "crossws/websocket";
-import type { Message, Peer } from "crossws";
 
-type UpstreamSocket = InstanceType<typeof WebSocket>;
+type SocketData = string | ArrayBuffer | Blob | Uint8Array;
+type UpstreamSocket = {
+  readyState: number;
+  on(event: string, callback: (...args: unknown[]) => void): void;
+  send(data: SocketData): void;
+  close(code?: number, reason?: string): void;
+};
+type RelayPeer = {
+  request: { url: string };
+  send(data: SocketData): void;
+  close(code?: number, reason?: string): void;
+  terminate(): void;
+};
+
+const UpstreamWebSocket = WebSocket as unknown as {
+  new (url: string): UpstreamSocket;
+  OPEN: number;
+  CONNECTING: number;
+};
 
 interface RelayState {
   upstream: UpstreamSocket;
-  queue: unknown[];
+  queue: SocketData[];
   closed: boolean;
 }
 
-const relayStates = new WeakMap<Peer, RelayState>();
+const relayStates = new WeakMap<object, RelayState>();
 
 function trimTrailingSlash(value: string) {
   return value.endsWith("/") ? value.slice(0, -1) : value;
@@ -20,7 +37,7 @@ function normalizeBasePath(value: unknown) {
   return path.startsWith("/") ? path.replace(/\/+$/u, "") || "/" : `/${path.replace(/\/+$/u, "")}`;
 }
 
-function resolveUpstreamWsUrl(request: Request) {
+function resolveUpstreamWsUrl(request: { url: string }) {
   const config = useRuntimeConfig();
   const requestUrl = new URL(request.url);
   const apiBase = normalizeBasePath(config.public.apiBase);
@@ -45,7 +62,18 @@ function toCloseCode(code: unknown) {
   return typeof code === "number" && code >= 1000 && code <= 4999 ? code : 1011;
 }
 
-function closePeer(peer: Peer, code = 1011, reason = "WebSocket relay closed") {
+function toSocketData(data: unknown): SocketData {
+  if (typeof data === "string" || data instanceof ArrayBuffer || data instanceof Blob || data instanceof Uint8Array) {
+    return data;
+  }
+  return String(data ?? "");
+}
+
+function toRelayPeer(peer: unknown) {
+  return peer as RelayPeer;
+}
+
+function closePeer(peer: RelayPeer, code = 1011, reason = "WebSocket relay closed") {
   try {
     peer.close(toCloseCode(code), reason.slice(0, 120));
   } catch {
@@ -55,13 +83,14 @@ function closePeer(peer: Peer, code = 1011, reason = "WebSocket relay closed") {
 
 export default defineWebSocketHandler({
   open(peer) {
-    const upstream = new WebSocket(resolveUpstreamWsUrl(peer.request));
+    const relayPeer = toRelayPeer(peer);
+    const upstream = new UpstreamWebSocket(resolveUpstreamWsUrl(relayPeer.request));
     const state: RelayState = {
       upstream,
       queue: [],
       closed: false,
     };
-    relayStates.set(peer, state);
+    relayStates.set(relayPeer, state);
 
     upstream.on("open", () => {
       for (const data of state.queue.splice(0)) {
@@ -70,52 +99,57 @@ export default defineWebSocketHandler({
     });
 
     upstream.on("message", (data: unknown) => {
-      peer.send(data);
+      relayPeer.send(toSocketData(data));
     });
 
-    upstream.on("close", (code: number, reason: unknown) => {
+    upstream.on("close", (code: unknown, reason: unknown) => {
       state.closed = true;
-      closePeer(peer, code, toCloseReason(reason));
+      closePeer(relayPeer, toCloseCode(code), toCloseReason(reason));
     });
 
     upstream.on("error", () => {
       state.closed = true;
-      closePeer(peer, 1011, "Upstream WebSocket error");
+      closePeer(relayPeer, 1011, "Upstream WebSocket error");
     });
 
-    upstream.on("unexpected-response", (_request: unknown, response: { statusCode?: number; resume?: () => void }) => {
+    upstream.on("unexpected-response", (_request: unknown, rawResponse: unknown) => {
+      const response = rawResponse as { statusCode?: number; resume?: () => void };
       state.closed = true;
-      closePeer(peer, 1008, `Upstream rejected WebSocket: ${response.statusCode ?? "unknown"}`);
+      closePeer(relayPeer, 1008, `Upstream rejected WebSocket: ${response.statusCode ?? "unknown"}`);
       response.resume?.();
     });
   },
 
-  message(peer, message: Message) {
-    const state = relayStates.get(peer);
+  message(peer, message) {
+    const relayPeer = toRelayPeer(peer);
+    const rawData = toSocketData(message.rawData);
+    const state = relayStates.get(relayPeer);
     if (!state || state.closed) return;
 
-    if (state.upstream.readyState === WebSocket.OPEN) {
-      state.upstream.send(message.rawData);
+    if (state.upstream.readyState === UpstreamWebSocket.OPEN) {
+      state.upstream.send(rawData);
       return;
     }
 
-    state.queue.push(message.rawData);
+    state.queue.push(rawData);
   },
 
   close(peer, details) {
-    const state = relayStates.get(peer);
-    relayStates.delete(peer);
+    const relayPeer = toRelayPeer(peer);
+    const state = relayStates.get(relayPeer);
+    relayStates.delete(relayPeer);
     if (!state || state.closed) return;
 
     state.closed = true;
-    if (state.upstream.readyState === WebSocket.OPEN || state.upstream.readyState === WebSocket.CONNECTING) {
+    if (state.upstream.readyState === UpstreamWebSocket.OPEN || state.upstream.readyState === UpstreamWebSocket.CONNECTING) {
       state.upstream.close(toCloseCode(details.code), details.reason);
     }
   },
 
   error(peer) {
-    const state = relayStates.get(peer);
-    relayStates.delete(peer);
+    const relayPeer = toRelayPeer(peer);
+    const state = relayStates.get(relayPeer);
+    relayStates.delete(relayPeer);
     if (!state || state.closed) return;
 
     state.closed = true;

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { NAvatar, NButton, NTag } from "naive-ui";
+import { NButton, NTag } from "naive-ui";
+import AppAvatar from "~/components/common/AppAvatar.vue";
 import type { FanUserItem, FollowUserItem } from "~/types/api";
 import { formatDateTimeLabel } from "~/utils/format";
 import { getRelationActionLabel, getRelationLabel } from "~/utils/relation";
-import { resolveAvatarInitial, resolveAvatarUrl } from "~/utils/avatar";
 
 type RelationRow = {
   id: string;
@@ -60,11 +60,7 @@ const normalizedItems = computed<RelationRow[]>(() =>
   <div v-else-if="normalizedItems.length" class="profile-relation-list">
     <article v-for="item in normalizedItems" :key="item.id" class="profile-relation-card">
       <div class="profile-relation-card__main">
-        <NAvatar round :src="resolveAvatarUrl(item.avatar) || undefined">
-          <template #fallback>
-            {{ resolveAvatarInitial(item.nickname, "友") }}
-          </template>
-        </NAvatar>
+        <AppAvatar :src="item.avatar" :name="item.nickname" fallback="友" />
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
             <NuxtLink :to="`/users/${item.id}`" class="text-lg font-semibold">

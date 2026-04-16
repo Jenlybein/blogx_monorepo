@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AppHeader from "~/components/layout/AppHeader.vue";
-import AuthModal from "~/components/auth/AuthModal.vue";
+import DeferredAuthModal from "~/components/auth/DeferredAuthModal.vue";
 import StudioSidebarNav from "~/components/studio/StudioSidebarNav.vue";
 
 const siteStore = useSiteStore();
@@ -25,6 +25,6 @@ if (authStore.isLoggedIn && !messageStore.fetched) {
         </div>
       </div>
     </main>
-    <AuthModal />
+    <DeferredAuthModal />
   </div>
 </template>

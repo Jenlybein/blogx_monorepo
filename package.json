@@ -29,6 +29,8 @@
         "seed:web:test": "node ./scripts/seed-test-env-by-api.mjs",
         "lint": "pnpm -r --if-present lint",
         "arch:guard": "powershell -ExecutionPolicy Bypass -File ./scripts/arch_guard.ps1",
+        "test:web": "pnpm --filter web test",
+        "typecheck:web": "pnpm --filter web typecheck",
         "test": "turbo run test --filter=api"
     },
     "devDependencies": {

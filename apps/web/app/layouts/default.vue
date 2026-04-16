@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppFooter from "~/components/layout/AppFooter.vue";
 import AppHeader from "~/components/layout/AppHeader.vue";
-import AuthModal from "~/components/auth/AuthModal.vue";
+import DeferredAuthModal from "~/components/auth/DeferredAuthModal.vue";
 
 const siteStore = useSiteStore();
 
@@ -26,6 +26,6 @@ useHead(() => ({
       <slot />
     </main>
     <AppFooter />
-    <AuthModal />
+    <DeferredAuthModal />
   </div>
 </template>

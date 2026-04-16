@@ -16,11 +16,19 @@ const props = withDefaults(
 
 const hostRef = ref<HTMLDivElement | null>(null);
 
+type MermaidRuntime = {
+  initialize: (config: { startOnLoad: boolean; securityLevel: string }) => void;
+  render: (id: string, text: string) => Promise<{
+    svg: string;
+    bindFunctions?: (element: Element) => void;
+  }>;
+};
+
 let shadowRootRef: ShadowRoot | null = null;
 let themeLinkRef: HTMLLinkElement | null = null;
 let articleRef: HTMLElement | null = null;
 let extraStyleLinks: HTMLLinkElement[] = [];
-let mermaidRef: Awaited<typeof import("mermaid")>["default"] | null = null;
+let mermaidRef: MermaidRuntime | null = null;
 let renderTicket = 0;
 const MERMAID_CACHE_LIMIT = 120;
 const mermaidSvgCache = new Map<string, string>();
@@ -137,20 +145,21 @@ async function syncHtml() {
 }
 
 async function ensureMermaidInstance() {
-  if (!import.meta.client) {
+  if (typeof window === "undefined") {
     return null;
   }
   if (mermaidRef) {
     return mermaidRef;
   }
 
-  const mermaidModule = await import("mermaid");
-  mermaidRef = mermaidModule.default;
-  mermaidRef.initialize({
+  const mermaidModule = await import("~/services/mermaid-runtime.mjs");
+  const runtime = mermaidModule.default;
+  runtime.initialize({
     startOnLoad: false,
     securityLevel: "strict",
   });
-  return mermaidRef;
+  mermaidRef = runtime;
+  return runtime;
 }
 
 async function renderMermaid(targetArticle: HTMLElement, ticket: number) {

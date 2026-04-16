@@ -87,7 +87,7 @@ const searchPager = await usePagedResourceCache({
       requestError.value = error;
       totalPages.value = 1;
       totalResults.value = 0;
-      console.error(`[search-articles] request failed: ${formatRequestError(error)}`);
+      console.warn(`[search-articles] request failed, using fallback: ${formatRequestError(error)}`);
       return {
         items: [],
         hasMore: false,

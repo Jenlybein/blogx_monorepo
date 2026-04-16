@@ -227,10 +227,5 @@ useSeoMeta({
       @remove-session="removeChatSession($event)" @remove-message="removeChatMessage($event)"
       @reconnect="handleReconnect()" />
 
-    <div class="surface-section p-4 text-sm leading-7 muted">
-      当前实现说明：
-      私信页已经接入 `ws-ticket` 与 `ws` 建连，并按后端源码兼容了文本消息发送协议 `receiver_id + msg_type + content`。
-      但发送成功回执、图片/Markdown 富消息体验、离线补偿等高级能力，仍取决于后端后续联调。
-    </div>
   </div>
 </template>

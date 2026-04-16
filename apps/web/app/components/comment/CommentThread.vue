@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { NAvatar, NButton, NTag } from "naive-ui";
+import { NButton, NTag } from "naive-ui";
+import AppAvatar from "~/components/common/AppAvatar.vue";
 import type { CommentReplyItem, CommentRootItem } from "~/types/api";
 import { formatDateTimeLabel } from "~/utils/format";
-import { resolveAvatarInitial, resolveAvatarUrl } from "~/utils/avatar";
 
 interface CommentNode extends CommentRootItem {
   replies?: CommentReplyItem[];
@@ -40,11 +40,7 @@ function toggleReplies(rootId: string) {
   <div class="comment-thread">
     <div v-for="comment in comments" :key="comment.id" class="surface-section p-5 md:p-6">
       <div class="comment-item">
-        <NAvatar round :size="42" :src="resolveAvatarUrl(comment.user_avatar) || undefined">
-          <template #fallback>
-            {{ resolveAvatarInitial(comment.user_nickname, "评") }}
-          </template>
-        </NAvatar>
+        <AppAvatar :size="42" :src="comment.user_avatar" :name="comment.user_nickname" fallback="评" />
         <div class="min-w-0 flex-1">
           <div class="mb-2 flex flex-wrap items-center gap-3">
             <span class="text-base font-semibold">{{ comment.user_nickname }}</span>
@@ -66,11 +62,7 @@ function toggleReplies(rootId: string) {
 
           <div v-if="expanded[comment.id] && comment.replies?.length" class="comment-subtree mt-5">
             <div v-for="reply in comment.replies" :key="`${comment.id}-${reply.user_id}-${reply.created_at}`" class="comment-item py-3">
-              <NAvatar round :size="34" :src="resolveAvatarUrl(reply.user_avatar) || undefined">
-                <template #fallback>
-                  {{ resolveAvatarInitial(reply.user_nickname, "评") }}
-                </template>
-              </NAvatar>
+              <AppAvatar :size="34" :src="reply.user_avatar" :name="reply.user_nickname" fallback="评" />
               <div class="min-w-0 flex-1">
                 <div class="mb-1 flex flex-wrap items-center gap-2">
                   <span class="font-medium">{{ reply.user_nickname }}</span>

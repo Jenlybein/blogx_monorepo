@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Component } from "vue";
-import { computed, nextTick, reactive, ref, watch } from "vue";
+import type { ArticleHeadingAnchor } from "~/composables/useArticleMarkdown";
+import { computed, defineAsyncComponent, nextTick, reactive, ref, watch } from "vue";
 import { useDebounce } from "@vueuse/core";
 import {
   IconAlignCenter,
@@ -24,8 +25,8 @@ import {
   IconTable,
   IconTopologyStar3,
 } from "@tabler/icons-vue";
-import { NAvatar, NButton, NCard, NInput, NModal, NPopover, NSelect, NSwitch, NTooltip, useMessage } from "naive-ui";
-import { useArticleMarkdown } from "~/composables/useArticleMarkdown";
+import { NButton, NCard, NInput, NModal, NPopover, NSelect, NSwitch, NTooltip, useMessage } from "naive-ui";
+import AppAvatar from "~/components/common/AppAvatar.vue";
 import { generateArticleMetainfo } from "~/services/ai";
 import { createArticle, getArticleDetail, updateArticle } from "~/services/article";
 import { uploadImageByTask } from "~/services/image";
@@ -66,11 +67,13 @@ type ToolItem = {
 
 const router = useRouter();
 const route = useRoute();
+const WriteMarkdownRenderer = defineAsyncComponent(() => import("~/components/common/MarkdownRenderSurface.vue"));
 const authStore = useAuthStore();
 const message = useMessage();
 const editorTextareaRef = ref<HTMLTextAreaElement | null>(null);
 const coverFileInputRef = ref<HTMLInputElement | null>(null);
 const shadowPreviewRef = ref<{ scrollToHeading: (id: string) => boolean } | null>(null);
+const previewHeadings = ref<ArticleHeadingAnchor[]>([]);
 
 if (!authStore.profileId) {
   await authStore.fetchCurrentUser();
@@ -184,7 +187,6 @@ watch(
 );
 
 const debouncedContent = useDebounce(computed(() => form.content), 300);
-const { renderedHtml, headings } = useArticleMarkdown(debouncedContent);
 
 const writeBodyClass = computed(() => ({
   "write-page__body--hide-toc": !showToc.value,
@@ -199,7 +201,7 @@ const contentStats = computed(() => ({
 }));
 
 const tocItems = computed(() => {
-  return headings.value.map((item) => ({
+  return previewHeadings.value.map((item) => ({
     id: item.id,
     label: item.title,
     level: item.level,
@@ -229,7 +231,7 @@ const markdownThemeOptions: ToolOption[] = [
 const visibilityOptions = [
   { label: "公开展示", value: "visible" },
   { label: "仅自己可见", value: "user_hidden" },
-] as const;
+];
 
 const selectedThemeLabel = computed(
   () => markdownThemeOptions.find((item) => item.key === selectedMarkdownTheme.value)?.label || "GitHub Light",
@@ -849,6 +851,10 @@ function handleTocJump(id: string) {
   shadowPreviewRef.value?.scrollToHeading(id);
 }
 
+function handlePreviewHeadingsChange(nextHeadings: ArticleHeadingAnchor[]) {
+  previewHeadings.value = nextHeadings;
+}
+
 function matchOptionByText(options: Array<{ label: string; value: string }>, target?: { id?: string; title?: string } | null) {
   if (!target) return null;
   const byId = options.find((item) => item.value === target.id);
@@ -1049,14 +1055,11 @@ useSeoMeta({
           <NButton type="primary" @click="publishVisible = true">{{ isEditMode ? "更新" : "发布" }}</NButton>
           <NuxtLink :to="authStore.profileId ? `/users/${authStore.profileId}` : '/studio/profile'"
             class="write-avatar-link">
-            <NAvatar
+            <AppAvatar
               :key="authStore.profileAvatar || authStore.profileName"
-              round
-              :src="authStore.profileAvatar || undefined">
-              <template #fallback>
-                {{ currentUserInitial }}
-              </template>
-            </NAvatar>
+              :src="authStore.profileAvatar"
+              :name="authStore.profileName"
+              :fallback="currentUserInitial" />
           </NuxtLink>
         </div>
       </div>
@@ -1151,13 +1154,14 @@ useSeoMeta({
       <aside class="write-page__pane write-page__pane--preview">
         <div v-if="form.content.trim()" class="write-page__preview-shell">
           <div class="write-page__theme-indicator">预览样式：{{ selectedThemeLabel }}</div>
-          <StudioMarkdownShadowPreview
+          <WriteMarkdownRenderer
             ref="shadowPreviewRef"
             class="write-page__markdown"
-            :html="renderedHtml"
+            :source="debouncedContent"
             :theme-href="activeMarkdownThemeHref"
             :extra-style-hrefs="markdownSupportStyleHrefs"
-            article-class="markdown-body" />
+            article-class="markdown-body"
+            @headings-change="handlePreviewHeadingsChange" />
         </div>
 
         <div v-else class="write-page__preview-empty">
@@ -1171,7 +1175,7 @@ useSeoMeta({
       <span>字符数: {{ contentStats.raw }}</span>
       <span>正文字符数: {{ contentStats.pure }}</span>
       <span>行数: {{ contentStats.lines }}</span>
-      <span>目录项: {{ headings.length }}</span>
+      <span>目录项: {{ previewHeadings.length }}</span>
       <span>视图: {{ viewMode === 'split' ? '双栏' : viewMode === 'editor' ? '仅编辑区' : '仅预览区' }}</span>
     </footer>
 

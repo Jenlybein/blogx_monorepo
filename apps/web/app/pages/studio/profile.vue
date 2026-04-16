@@ -178,9 +178,6 @@ useSeoMeta({
       <div class="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div class="section-title">筛选我的文章</div>
-          <p class="mt-2 text-sm leading-7 muted">
-            这里走 `type=4` 的文章搜索接口，后端会强制限定为当前登录用户，不会查到别人文章。
-          </p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
           <NuxtLink
@@ -301,9 +298,6 @@ useSeoMeta({
         v-if="total > 0"
         class="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-white/60 pt-5"
       >
-        <p class="text-sm leading-7 muted">
-          这里走准确总数分页，不使用 `has_more`。删除或切换筛选后，页码会保持在 URL 里，便于回到刚才的工作位置。
-        </p>
         <NPagination
           :page="pagination.page"
           :page-count="totalPages"

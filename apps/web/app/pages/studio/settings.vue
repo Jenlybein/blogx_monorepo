@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
-import { NAvatar, NButton, NCard, NInput, NModal, NSelect, NSwitch, useMessage } from "naive-ui";
+import { NButton, NCard, NInput, NModal, NSelect, NSwitch, useMessage } from "naive-ui";
+import AppAvatar from "~/components/common/AppAvatar.vue";
 import { sendEmailCode } from "~/services/auth";
 import { uploadImageByTask } from "~/services/image";
 import { getTagOptions } from "~/services/search";
@@ -370,11 +371,7 @@ useSeoMeta({
 
                 <div class="flex min-h-[92px] flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div class="flex items-center gap-3">
-                    <NAvatar round :size="56" :src="profileAvatarPreview || undefined">
-                      <template #fallback>
-                        {{ profileAvatarInitial }}
-                      </template>
-                    </NAvatar>
+                    <AppAvatar :size="56" :src="profileAvatarPreview" :name="profileAvatarInitial" :fallback="profileAvatarInitial" />
                     <div class="space-y-1">
                       <p class="text-sm font-medium">更新你的个人头像</p>
                       <p class="text-xs muted">支持 JPG / PNG / JPEG，建议方形图片，大小 5MB 以内</p>
