@@ -33,10 +33,12 @@ func TestBuildDefaultArticleSearchQueryOnlyPublished(t *testing.T) {
 	if !ok || len(filters) != 2 {
 		t.Fatalf("过滤条件异常: %#v", boolQuery["filter"])
 	}
-	if _, ok := filters[0].(map[string]any)["bool"]; !ok {
+	publishFilter, ok := filters[0].(map[string]any)["term"].(map[string]any)
+	if !ok || publishFilter["publish_status"] != enum.ArticleStatusPublished {
 		t.Fatalf("发布状态过滤结构错误: %#v", filters[0])
 	}
-	if _, ok := filters[1].(map[string]any)["bool"]; !ok {
+	visibleFilter, ok := filters[1].(map[string]any)["term"].(map[string]any)
+	if !ok || visibleFilter["visibility_status"] != enum.ArticleVisibilityVisible {
 		t.Fatalf("可见性过滤结构错误: %#v", filters[1])
 	}
 
@@ -244,17 +246,8 @@ func TestBuildSelfArticleSearchQueryDefaultStatus(t *testing.T) {
 		t.Fatalf("我的文章作者过滤错误: %#v", term)
 	}
 
-	mustNot, ok := boolQuery["must_not"].([]any)
-	if !ok || len(mustNot) != 1 {
-		t.Fatalf("我的文章默认应排除已删除状态: %#v", boolQuery["must_not"])
-	}
-	statusTerm, ok := mustNot[0].(map[string]any)
-	if !ok {
-		t.Fatalf("must_not 结构错误: %#v", mustNot[0])
-	}
-	statusValue, ok := statusTerm["term"].(map[string]any)
-	if !ok || statusValue["status"] != enum.ArticleStatusDeleted {
-		t.Fatalf("我的文章默认状态过滤错误: %#v", statusTerm)
+	if _, ok := boolQuery["must_not"]; ok {
+		t.Fatalf("我的文章默认不应再回退 status 排除删除态: %#v", boolQuery["must_not"])
 	}
 }
 
@@ -275,7 +268,7 @@ func TestBuildSelfArticleSearchQueryWithStatus(t *testing.T) {
 		t.Fatalf("状态过滤结构错误: %#v", filters[1])
 	}
 	statusTerm, ok := statusFilter["term"].(map[string]any)
-	if !ok || statusTerm["status"] != enum.ArticleStatusDraft {
+	if !ok || statusTerm["publish_status"] != enum.ArticleStatusDraft {
 		t.Fatalf("我的文章指定状态过滤错误: %#v", statusFilter)
 	}
 	if _, ok = boolQuery["must_not"]; ok {
@@ -315,7 +308,7 @@ func TestBuildAdminArticleSearchQueryWithStatus(t *testing.T) {
 		t.Fatalf("管理员状态过滤结构错误: %#v", filters[0])
 	}
 	statusTerm, ok := statusFilter["term"].(map[string]any)
-	if !ok || statusTerm["status"] != enum.ArticleStatusRejected {
+	if !ok || statusTerm["publish_status"] != enum.ArticleStatusRejected {
 		t.Fatalf("管理员指定状态过滤错误: %#v", statusFilter)
 	}
 }
@@ -468,18 +461,18 @@ func TestExtractArticleSearchResults(t *testing.T) {
 	}
 
 	article := models.ArticleModel{
-		Model:        models.Model{ID: 1},
-		Title:        "db article",
-		Content:      "db markdown content",
-		CategoryID:   &category.ID,
-		AuthorID:     user.ID,
-		Status:       enum.ArticleStatusPublished,
-		Abstract:     "db abstract",
-		ContentHead:  "db content head",
-		ViewCount:    10,
-		DiggCount:    20,
-		FavorCount:   30,
-		CommentCount: 40,
+		Model:         models.Model{ID: 1},
+		Title:         "db article",
+		Content:       "db markdown content",
+		CategoryID:    &category.ID,
+		AuthorID:      user.ID,
+		PublishStatus: enum.ArticleStatusPublished,
+		Abstract:      "db abstract",
+		ContentHead:   "db content head",
+		ViewCount:     10,
+		DiggCount:     20,
+		FavorCount:    30,
+		CommentCount:  40,
 	}
 	if err := db.Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)
@@ -511,13 +504,14 @@ func TestExtractArticleSearchResults(t *testing.T) {
 							"content": "二级标题\n正文二",
 						},
 					},
-					"cover":           "/cover.png",
-					"view_count":      10,
-					"digg_count":      20,
-					"favor_count":     30,
-					"comment_count":   40,
-					"comments_toggle": true,
-					"status":          int(enum.ArticleStatusPublished),
+					"cover":             "/cover.png",
+					"view_count":        10,
+					"digg_count":        20,
+					"favor_count":       30,
+					"comment_count":     40,
+					"comments_toggle":   true,
+					"publish_status":    int(enum.ArticleStatusPublished),
+					"visibility_status": string(enum.ArticleVisibilityVisible),
 					"category": map[string]any{
 						"id":    "9",
 						"title": "Go 分类",
@@ -598,8 +592,11 @@ func TestExtractArticleSearchResults(t *testing.T) {
 	if string(partRaw) != `{"level":1,"title":"一级标题","path":["一级标题"]}` {
 		t.Fatalf("正文分段返回字段错误: %s", string(partRaw))
 	}
-	if list[0].Cover != "/cover.png" || !list[0].CommentsToggle || list[0].Status != enum.ArticleStatusPublished {
+	if list[0].Cover != "/cover.png" || !list[0].CommentsToggle {
 		t.Fatalf("基础字段解析错误: %+v", list[0])
+	}
+	if list[0].PublishStatus != enum.ArticleStatusPublished || list[0].VisibilityStatus != enum.ArticleVisibilityVisible {
+		t.Fatalf("发布/可见状态解析错误: %+v", list[0])
 	}
 	if len(list[0].Tags) != 2 || list[0].Tags[0].Title != "Go" {
 		t.Fatalf("标签解析错误: %+v", list[0].Tags)
@@ -648,7 +645,8 @@ func TestExtractArticleSearchResultsKeepsSnowflakeIDPrecision(t *testing.T) {
 						"nickname": "作者",
 						"avatar":   "/avatar.png",
 					},
-					"status": json.Number("3"),
+					"publish_status":    json.Number("3"),
+					"visibility_status": "visible",
 				},
 			},
 		},

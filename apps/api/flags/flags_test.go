@@ -207,7 +207,7 @@ func TestBuildArticleESDocument(t *testing.T) {
 		CommentCount:   13,
 		FavorCount:     14,
 		CommentsToggle: true,
-		Status:         3,
+		PublishStatus:  3,
 		Tags: []models.TagModel{
 			{Model: models.Model{ID: 1}, Title: "Go"},
 			{Model: models.Model{ID: 2}, Title: "Redis"},
@@ -245,7 +245,7 @@ func TestBuildArticleESDocument(t *testing.T) {
 	if doc["admin_top"] != true || doc["author_top"] != false {
 		t.Fatalf("置顶字段同步结果不正确: admin=%#v author=%#v", doc["admin_top"], doc["author_top"])
 	}
-	const expectedFieldCount = 22
+	const expectedFieldCount = 23
 	if len(doc) != expectedFieldCount {
 		t.Fatalf("ES 文档字段数不正确, got=%d want=%d", len(doc), expectedFieldCount)
 	}
@@ -296,7 +296,7 @@ func TestSyncArticleDocuments(t *testing.T) {
 			CommentCount:   3,
 			FavorCount:     4,
 			CommentsToggle: true,
-			Status:         3,
+			PublishStatus:  3,
 		},
 		{
 			Title:          "第二篇",
@@ -308,7 +308,7 @@ func TestSyncArticleDocuments(t *testing.T) {
 			CommentCount:   6,
 			FavorCount:     7,
 			CommentsToggle: false,
-			Status:         2,
+			PublishStatus:  2,
 		},
 	}
 	if err := db.Create(&articles).Error; err != nil {

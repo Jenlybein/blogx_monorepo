@@ -149,10 +149,6 @@ function statusType(status: number) {
   return "default";
 }
 
-function resolveDisplayStatus(item: { publish_status?: number; status: number }) {
-  return item.publish_status ?? item.status;
-}
-
 async function handleDelete(id: string) {
   try {
     await deleteOwnArticle(id);
@@ -260,8 +256,17 @@ useSeoMeta({
         >
           <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div class="flex flex-wrap items-center gap-2">
-              <NTag :type="statusType(resolveDisplayStatus(item))" size="small">
-                {{ statusLabel(resolveDisplayStatus(item)) }}
+              <NTag :type="statusType(item.publish_status)" size="small">
+                {{ statusLabel(item.publish_status) }}
+              </NTag>
+              <NTag v-if="item.visibility_status !== 'visible'" size="small" type="warning">
+                {{
+                  item.visibility_status === "user_hidden"
+                    ? "仅自己可见"
+                    : item.visibility_status === "admin_hidden"
+                      ? "管理员隐藏"
+                      : item.visibility_status
+                }}
               </NTag>
               <NTag v-if="!item.comments_toggle" size="small" type="warning">评论已关闭</NTag>
             </div>

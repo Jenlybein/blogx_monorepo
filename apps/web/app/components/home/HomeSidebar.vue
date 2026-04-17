@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import type { StyleValue } from "vue";
 import { NButton, NSkeleton, NTag } from "naive-ui";
 import AppAvatar from "~/components/common/AppAvatar.vue";
 import HomeAiChatDialog from "~/components/home/HomeAiChatDialog.vue";
@@ -8,12 +9,33 @@ import { useUiStore } from "~/stores/ui";
 import type { SearchArticleItem, SiteAiInfo, SiteRuntimeConfig } from "~/types/api";
 import { resolveAvatarInitial, resolveAvatarUrl } from "~/utils/avatar";
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   pending?: boolean;
   runtimeConfig: SiteRuntimeConfig | null;
   aiInfo: SiteAiInfo | null;
   articles: SearchArticleItem[];
-}>();
+  sticky?: boolean;
+  stickyTop?: number | string;
+}>(), {
+  sticky: false,
+  stickyTop: "0.5rem",
+});
+
+const sidebarClasses = computed(() => ({
+  "profile-sidebar": true,
+  "home-sidebar": true,
+  "page-sidebar--sticky": props.sticky,
+}));
+
+const sidebarStyle = computed<StyleValue>(() => {
+  if (!props.sticky) {
+    return undefined;
+  }
+
+  return {
+    "--page-sidebar-sticky-top": typeof props.stickyTop === "number" ? `${props.stickyTop}px` : props.stickyTop,
+  };
+});
 
 const enabledModules = computed(() => {
   const source = props.runtimeConfig?.index_right?.list || [];
@@ -126,7 +148,7 @@ async function handleOpenAiDialog() {
 </script>
 
 <template>
-  <aside class="profile-sidebar home-sidebar">
+  <aside :class="sidebarClasses" :style="sidebarStyle">
     <section v-if="pending" class="surface-card p-5 md:p-6">
       <NSkeleton text width="96px" />
       <NSkeleton text class="mt-3" :repeat="2" />

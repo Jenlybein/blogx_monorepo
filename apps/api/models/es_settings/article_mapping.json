@@ -121,8 +121,11 @@
           }
         }
       },
-      "status": {
+      "publish_status": {
         "type": "integer"
+      },
+      "visibility_status": {
+        "type": "keyword"
       },
       "comments_toggle": {
         "type": "boolean"

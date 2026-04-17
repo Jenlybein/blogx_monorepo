@@ -49,8 +49,8 @@ func (h ArticleApi) ArticleCreateView(c *gin.Context) {
 		TagIDs:           append([]ctype.ID(nil), tagIDs...),
 		CoverImageID:     coverImageID,
 		CommentsToggle:   article.CommentsToggle,
-		Status:           article.Status,
-		PublishStatus:    article.EffectivePublishStatus(),
+		Status:           article.PublishStatus,
+		PublishStatus:    article.PublishStatus,
 		VisibilityStatus: article.EffectiveVisibilityStatus(),
 	}, c)
 
@@ -65,7 +65,7 @@ func (h ArticleApi) ArticleCreateView(c *gin.Context) {
 			"abstract":        cr.Abstract,
 			"cover_image_id":  cr.CoverImageID,
 			"category_id":     cr.CategoryID,
-			"status":          cr.Status,
+			"publish_status":  article.PublishStatus,
 			"comments_toggle": cr.CommentsToggle,
 			"tag_ids":         cr.TagIDs,
 			"content_length":  len(cr.Content),

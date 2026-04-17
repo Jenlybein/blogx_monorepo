@@ -32,7 +32,8 @@ func TestCollectArticleRowSnapshots(t *testing.T) {
 				{Name: "comment_count"},
 				{Name: "favor_count"},
 				{Name: "comments_toggle"},
-				{Name: "status"},
+				{Name: "publish_status"},
+				{Name: "visibility_status"},
 				{Name: "deleted_at"},
 			},
 		},
@@ -52,6 +53,7 @@ func TestCollectArticleRowSnapshots(t *testing.T) {
 			int64(14),
 			int8(1),
 			int64(enum.ArticleStatusPublished),
+			string(enum.ArticleVisibilityVisible),
 			nil,
 		}},
 	}
@@ -86,7 +88,10 @@ func TestCollectArticleRowSnapshots(t *testing.T) {
 	if !snapshot.CommentsToggle {
 		t.Fatal("comments_toggle 解析错误")
 	}
-	if snapshot.Status != enum.ArticleStatusPublished {
-		t.Fatalf("status 解析错误: %v", snapshot.Status)
+	if snapshot.PublishStatus != enum.ArticleStatusPublished {
+		t.Fatalf("publish_status 解析错误: %v", snapshot.PublishStatus)
+	}
+	if snapshot.VisibilityStatus != enum.ArticleVisibilityVisible {
+		t.Fatalf("visibility_status 解析错误: %v", snapshot.VisibilityStatus)
 	}
 }

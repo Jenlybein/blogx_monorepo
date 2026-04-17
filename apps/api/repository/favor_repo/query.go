@@ -147,7 +147,7 @@ func (s *QueryService) ListFavoriteArticles(query FavoriteArticlesQuery, orderMa
 		var articleIDs []ctype.ID
 		if err := s.DB.Model(&models.ArticleModel{}).
 			Select("id").
-			Where("status = ? AND title LIKE ?", enum.ArticleStatusPublished, "%"+query.PageInfo.Key+"%").
+			Where("publish_status = ? AND title LIKE ?", enum.ArticleStatusPublished, "%"+query.PageInfo.Key+"%").
 			Pluck("id", &articleIDs).Error; err != nil {
 			return nil, false, err
 		}
@@ -219,7 +219,7 @@ func (s *QueryService) ListFavoriteArticles(query FavoriteArticlesQuery, orderMa
 	list := make([]FavoriteArticleItem, 0, len(rows))
 	for _, row := range rows {
 		articleBase := articleBaseMap[row.ArticleID]
-		if articleBase.Status != enum.ArticleStatusPublished {
+		if articleBase.PublishStatus != enum.ArticleStatusPublished {
 			continue
 		}
 
@@ -259,7 +259,7 @@ func (s *QueryService) ListFavoriteArticles(query FavoriteArticlesQuery, orderMa
 			FavorCount:    articleBase.FavorCount + counters.FavorMap[row.ArticleID],
 			UserNickname:  authorNickname,
 			UserAvatar:    authorAvatar,
-			ArticleStatus: articleBase.Status,
+			ArticleStatus: articleBase.PublishStatus,
 		})
 	}
 	return list, hasMore, nil

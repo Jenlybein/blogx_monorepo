@@ -91,10 +91,10 @@ func TestProfileHandlers(t *testing.T) {
 		t.Fatalf("创建用户关系失败: %v", err)
 	}
 	if err := db.Create(&models.ArticleModel{
-		Title:    "a1",
-		Content:  "content",
-		AuthorID: user.ID,
-		Status:   enum.ArticleStatusPublished,
+		Title:         "a1",
+		Content:       "content",
+		AuthorID:      user.ID,
+		PublishStatus: enum.ArticleStatusPublished,
 	}).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)
 	}

@@ -97,11 +97,16 @@ func parseArticleRowSnapshot(layout articleRowLayout, row []any) (es_service.Art
 	if snapshot.CommentsToggle, err = scanArticleBool(layout, row, "comments_toggle"); err != nil {
 		return snapshot, err
 	}
-	status, err := scanArticleInt(layout, row, "status")
+	publishStatus, err := scanArticleInt(layout, row, "publish_status")
 	if err != nil {
 		return snapshot, err
 	}
-	snapshot.Status = enum.ArticleStatus(status)
+	snapshot.PublishStatus = enum.ArticleStatus(publishStatus)
+	visibilityStatus, err := scanArticleString(layout, row, "visibility_status")
+	if err != nil {
+		return snapshot, err
+	}
+	snapshot.VisibilityStatus = enum.ArticleVisibilityStatus(visibilityStatus)
 	return snapshot, nil
 }
 

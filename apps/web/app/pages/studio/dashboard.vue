@@ -10,7 +10,7 @@ definePageMeta({
   middleware: "auth",
 });
 
-const ARTICLE_STATUS_LIST = [1, 2, 3] as const;
+const ARTICLE_PUBLISH_STATUS_LIST = [1, 2, 3] as const;
 
 const emptySummary = {
   comment_msg_count: 0,
@@ -24,7 +24,7 @@ function getSearchTotal(payload: Awaited<ReturnType<typeof searchArticles>>) {
   return Math.max(payload.pagination.total ?? payload.list.length, 0);
 }
 
-async function getOwnArticleCountByStatus(status?: number) {
+async function getOwnArticleCountByPublishStatus(status?: number) {
   const payload = await searchArticles({
     type: 4,
     status,
@@ -72,9 +72,9 @@ const { data } = await useAsyncData("studio-dashboard", async () => {
     loadCurrentUserBase(sourceErrors),
     loadDashboardPart("消息摘要", getMessageSummary(), emptySummary, sourceErrors),
     Promise.all(
-      ARTICLE_STATUS_LIST.map(async (status) => [
+      ARTICLE_PUBLISH_STATUS_LIST.map(async (status) => [
         status,
-        await loadDashboardPart(`文章状态 ${status}`, getOwnArticleCountByStatus(status), 0, sourceErrors),
+        await loadDashboardPart(`文章发布态 ${status}`, getOwnArticleCountByPublishStatus(status), 0, sourceErrors),
       ] as const),
     ),
     loadDashboardPart("收藏夹", getOwnFavoriteFolders(), { count: 0, list: [] }, sourceErrors),

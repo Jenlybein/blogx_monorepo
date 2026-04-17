@@ -31,7 +31,6 @@ func createArticleReviewTaskForStatus(t *testing.T, userID ctype.ID, status mode
 		Title:         "review-" + string(status),
 		Content:       "content",
 		AuthorID:      userID,
-		Status:        enum.ArticleStatusExamining,
 		PublishStatus: enum.ArticleStatusExamining,
 	}
 	if err := testutil.DB().Create(&article).Error; err != nil {

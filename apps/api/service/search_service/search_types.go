@@ -63,31 +63,32 @@ type SearchHighlight struct {
 }
 
 type SearchListResponse struct {
-	ID             ctype.ID               `json:"id"`
-	CreatedAt      time.Time              `json:"created_at"`
-	UpdatedAt      time.Time              `json:"updated_at"`
-	Title          string                 `json:"title"`
-	Abstract       string                 `json:"abstract,omitempty"`
-	Cover          string                 `json:"cover"`
-	ViewCount      int                    `json:"view_count"`
-	DiggCount      int                    `json:"digg_count"`
-	CommentCount   int                    `json:"comment_count"`
-	FavorCount     int                    `json:"favor_count"`
-	CommentsToggle bool                   `json:"comments_toggle"`
-	Status         enum.ArticleStatus     `json:"status"`
-	Tags           []SearchTag            `json:"tags"`
-	Category       *SearchCategory        `json:"category,omitempty"`
-	Author         SearchAuthor           `json:"author"`
-	Top            *SearchTop             `json:"top,omitempty"`
-	Highlight      *SearchHighlight       `json:"highlight,omitempty"`
-	Score          float64                `json:"score,omitempty"`
-	Content        string                 `json:"-"`
-	Part           []markdown.ContentPart `json:"-"`
-	UserTop        bool                   `json:"-"`
-	AdminTop       bool                   `json:"-"`
-	CategoryTitle  string                 `json:"-"`
-	UserNickname   string                 `json:"-"`
-	UserAvatar     string                 `json:"-"`
+	ID               ctype.ID                     `json:"id"`
+	CreatedAt        time.Time                    `json:"created_at"`
+	UpdatedAt        time.Time                    `json:"updated_at"`
+	Title            string                       `json:"title"`
+	Abstract         string                       `json:"abstract,omitempty"`
+	Cover            string                       `json:"cover"`
+	ViewCount        int                          `json:"view_count"`
+	DiggCount        int                          `json:"digg_count"`
+	CommentCount     int                          `json:"comment_count"`
+	FavorCount       int                          `json:"favor_count"`
+	CommentsToggle   bool                         `json:"comments_toggle"`
+	PublishStatus    enum.ArticleStatus           `json:"publish_status"`
+	VisibilityStatus enum.ArticleVisibilityStatus `json:"visibility_status"`
+	Tags             []SearchTag                  `json:"tags"`
+	Category         *SearchCategory              `json:"category,omitempty"`
+	Author           SearchAuthor                 `json:"author"`
+	Top              *SearchTop                   `json:"top,omitempty"`
+	Highlight        *SearchHighlight             `json:"highlight,omitempty"`
+	Score            float64                      `json:"score,omitempty"`
+	Content          string                       `json:"-"`
+	Part             []markdown.ContentPart       `json:"-"`
+	UserTop          bool                         `json:"-"`
+	AdminTop         bool                         `json:"-"`
+	CategoryTitle    string                       `json:"-"`
+	UserNickname     string                       `json:"-"`
+	UserAvatar       string                       `json:"-"`
 }
 
 type SearchPagination struct {

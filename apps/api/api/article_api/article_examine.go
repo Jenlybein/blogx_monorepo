@@ -24,9 +24,7 @@ func (h ArticleApi) ArticleExamineView(c *gin.Context) {
 		return
 	}
 
-	if err := app.DB.Model(&article).Updates(models.ArticleModel{
-		Status: cr.Status,
-	}).Error; err != nil {
+	if err := app.DB.Model(&article).Update("publish_status", cr.Status).Error; err != nil {
 		res.FailWithMsg("文章审核失败", c)
 		return
 	}

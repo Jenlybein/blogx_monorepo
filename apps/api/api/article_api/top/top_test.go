@@ -59,10 +59,10 @@ func setupTopEnv(t *testing.T) (models.UserModel, models.UserModel) {
 func createTopArticle(t *testing.T, authorID ctype.ID, title string, status enum.ArticleStatus) models.ArticleModel {
 	t.Helper()
 	article := models.ArticleModel{
-		Title:    title,
-		Content:  "content",
-		AuthorID: authorID,
-		Status:   status,
+		Title:         title,
+		Content:       "content",
+		AuthorID:      authorID,
+		PublishStatus: status,
 	}
 	if err := testutil.DB().Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)

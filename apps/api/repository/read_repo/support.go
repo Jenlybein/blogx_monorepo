@@ -33,7 +33,7 @@ type ArticleBase struct {
 	CommentCount   int
 	FavorCount     int
 	CommentsToggle bool
-	Status         enum.ArticleStatus
+	PublishStatus  enum.ArticleStatus
 }
 
 func NormalizeIDs(ids []ctype.ID) []ctype.ID {
@@ -105,7 +105,7 @@ func LoadArticleBaseMap(db *gorm.DB, articleIDs []ctype.ID) (map[ctype.ID]Articl
 		"comment_count",
 		"favor_count",
 		"comments_toggle",
-		"status",
+		"publish_status",
 	).Where("id IN ?", articleIDs).Find(&rows).Error; err != nil {
 		return result, err
 	}
@@ -125,7 +125,7 @@ func LoadArticleBaseMap(db *gorm.DB, articleIDs []ctype.ID) (map[ctype.ID]Articl
 			CommentCount:   row.CommentCount,
 			FavorCount:     row.FavorCount,
 			CommentsToggle: row.CommentsToggle,
-			Status:         row.Status,
+			PublishStatus:  row.PublishStatus,
 		}
 	}
 	return result, nil

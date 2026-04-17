@@ -57,26 +57,26 @@ func TestAIArticleSearchView(t *testing.T) {
 	}
 
 	article1 := models.ArticleModel{
-		Model:      models.Model{ID: 1},
-		Title:      "Gin 中间件实践",
-		Abstract:   "讲 Gin 中间件",
-		Content:    "Gin 中间件正文",
-		CategoryID: &category.ID,
-		AuthorID:   user.ID,
-		Status:     enum.ArticleStatusPublished,
+		Model:         models.Model{ID: 1},
+		Title:         "Gin 中间件实践",
+		Abstract:      "讲 Gin 中间件",
+		Content:       "Gin 中间件正文",
+		CategoryID:    &category.ID,
+		AuthorID:      user.ID,
+		PublishStatus: enum.ArticleStatusPublished,
 	}
 	if err := db.Create(&article1).Error; err != nil {
 		t.Fatalf("创建文章1失败: %v", err)
 	}
 
 	article2 := models.ArticleModel{
-		Model:      models.Model{ID: 2},
-		Title:      "Go Web 基础",
-		Abstract:   "讲 Go Web",
-		Content:    "Go Web 正文",
-		CategoryID: &category.ID,
-		AuthorID:   user.ID,
-		Status:     enum.ArticleStatusPublished,
+		Model:         models.Model{ID: 2},
+		Title:         "Go Web 基础",
+		Abstract:      "讲 Go Web",
+		Content:       "Go Web 正文",
+		CategoryID:    &category.ID,
+		AuthorID:      user.ID,
+		PublishStatus: enum.ArticleStatusPublished,
 	}
 	if err := db.Create(&article2).Error; err != nil {
 		t.Fatalf("创建文章2失败: %v", err)
@@ -342,13 +342,13 @@ func TestAIArticleSearchLLMViewForSearchIntent(t *testing.T) {
 	}
 
 	article := models.ArticleModel{
-		Model:      models.Model{ID: 9},
-		Title:      "Gin 中间件实践",
-		Abstract:   "讲 Gin 中间件",
-		Content:    "Gin 中间件正文",
-		CategoryID: &category.ID,
-		AuthorID:   user.ID,
-		Status:     enum.ArticleStatusPublished,
+		Model:         models.Model{ID: 9},
+		Title:         "Gin 中间件实践",
+		Abstract:      "讲 Gin 中间件",
+		Content:       "Gin 中间件正文",
+		CategoryID:    &category.ID,
+		AuthorID:      user.ID,
+		PublishStatus: enum.ArticleStatusPublished,
 	}
 	if err := db.Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)

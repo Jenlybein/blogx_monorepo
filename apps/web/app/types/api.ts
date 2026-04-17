@@ -177,9 +177,8 @@ export interface SearchArticleItem {
   comment_count: number;
   favor_count: number;
   comments_toggle: boolean;
-  status: number;
-  publish_status?: number;
-  visibility_status?: "visible" | "user_hidden" | "admin_hidden";
+  publish_status: number;
+  visibility_status: "visible" | "user_hidden" | "admin_hidden";
   tags: SearchTag[];
   category?: SearchCategory;
   author: SearchAuthor;

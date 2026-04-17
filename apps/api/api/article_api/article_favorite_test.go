@@ -123,10 +123,10 @@ func TestFavoriteCreateUpdateListDelete(t *testing.T) {
 	}
 
 	article := models.ArticleModel{
-		Title:    "fav-delete-article",
-		Content:  "content",
-		AuthorID: user.ID,
-		Status:   enum.ArticleStatusPublished,
+		Title:         "fav-delete-article",
+		Content:       "content",
+		AuthorID:      user.ID,
+		PublishStatus: enum.ArticleStatusPublished,
 	}
 	if err := db.Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)

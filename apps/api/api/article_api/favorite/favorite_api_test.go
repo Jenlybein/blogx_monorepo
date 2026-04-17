@@ -173,10 +173,10 @@ func TestFavoriteCRUD(t *testing.T) {
 	}
 
 	article := models.ArticleModel{
-		Title:    "favorite-delete-article",
-		Content:  "content",
-		AuthorID: user.ID,
-		Status:   enum.ArticleStatusPublished,
+		Title:         "favorite-delete-article",
+		Content:       "content",
+		AuthorID:      user.ID,
+		PublishStatus: enum.ArticleStatusPublished,
 	}
 	if err := testutil.DB().Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)
@@ -253,18 +253,18 @@ func TestFavoriteArticlesView(t *testing.T) {
 	}
 
 	article1 := models.ArticleModel{
-		Title:    "Go 文章",
-		Abstract: "go",
-		Content:  "content",
-		AuthorID: owner.ID,
-		Status:   enum.ArticleStatusPublished,
+		Title:         "Go 文章",
+		Abstract:      "go",
+		Content:       "content",
+		AuthorID:      owner.ID,
+		PublishStatus: enum.ArticleStatusPublished,
 	}
 	article2 := models.ArticleModel{
-		Title:    "Redis 实战",
-		Abstract: "redis",
-		Content:  "content",
-		AuthorID: owner.ID,
-		Status:   enum.ArticleStatusPublished,
+		Title:         "Redis 实战",
+		Abstract:      "redis",
+		Content:       "content",
+		AuthorID:      owner.ID,
+		PublishStatus: enum.ArticleStatusPublished,
 	}
 	if err := db.Create(&article1).Error; err != nil {
 		t.Fatalf("创建文章1失败: %v", err)
@@ -447,9 +447,9 @@ func TestFavoriteRemovePatchView(t *testing.T) {
 	}
 
 	articles := []models.ArticleModel{
-		{Title: "a1", Content: "content", AuthorID: user.ID, Status: enum.ArticleStatusPublished},
-		{Title: "a2", Content: "content", AuthorID: user.ID, Status: enum.ArticleStatusPublished},
-		{Title: "a3", Content: "content", AuthorID: user.ID, Status: enum.ArticleStatusPublished},
+		{Title: "a1", Content: "content", AuthorID: user.ID, PublishStatus: enum.ArticleStatusPublished},
+		{Title: "a2", Content: "content", AuthorID: user.ID, PublishStatus: enum.ArticleStatusPublished},
+		{Title: "a3", Content: "content", AuthorID: user.ID, PublishStatus: enum.ArticleStatusPublished},
 	}
 	if err := db.Create(&articles).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)

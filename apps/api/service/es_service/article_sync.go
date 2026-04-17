@@ -62,22 +62,21 @@ type ArticleModelDelta struct {
 // ArticleRowSnapshot 是文章 ES 投影所需的“文章主体快照”。
 // insert 场景直接来自 binlog after row；补偿重建场景则从 article_models 按需读取。
 type ArticleRowSnapshot struct {
-	ID             ctype.ID
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	Title          string
-	Abstract       string
-	Content        string
-	CategoryID     *ctype.ID
-	Cover          string
-	AuthorID       ctype.ID
-	ViewCount      int
-	DiggCount      int
-	CommentCount   int
-	FavorCount     int
-	CommentsToggle bool
-	Status         enum.ArticleStatus
-	PublishStatus  enum.ArticleStatus
+	ID               ctype.ID
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	Title            string
+	Abstract         string
+	Content          string
+	CategoryID       *ctype.ID
+	Cover            string
+	AuthorID         ctype.ID
+	ViewCount        int
+	DiggCount        int
+	CommentCount     int
+	FavorCount       int
+	CommentsToggle   bool
+	PublishStatus    enum.ArticleStatus
 	VisibilityStatus enum.ArticleVisibilityStatus
 }
 
@@ -231,10 +230,6 @@ func UpdateESDocsByArticleDeltas(db *gorm.DB, client *elasticsearch.Client, delt
 				if value, ok := scanBoolValue(raw); ok {
 					data["comments_toggle"] = value
 				}
-			case "status":
-				if value, ok := scanIntValue(raw); ok {
-					data["status"] = enum.ArticleStatus(value)
-				}
 			case "publish_status":
 				if value, ok := scanIntValue(raw); ok {
 					data["publish_status"] = enum.ArticleStatus(value)
@@ -280,23 +275,22 @@ func BuildArticleESDocument(article models.ArticleModel, adminTop, authorTop boo
 	}
 
 	snapshot := ArticleRowSnapshot{
-		ID:             article.ID,
-		CreatedAt:      article.CreatedAt,
-		UpdatedAt:      article.UpdatedAt,
-		Title:          article.Title,
-		Abstract:       article.Abstract,
-		Content:        article.Content,
-		CategoryID:     article.CategoryID,
-		Cover:          article.Cover,
-		AuthorID:       article.AuthorID,
-		ViewCount:      article.ViewCount,
-		DiggCount:      article.DiggCount,
-		CommentCount:   article.CommentCount,
-		FavorCount:     article.FavorCount,
-		CommentsToggle: article.CommentsToggle,
-		Status:         article.Status,
-		PublishStatus:  article.EffectivePublishStatus(),
-		VisibilityStatus: article.EffectiveVisibilityStatus(),
+		ID:               article.ID,
+		CreatedAt:        article.CreatedAt,
+		UpdatedAt:        article.UpdatedAt,
+		Title:            article.Title,
+		Abstract:         article.Abstract,
+		Content:          article.Content,
+		CategoryID:       article.CategoryID,
+		Cover:            article.Cover,
+		AuthorID:         article.AuthorID,
+		ViewCount:        article.ViewCount,
+		DiggCount:        article.DiggCount,
+		CommentCount:     article.CommentCount,
+		FavorCount:       article.FavorCount,
+		CommentsToggle:   article.CommentsToggle,
+		PublishStatus:    article.PublishStatus,
+		VisibilityStatus: article.VisibilityStatus,
 	}
 
 	deps := articleProjectionDeps{
@@ -355,15 +349,14 @@ func buildArticleESDocumentFromSnapshot(snapshot ArticleRowSnapshot, deps articl
 			"nickname": author.Nickname,
 			"avatar":   author.Avatar,
 		},
-		"view_count":      snapshot.ViewCount,
-		"digg_count":      snapshot.DiggCount,
-		"comment_count":   snapshot.CommentCount,
-		"favor_count":     snapshot.FavorCount,
-		"status":          snapshot.Status,
-		"publish_status":  snapshot.PublishStatus,
+		"view_count":        snapshot.ViewCount,
+		"digg_count":        snapshot.DiggCount,
+		"comment_count":     snapshot.CommentCount,
+		"favor_count":       snapshot.FavorCount,
+		"publish_status":    snapshot.PublishStatus,
 		"visibility_status": snapshot.VisibilityStatus,
-		"comments_toggle": snapshot.CommentsToggle,
-		"tags":            tags,
+		"comments_toggle":   snapshot.CommentsToggle,
+		"tags":              tags,
 		"top": map[string]any{
 			"user":  top.AuthorTop,
 			"admin": top.AdminTop,
@@ -575,10 +568,9 @@ func UpdateESDocsContent(db *gorm.DB, client *elasticsearch.Client, articleIDs [
 						return article.UserModel.Avatar
 					}(),
 				},
-				"status":          article.Status,
-				"publish_status":  article.EffectivePublishStatus(),
-				"visibility_status": article.EffectiveVisibilityStatus(),
-				"comments_toggle": article.CommentsToggle,
+				"publish_status":    article.PublishStatus,
+				"visibility_status": article.VisibilityStatus,
+				"comments_toggle":   article.CommentsToggle,
 			},
 		})
 	}
@@ -1186,7 +1178,6 @@ func loadArticleSnapshotsByIDs(db *gorm.DB, articleIDs []ctype.ID) ([]ArticleRow
 		"digg_count",
 		"comment_count",
 		"favor_count",
-		"status",
 		"publish_status",
 		"visibility_status",
 		"comments_toggle",
@@ -1324,7 +1315,6 @@ func loadArticlesForESContentUpdate(db *gorm.DB, articleIDs []ctype.ID) ([]model
 		"category_id",
 		"cover",
 		"author_id",
-		"status",
 		"publish_status",
 		"visibility_status",
 		"comments_toggle",

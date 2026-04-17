@@ -237,7 +237,12 @@
   }
 
   .home-sidebar {
-    @apply self-start lg:sticky lg:top-2;
+    @apply self-start;
+  }
+
+  .page-sidebar--sticky {
+    @apply self-start lg:sticky;
+    top: var(--page-sidebar-sticky-top, 0.5rem);
   }
 
   .article-author-row {

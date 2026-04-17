@@ -237,11 +237,11 @@ func TestUpdateESDocsContent(t *testing.T) {
 		t.Fatalf("创建用户失败: %v", err)
 	}
 	article := models.ArticleModel{
-		Title:    "t1",
-		Abstract: "摘要",
-		Content:  "# 新标题\n新正文\n[错误链接](### 新标题)",
-		AuthorID: user.ID,
-		Status:   enum.ArticleStatusExamining,
+		Title:         "t1",
+		Abstract:      "摘要",
+		Content:       "# 新标题\n新正文\n[错误链接](### 新标题)",
+		AuthorID:      user.ID,
+		PublishStatus: enum.ArticleStatusExamining,
 	}
 	if err := db.Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)
@@ -333,7 +333,7 @@ func TestUpdateESDocsTags(t *testing.T) {
 	if err := db.Create(&tagES).Error; err != nil {
 		t.Fatalf("创建标签失败: %v", err)
 	}
-	article := models.ArticleModel{Title: "t1", Content: "正文", AuthorID: user.ID, Status: enum.ArticleStatusExamining}
+	article := models.ArticleModel{Title: "t1", Content: "正文", AuthorID: user.ID, PublishStatus: enum.ArticleStatusExamining}
 	if err := db.Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)
 	}
@@ -406,7 +406,7 @@ func TestUpdateESDocsTop(t *testing.T) {
 	if err := db.Create(&author).Error; err != nil {
 		t.Fatalf("创建作者失败: %v", err)
 	}
-	article := models.ArticleModel{Title: "t1", Content: "正文", AuthorID: author.ID, Status: enum.ArticleStatusExamining}
+	article := models.ArticleModel{Title: "t1", Content: "正文", AuthorID: author.ID, PublishStatus: enum.ArticleStatusExamining}
 	if err := db.Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)
 	}
@@ -538,21 +538,22 @@ func TestSyncESDocsByArticleSnapshots(t *testing.T) {
 	})
 
 	snapshots := []ArticleRowSnapshot{{
-		ID:             articleID,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
-		Title:          "新文章",
-		Abstract:       "摘要",
-		Content:        "# 标题\n正文",
-		CategoryID:     &category.ID,
-		Cover:          "/cover.png",
-		AuthorID:       author.ID,
-		ViewCount:      1,
-		DiggCount:      2,
-		CommentCount:   3,
-		FavorCount:     4,
-		CommentsToggle: true,
-		Status:         enum.ArticleStatusPublished,
+		ID:               articleID,
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
+		Title:            "新文章",
+		Abstract:         "摘要",
+		Content:          "# 标题\n正文",
+		CategoryID:       &category.ID,
+		Cover:            "/cover.png",
+		AuthorID:         author.ID,
+		ViewCount:        1,
+		DiggCount:        2,
+		CommentCount:     3,
+		FavorCount:       4,
+		CommentsToggle:   true,
+		PublishStatus:    enum.ArticleStatusPublished,
+		VisibilityStatus: enum.ArticleVisibilityVisible,
 	}}
 	if err := SyncESDocsByArticleSnapshots(db, testutil.ESClient(), snapshots); err != nil {
 		t.Fatalf("SyncESDocsByArticleSnapshots 失败: %v", err)
@@ -603,11 +604,12 @@ func TestUpdateESDocsByArticleDeltasRebuildsMissingDocs(t *testing.T) {
 		t.Fatalf("创建用户失败: %v", err)
 	}
 	article := models.ArticleModel{
-		Title:    "旧标题",
-		Abstract: "旧摘要",
-		Content:  "旧内容",
-		AuthorID: user.ID,
-		Status:   enum.ArticleStatusPublished,
+		Title:            "旧标题",
+		Abstract:         "旧摘要",
+		Content:          "旧内容",
+		AuthorID:         user.ID,
+		PublishStatus:    enum.ArticleStatusPublished,
+		VisibilityStatus: enum.ArticleVisibilityVisible,
 	}
 	if err := db.Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)

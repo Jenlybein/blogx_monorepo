@@ -54,7 +54,7 @@ func (h ArticleApi) ArticleUpdateView(c *gin.Context) {
 			"abstract":        cr.Abstract,
 			"cover_image_id":  cr.CoverImageID,
 			"category_id":     cr.CategoryID,
-			"status":          result.UpdateMap["status"],
+			"publish_status":  result.UpdateMap["publish_status"],
 			"comments_toggle": cr.CommentsToggle,
 			"tag_ids":         cr.TagIDs,
 			"content_length": func() int {

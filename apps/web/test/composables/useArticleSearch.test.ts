@@ -43,7 +43,26 @@ describe("useArticleSearch", () => {
   it("returns article search data when the request succeeds", async () => {
     installUseAsyncDataStub();
     searchArticlesMock.mockResolvedValue({
-      list: [{ id: "a1", title: "文章" }],
+      list: [{
+        id: "a1",
+        created_at: "2026-04-17T00:00:00Z",
+        updated_at: "2026-04-17T00:00:00Z",
+        title: "文章",
+        cover: "",
+        view_count: 0,
+        digg_count: 0,
+        comment_count: 0,
+        favor_count: 0,
+        comments_toggle: true,
+        publish_status: 3,
+        visibility_status: "visible",
+        tags: [],
+        author: {
+          id: "u1",
+          nickname: "作者",
+          avatar: "",
+        },
+      }],
       pagination: {
         mode: "count",
         page: 1,

@@ -92,7 +92,6 @@ func (h *articleWriteService) CreateArticle(claims *jwts.MyClaims, cr ArticleCre
 		CategoryID:       cr.CategoryID,
 		Cover:            coverURL,
 		CommentsToggle:   cr.CommentsToggle,
-		Status:           publishStatus,
 		PublishStatus:    publishStatus,
 		VisibilityStatus: visibilityStatus,
 		SubmittedAt:      submittedAt,
@@ -211,14 +210,12 @@ func (h *articleWriteService) UpdateArticle(articleID ctype.ID, claims *jwts.MyC
 	switch {
 	case draftRequested:
 		nextPublishStatus = enum.ArticleStatusDraft
-		updateMap["status"] = nextPublishStatus
 		updateMap["publish_status"] = nextPublishStatus
 		updateMap["submitted_at"] = nil
 		updateMap["reviewed_at"] = nil
 		updateMap["reviewed_by"] = nil
 	case submitRequested:
 		nextPublishStatus = resolvePublishStatus(enum.ArticleStatusExamining, h.RuntimeSite.GetRuntimeArticle().SkipExamining)
-		updateMap["status"] = nextPublishStatus
 		updateMap["publish_status"] = nextPublishStatus
 		now := time.Now()
 		updateMap["submitted_at"] = &now
@@ -226,7 +223,6 @@ func (h *articleWriteService) UpdateArticle(articleID ctype.ID, claims *jwts.MyC
 		updateMap["reviewed_by"] = nil
 	case shouldReSubmitAfterEdit:
 		nextPublishStatus = enum.ArticleStatusExamining
-		updateMap["status"] = nextPublishStatus
 		updateMap["publish_status"] = nextPublishStatus
 		now := time.Now()
 		updateMap["submitted_at"] = &now

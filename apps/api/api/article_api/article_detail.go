@@ -35,7 +35,6 @@ func (h ArticleApi) ArticleDetailView(c *gin.Context) {
 		"CommentCount",
 		"FavorCount",
 		"CommentsToggle",
-		"Status",
 		"PublishStatus",
 		"VisibilityStatus",
 	).Preload("UserModel").
@@ -111,8 +110,8 @@ func (h ArticleApi) ArticleDetailView(c *gin.Context) {
 		CommentCount:     article.CommentCount,
 		FavorCount:       article.FavorCount,
 		CommentsToggle:   article.CommentsToggle,
-		Status:           article.Status,
-		PublishStatus:    article.EffectivePublishStatus(),
+		Status:           article.PublishStatus,
+		PublishStatus:    article.PublishStatus,
 		VisibilityStatus: article.EffectiveVisibilityStatus(),
 		AuthorID:         article.AuthorID,
 		AuthorAvatar:     article.UserModel.Avatar,

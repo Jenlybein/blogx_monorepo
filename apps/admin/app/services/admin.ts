@@ -71,6 +71,7 @@ export function updateAdminUser(payload: {
   })
 }
 
+// `status` is kept as the backend query name, but it filters publish_status.
 export function searchAdminArticles(query: { page?: number; limit?: number; key?: string; status?: number }) {
   return api().request<ArticleSearchResponseData>('/search/articles', {
     query: {

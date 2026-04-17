@@ -19,7 +19,7 @@ func (h ArticleApi) ArticleDiggView(c *gin.Context) {
 	id := middleware.GetBindUri[models.IDRequest](c)
 
 	var article models.ArticleModel
-	if err := app.DB.Select("id", "author_id", "title", "status", "publish_status", "visibility_status").
+	if err := app.DB.Select("id", "author_id", "title", "publish_status", "visibility_status").
 		Take(&article, "id = ?", id.ID).Error; err != nil {
 		res.FailWithMsg("文章不存在", c)
 		return

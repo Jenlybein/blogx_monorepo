@@ -334,7 +334,7 @@ func TestArticleUpdateViewOnlyUpdatesProvidedFields(t *testing.T) {
 		Cover:          "old-cover",
 		AuthorID:       user.ID,
 		CommentsToggle: true,
-		Status:         enum.ArticleStatusExamining,
+		PublishStatus:  enum.ArticleStatusExamining,
 	}
 	if err := db.Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)
@@ -421,11 +421,11 @@ func TestArticleUpdateViewCategoryIDZeroClearsCategory(t *testing.T) {
 	}
 
 	article := models.ArticleModel{
-		Title:      "old title",
-		Content:    "old content",
-		CategoryID: &cat.ID,
-		AuthorID:   user.ID,
-		Status:     enum.ArticleStatusExamining,
+		Title:         "old title",
+		Content:       "old content",
+		CategoryID:    &cat.ID,
+		AuthorID:      user.ID,
+		PublishStatus: enum.ArticleStatusExamining,
 	}
 	if err := db.Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)
@@ -472,12 +472,13 @@ func TestArticleDiggFavoriteVisitDetailRemoveUser(t *testing.T) {
 	}
 
 	article := models.ArticleModel{
-		Title:      "a1",
-		Content:    "content",
-		CategoryID: &category.ID,
-		Cover:      "https://image.gentlybeing.cn/cover-a1.png",
-		AuthorID:   user.ID,
-		Status:     enum.ArticleStatusPublished,
+		Title:            "a1",
+		Content:          "content",
+		CategoryID:       &category.ID,
+		Cover:            "https://image.gentlybeing.cn/cover-a1.png",
+		AuthorID:         user.ID,
+		PublishStatus:    enum.ArticleStatusPublished,
+		VisibilityStatus: enum.ArticleVisibilityVisible,
 	}
 	if err := db.Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)
@@ -686,7 +687,6 @@ func TestArticleAdminVisibilityView(t *testing.T) {
 		Title:            "visible article",
 		Content:          "content",
 		AuthorID:         user.ID,
-		Status:           enum.ArticleStatusPublished,
 		PublishStatus:    enum.ArticleStatusPublished,
 		VisibilityStatus: enum.ArticleVisibilityVisible,
 	}

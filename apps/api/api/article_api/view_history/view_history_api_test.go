@@ -78,10 +78,10 @@ func TestViewHistoryListAndDelete(t *testing.T) {
 	claims := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: enum.RoleUser, Username: user.Username}}
 
 	article := models.ArticleModel{
-		Title:    "history article",
-		Content:  "content",
-		AuthorID: user.ID,
-		Status:   enum.ArticleStatusPublished,
+		Title:         "history article",
+		Content:       "content",
+		AuthorID:      user.ID,
+		PublishStatus: enum.ArticleStatusPublished,
 	}
 	if err := testutil.DB().Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)

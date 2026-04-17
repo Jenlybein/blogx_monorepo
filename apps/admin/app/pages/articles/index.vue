@@ -49,7 +49,7 @@ const columns = [
     title: '发布态',
     key: 'publish_status',
     width: 110,
-    render: (row: SearchArticleItem) => h(NTag, { size: 'small' }, { default: () => publishLabel(row.publish_status ?? row.status) }),
+    render: (row: SearchArticleItem) => h(NTag, { size: 'small' }, { default: () => publishLabel(row.publish_status) }),
   },
   {
     title: '可见性',

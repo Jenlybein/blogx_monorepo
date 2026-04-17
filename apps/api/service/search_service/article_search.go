@@ -87,9 +87,6 @@ func normalizeArticleSearchRequest(cr ArticleSearchRequest, claims *jwts.MyClaim
 			return cr, errors.New("未登录")
 		}
 		cr.AuthorID = claims.UserID
-		if cr.Status == enum.ArticleStatusDeleted {
-			return cr, errors.New("不能搜索已删除的文章")
-		}
 	case 5:
 		if claims == nil || !claims.IsAdmin() {
 			return cr, errors.New("权限错误")
@@ -155,14 +152,14 @@ func buildPublishedStatusQuery(query map[string]any, status enum.ArticleStatus) 
 			filtered = append(filtered, item)
 			continue
 		}
-		if _, hasStatus := termBody["status"]; hasStatus {
+		if _, hasPublishStatus := termBody["publish_status"]; hasPublishStatus {
 			continue
 		}
 		filtered = append(filtered, item)
 	}
 	filtered = append(filtered, map[string]any{
 		"term": map[string]any{
-			"status": status,
+			"publish_status": status,
 		},
 	})
 	boolQuery["filter"] = filtered

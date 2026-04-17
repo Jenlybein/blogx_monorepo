@@ -244,3 +244,7 @@ func sourceTagItemsValue(sourceMap map[string]any, key string) []SearchTag {
 func sourceArticleStatusValue(sourceMap map[string]any, key string) enum.ArticleStatus {
 	return enum.ArticleStatus(sourceIntValue(sourceMap, key))
 }
+
+func sourceArticleVisibilityStatusValue(sourceMap map[string]any, key string) enum.ArticleVisibilityStatus {
+	return enum.ArticleVisibilityStatus(sourceStringValue(sourceMap, key))
+}

@@ -53,7 +53,6 @@ func createPublishedByPublishStatusOnlyArticle(t *testing.T, createdAt time.Time
 		Title:         "publish-status-only",
 		Content:       "content",
 		AuthorID:      1,
-		Status:        enum.ArticleStatusExamining,
 		PublishStatus: enum.ArticleStatusPublished,
 	}
 	if err := testutil.DB().Create(&article).Error; err != nil {

@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const effectiveArticlePublishStatusExpr = "COALESCE(NULLIF(publish_status, 0), status)"
+const effectiveArticlePublishStatusExpr = "publish_status"
 
 func applyPublishedArticleWhere(query *gorm.DB) *gorm.DB {
 	return query.Where(effectiveArticlePublishStatusExpr+" = ?", enum.ArticleStatusPublished)

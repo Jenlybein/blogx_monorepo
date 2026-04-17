@@ -23,7 +23,7 @@ func (h ArticleApi) ArticleFavoriteSaveView(c *gin.Context) {
 	claims := jwts.MustGetClaimsByGin(c)
 
 	var article models.ArticleModel
-	if err := app.DB.Select("id", "author_id", "title", "abstract", "cover", "status", "publish_status", "visibility_status").
+	if err := app.DB.Select("id", "author_id", "title", "abstract", "cover", "publish_status", "visibility_status").
 		Take(&article, "id = ?", cr.ArticleID).Error; err != nil {
 		res.FailWithMsg("查询文章失败", c)
 		return

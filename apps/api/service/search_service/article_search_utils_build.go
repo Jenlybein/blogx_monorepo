@@ -30,59 +30,16 @@ func buildDefaultArticleSearchQuery(key string) map[string]any {
 
 func buildPublishedArticleFilter() map[string]any {
 	return map[string]any{
-		"bool": map[string]any{
-			"should": []any{
-				map[string]any{
-					"term": map[string]any{
-						"publish_status": enum.ArticleStatusPublished,
-					},
-				},
-				map[string]any{
-					"bool": map[string]any{
-						"must": []any{
-							map[string]any{
-								"term": map[string]any{
-									"status": enum.ArticleStatusPublished,
-								},
-							},
-						},
-						"must_not": []any{
-							map[string]any{
-								"exists": map[string]any{
-									"field": "publish_status",
-								},
-							},
-						},
-					},
-				},
-			},
-			"minimum_should_match": 1,
+		"term": map[string]any{
+			"publish_status": enum.ArticleStatusPublished,
 		},
 	}
 }
 
 func buildVisibleArticleFilter() map[string]any {
 	return map[string]any{
-		"bool": map[string]any{
-			"should": []any{
-				map[string]any{
-					"term": map[string]any{
-						"visibility_status": enum.ArticleVisibilityVisible,
-					},
-				},
-				map[string]any{
-					"bool": map[string]any{
-						"must_not": []any{
-							map[string]any{
-								"exists": map[string]any{
-									"field": "visibility_status",
-								},
-							},
-						},
-					},
-				},
-			},
-			"minimum_should_match": 1,
+		"term": map[string]any{
+			"visibility_status": enum.ArticleVisibilityVisible,
 		},
 	}
 }
@@ -104,17 +61,9 @@ func buildSelfArticleSearchQuery(key string, userID ctype.ID, status enum.Articl
 		filters, _ := boolQuery["filter"].([]any)
 		boolQuery["filter"] = append(filters, map[string]any{
 			"term": map[string]any{
-				"status": status,
+				"publish_status": status,
 			},
 		})
-	} else {
-		boolQuery["must_not"] = []any{
-			map[string]any{
-				"term": map[string]any{
-					"status": enum.ArticleStatusDeleted,
-				},
-			},
-		}
 	}
 
 	return buildArticleSearchQuery(key, boolQuery)
@@ -128,7 +77,7 @@ func buildAdminArticleSearchQuery(key string, status enum.ArticleStatus) map[str
 		boolQuery["filter"] = []any{
 			map[string]any{
 				"term": map[string]any{
-					"status": status,
+					"publish_status": status,
 				},
 			},
 		}
@@ -360,7 +309,6 @@ func buildArticleSearchExtraBody(sortField, key string) map[string]any {
 		"comment_count",
 		"favor_count",
 		"comments_toggle",
-		"status",
 		"publish_status",
 		"visibility_status",
 		"tags",

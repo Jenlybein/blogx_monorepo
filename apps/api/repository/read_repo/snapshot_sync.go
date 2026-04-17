@@ -103,7 +103,7 @@ func SyncArticleFavorSnapshots(db *gorm.DB, articleIDs []ctype.ID) error {
 				"article_title":           article.Title,
 				"article_abstract":        article.Abstract,
 				"article_cover":           article.Cover,
-				"article_status":          article.Status,
+				"article_status":          article.PublishStatus,
 				"article_author_id":       article.AuthorID,
 				"article_author_nickname": author.Nickname,
 				"article_author_avatar":   author.Avatar,

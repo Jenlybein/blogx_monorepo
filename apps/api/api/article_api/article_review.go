@@ -127,7 +127,6 @@ func (h ArticleApi) ArticleReviewTaskHandleView(c *gin.Context) {
 			return err
 		}
 		if err := tx.Model(&article).Updates(map[string]any{
-			"status":         cr.Status,
 			"publish_status": cr.Status,
 			"reviewed_at":    &now,
 			"reviewed_by":    &claims.UserID,

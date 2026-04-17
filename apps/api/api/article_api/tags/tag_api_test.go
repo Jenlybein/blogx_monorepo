@@ -212,10 +212,10 @@ func TestTagUpdateKeepsArticleTagRelation(t *testing.T) {
 	}
 
 	article := models.ArticleModel{
-		Title:    "article-with-tag",
-		Content:  "content",
-		AuthorID: admin.ID,
-		Status:   enum.ArticleStatusPublished,
+		Title:         "article-with-tag",
+		Content:       "content",
+		AuthorID:      admin.ID,
+		PublishStatus: enum.ArticleStatusPublished,
 	}
 	if err := testutil.DB().Create(&article).Error; err != nil {
 		t.Fatalf("创建文章失败: %v", err)

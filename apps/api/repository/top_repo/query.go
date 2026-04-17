@@ -104,7 +104,7 @@ func (s *QueryService) ListArticles(topType int, userID ctype.ID) ([]ArticleTopL
 	list := make([]ArticleTopListItem, 0, len(rows))
 	for _, row := range rows {
 		article, ok := articleBaseMap[row.ArticleID]
-		if !ok || article.Status != enum.ArticleStatusPublished {
+		if !ok || article.PublishStatus != enum.ArticleStatusPublished {
 			continue
 		}
 		if topType == 1 && article.AuthorID != userID {
@@ -124,7 +124,7 @@ func (s *QueryService) ListArticles(topType int, userID ctype.ID) ([]ArticleTopL
 			CommentCount:   article.CommentCount + counters.CommentMap[article.ID],
 			FavorCount:     article.FavorCount + counters.FavorMap[article.ID],
 			CommentsToggle: article.CommentsToggle,
-			Status:         article.Status,
+			Status:         article.PublishStatus,
 			Tags:           tagMap[article.ID],
 			UserTop:        topState.UserTop,
 			AdminTop:       topState.AdminTop,

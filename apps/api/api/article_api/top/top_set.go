@@ -23,7 +23,7 @@ func (h TopApi) ArticleTopSetView(c *gin.Context) {
 	logger := h.App.Logger
 
 	var article models.ArticleModel
-	if err := db.Select("id", "author_id", "status").Take(&article, "id = ?", cr.ArticleID).Error; err != nil {
+	if err := db.Select("id", "author_id", "publish_status").Take(&article, "id = ?", cr.ArticleID).Error; err != nil {
 		res.FailWithMsg("文章不存在", c)
 		return
 	}
@@ -34,7 +34,7 @@ func (h TopApi) ArticleTopSetView(c *gin.Context) {
 			res.FailWithMsg("只能置顶自己的文章", c)
 			return
 		}
-		if article.Status != enum.ArticleStatusPublished {
+		if article.PublishStatus != enum.ArticleStatusPublished {
 			res.FailWithMsg("文章未发布，无法置顶", c)
 			return
 		}

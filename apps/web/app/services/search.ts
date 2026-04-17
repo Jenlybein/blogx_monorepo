@@ -11,6 +11,7 @@ export interface SearchArticlesParams {
   author_id?: string;
   category_id?: string;
   tag_ids?: string;
+  /** Filters publish_status (1 draft, 2 pending, 3 published, 4 rejected). */
   status?: number;
   auth?: boolean;
 }

@@ -6060,7 +6060,7 @@
           {
             "name": "status",
             "in": "query",
-            "description": "文章状态数字。`type=1/2/3` 只允许传已发布状态；`type=4/5` 可传草稿/审核中/已发布/驳回等状态，其中 `type=4` 不允许查询已删除文章。",
+            "description": "文章发布审核态筛选，实际过滤 ES 字段 `publish_status`，不再回退读取旧 `status` 字段。`type=1/2/3` 只允许传已发布状态；`type=4/5` 可传草稿/审核中/已发布/驳回等发布态。",
             "required": false,
             "example": "3",
             "schema": {
@@ -13890,8 +13890,13 @@
           "comments_toggle": {
             "type": "boolean"
           },
-          "status": {
-            "type": "integer"
+          "publish_status": {
+            "type": "integer",
+            "description": "文章发布审核态。公共搜索与作者/管理员状态筛选均以该字段为准。"
+          },
+          "visibility_status": {
+            "type": "string",
+            "description": "文章可见状态。公共搜索仅返回 visible。"
           },
           "tags": {
             "type": "array",
@@ -13926,7 +13931,8 @@
           "comment_count",
           "favor_count",
           "comments_toggle",
-          "status",
+          "publish_status",
+          "visibility_status",
           "tags",
           "author"
         ]
