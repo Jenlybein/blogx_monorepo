@@ -537,9 +537,11 @@
     restart: unless-stopped
     depends_on:
       blogx_server:
-        condition: service_started
+        condition: service_healthy
+      blogx_web:
+        condition: service_healthy
       blogx_admin:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - ../../docker/nginx/nginx.${BLOGX_NGINX_ENV:-local}.conf:/etc/nginx/nginx.conf:ro
       - ../../state/nginx/logs:/var/log/nginx/

@@ -11576,14 +11576,19 @@
           },
           "system_msg_count": {
             "type": "integer",
-            "description": "系统通知消息的未读数量。"
+            "description": "站内系统消息的未读数量，不包含全局消息。"
+          },
+          "global_msg_count": {
+            "type": "integer",
+            "description": "全局消息的未读数量。"
           }
         },
         "required": [
           "comment_msg_count",
           "digg_favor_msg_count",
           "private_msg_count",
-          "system_msg_count"
+          "system_msg_count",
+          "global_msg_count"
         ]
       },
       "ArticleMessageItem": {

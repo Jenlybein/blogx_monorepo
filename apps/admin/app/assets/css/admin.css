@@ -220,6 +220,38 @@
     @apply block h-full w-full object-cover;
   }
 
+  .admin-article-cover__fallback {
+    @apply relative flex h-full w-full flex-col justify-end overflow-hidden p-2 text-white;
+    background:
+      radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.72), transparent 24%),
+      linear-gradient(135deg, #123f3c 0%, #2d746c 44%, #f4e9d6 100%);
+  }
+
+  .admin-article-cover__fallback::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.16;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.56) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.56) 1px, transparent 1px);
+    background-size: 16px 16px;
+  }
+
+  .admin-article-cover__fallback > * {
+    position: relative;
+  }
+
+  .admin-article-cover__badge {
+    @apply mb-1 w-fit rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em];
+    border-color: rgba(255, 255, 255, 0.36);
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  .admin-article-cover__fallback strong {
+    @apply text-xs leading-none tracking-[-0.03em];
+  }
+
   .admin-banner-form {
     @apply flex flex-col gap-4;
   }

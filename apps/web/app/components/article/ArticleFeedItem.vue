@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { IconEye, IconHeart, IconMessageCircle2, IconThumbUp } from "@tabler/icons-vue";
 import { NTag } from "naive-ui";
+import ArticleCover from "~/components/article/ArticleCover.vue";
 import AppAvatar from "~/components/common/AppAvatar.vue";
 import type { SearchArticleItem } from "~/types/api";
 import { formatCount, formatDateLabel } from "~/utils/format";
@@ -25,7 +26,7 @@ const abstractText = computed(() => props.article.highlight?.abstract || props.a
 <template>
   <article class="article-feed-item">
     <NuxtLink :to="`/article/${article.id}`" class="article-feed-cover">
-      <img :src="article.cover" :alt="article.title" />
+      <ArticleCover :src="article.cover" :title="article.title" />
     </NuxtLink>
 
     <div class="article-feed-body">

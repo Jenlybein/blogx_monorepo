@@ -54,6 +54,22 @@ describe("image service", () => {
     expect(first).toMatch(/^[A-Za-z0-9\-_]+$/);
   });
 
+  it("falls back when WebCrypto subtle digest is unavailable", async () => {
+    const originalCrypto = globalThis.crypto;
+    vi.stubGlobal("crypto", {});
+
+    try {
+      const file = new File(["avatar"], "avatar.png", { type: "image/png" });
+      const first = await computeQetag(file);
+      const second = await computeQetag(file);
+
+      expect(first).toBe(second);
+      expect(first).toMatch(/^[A-Za-z0-9\-_]+$/);
+    } finally {
+      vi.stubGlobal("crypto", originalCrypto);
+    }
+  });
+
   it("uploads to the region-specific qiniu host and polls until the asset is ready", async () => {
     requestMock
       .mockResolvedValueOnce({

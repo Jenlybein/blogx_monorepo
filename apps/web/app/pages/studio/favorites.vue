@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, watch } from "vue";
 import { NButton, NInput, NModal, NSkeleton, useMessage } from "naive-ui";
+import ArticleCover from "~/components/article/ArticleCover.vue";
 import {
   createFavoriteFolder,
   deleteFavoriteFolders,
@@ -220,11 +221,7 @@ useSeoMeta({
             <div v-if="contents?.list.length" class="favorite-content-list">
               <article v-for="item in contents?.list" :key="item.article_id" class="favorite-content-card">
                 <NuxtLink :to="`/article/${item.article_id}`" class="favorite-content-card__cover-wrap" aria-label="查看文章详情">
-                  <div
-                    v-if="item.cover"
-                    class="favorite-content-card__cover"
-                    :style="{ backgroundImage: `url(${item.cover})` }" />
-                  <div v-else class="favorite-content-card__cover-empty">NO COVER</div>
+                  <ArticleCover :src="item.cover" :title="item.title" />
                 </NuxtLink>
 
                 <div class="favorite-content-card__main">

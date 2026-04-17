@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import ArticleFeedItem from "~/components/article/ArticleFeedItem.vue";
+import ArticleCover from "~/components/article/ArticleCover.vue";
 import BannerCarousel from "~/components/article/BannerCarousel.vue";
 import HomeSidebar from "~/components/home/HomeSidebar.vue";
 import { computed, shallowRef } from "vue";
@@ -103,21 +104,24 @@ async function handleNextLatestPage() {
           </div>
 
           <div class="space-y-4">
-            <div
+            <article
               v-for="article in topArticles"
               :key="article.id"
-              class="line-divider pt-4 first:border-0 first:pt-0"
+              class="home-pinned-article line-divider pt-4 first:border-0 first:pt-0"
             >
-              <NuxtLink :to="`/article/${article.id}`" class="block">
-                <div class="text-lg font-semibold">{{ article.title }}</div>
-                <p class="mt-2 text-sm leading-7 muted">{{ article.abstract }}</p>
+              <NuxtLink :to="`/article/${article.id}`" class="home-pinned-article__cover">
+                <ArticleCover :src="article.cover" :title="article.title" label="Pinned" />
+              </NuxtLink>
+              <NuxtLink :to="`/article/${article.id}`" class="block min-w-0">
+                <div class="text-lg font-semibold leading-snug">{{ article.title }}</div>
+                <p class="mt-2 line-clamp-2 text-sm leading-7 muted">{{ article.abstract }}</p>
                 <div class="mt-3 flex flex-wrap items-center gap-3 text-sm muted">
                   <span>{{ article.user_nickname }}</span>
-                  <span>{{ article.category_title }}</span>
+                  <span>{{ article.category_title || "未分类" }}</span>
                   <span>{{ formatCount(article.view_count) }} 阅读</span>
                 </div>
               </NuxtLink>
-            </div>
+            </article>
           </div>
         </section>
         <section v-else-if="topPending" class="surface-card p-5 md:p-6">
@@ -204,3 +208,29 @@ async function handleNextLatestPage() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.home-pinned-article {
+  display: grid;
+  grid-template-columns: 124px minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.home-pinned-article__cover {
+  display: block;
+  min-height: 88px;
+  overflow: hidden;
+  border-radius: 16px;
+}
+
+@media (max-width: 640px) {
+  .home-pinned-article {
+    grid-template-columns: 1fr;
+  }
+
+  .home-pinned-article__cover {
+    min-height: 164px;
+  }
+}
+</style>

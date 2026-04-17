@@ -363,7 +363,10 @@ func TestSitemsgRouterGetUserSummary(t *testing.T) {
 	if int(data["digg_favor_msg_count"].(float64)) != 1 {
 		t.Fatalf("点赞/收藏未读数异常, body=%s", w.Body.String())
 	}
-	if int(data["system_msg_count"].(float64)) != 2 {
-		t.Fatalf("系统未读数应包含 1 条站内系统消息和 1 条全局通知, body=%s", w.Body.String())
+	if int(data["system_msg_count"].(float64)) != 1 {
+		t.Fatalf("系统未读数应只包含站内系统消息, body=%s", w.Body.String())
+	}
+	if int(data["global_msg_count"].(float64)) != 1 {
+		t.Fatalf("全局未读数异常, body=%s", w.Body.String())
 	}
 }

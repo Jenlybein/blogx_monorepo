@@ -14,6 +14,17 @@ const limit = ref(10)
 const total = ref(0)
 const rows = ref<SearchArticleItem[]>([])
 
+function renderArticleCover(row: SearchArticleItem) {
+  return h('div', { class: 'admin-cover admin-article-cover' }, row.cover
+    ? [h('img', { src: row.cover, alt: row.title })]
+    : [
+        h('div', { class: 'admin-article-cover__fallback', role: 'img', 'aria-label': `${row.title}暂无封面` }, [
+          h('span', { class: 'admin-article-cover__badge' }, 'BlogX'),
+          h('strong', null, 'NO COVER'),
+        ]),
+      ])
+}
+
 const columns = [
   {
     title: '文章',
@@ -21,7 +32,7 @@ const columns = [
     minWidth: 280,
     render: (row: SearchArticleItem) =>
       h('div', { class: 'flex items-center gap-3' }, [
-        h('div', { class: 'admin-cover' }, row.cover ? [h('img', { src: row.cover, alt: row.title })] : []),
+        renderArticleCover(row),
         h('div', { class: 'min-w-0' }, [
           h('strong', { class: 'block truncate' }, row.title),
           h('span', { class: 'muted text-xs line-clamp-2' }, row.abstract || '暂无摘要'),

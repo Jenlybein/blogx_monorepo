@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { NButton, NTag, NThing } from "naive-ui";
+import ArticleCover from "~/components/article/ArticleCover.vue";
 import type { FavoriteArticleItem, FavoriteFolderItem } from "~/types/api";
 import { formatCount, formatDateTimeLabel } from "~/utils/format";
 
@@ -48,17 +49,7 @@ const emit = defineEmits<{
       <div v-else-if="articles.length" class="space-y-4">
         <article v-for="article in articles" :key="article.article_id" class="article-feed-item">
           <NuxtLink :to="`/article/${article.article_id}`" class="article-feed-cover">
-            <img
-              v-if="article.cover"
-              :src="article.cover"
-              :alt="article.title"
-              width="212"
-              height="152"
-              loading="lazy"
-            />
-            <div v-else class="flex h-full w-full items-center justify-center bg-slate-100 text-sm text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-              No Cover
-            </div>
+            <ArticleCover :src="article.cover" :title="article.title" />
           </NuxtLink>
 
           <div class="article-feed-body">

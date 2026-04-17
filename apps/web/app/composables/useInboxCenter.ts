@@ -170,12 +170,19 @@ export function useInboxCenter(options: UseInboxCenterOptions = {}) {
   }
 
   async function loadSiteMessages(page = sitePage.value, options: { append?: boolean } = {}) {
+    const group = activeSiteGroup.value;
     sitePending.value = true;
     try {
-      const payload = await getSiteMessages({ group: activeSiteGroup.value, page, limit: MESSAGE_PAGE_SIZE });
+      const payload = await getSiteMessages({ group, page, limit: MESSAGE_PAGE_SIZE });
+      const nextList = options.append ? [...siteMessages.value, ...payload.list] : payload.list;
+
+      if (group !== activeSiteGroup.value) {
+        return payload.list;
+      }
+
       sitePage.value = page;
       siteHasMore.value = payload.has_more;
-      siteMessages.value = options.append ? [...siteMessages.value, ...payload.list] : payload.list;
+      siteMessages.value = nextList;
       return payload.list;
     } finally {
       sitePending.value = false;
@@ -361,7 +368,10 @@ export function useInboxCenter(options: UseInboxCenterOptions = {}) {
     async (tab) => {
       if (tab === "site") {
         sitePage.value = 1;
-        await loadSiteMessages(1);
+        await Promise.all([
+          loadSiteMessages(1),
+          loadGlobalNotices(1).catch(() => []),
+        ]);
         return;
       }
 

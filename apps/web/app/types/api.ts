@@ -516,6 +516,7 @@ export interface MessageSummary {
   digg_favor_msg_count: number;
   private_msg_count: number;
   system_msg_count: number;
+  global_msg_count: number;
 }
 
 export interface MessagePreference {

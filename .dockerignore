@@ -1,0 +1,33 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Build outputs and caches
+.turbo
+**/.turbo
+**/.nuxt
+**/.output
+**/.nitro
+**/.data
+**/.cache
+**/dist
+**/coverage
+output
+
+# VCS and editor metadata
+.git
+.idea
+.fleet
+.DS_Store
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# Local service state and large artifacts
+apps/api/bin
+apps/api/logs
+apps/api/uploads
+deploy/state
+*.tar
+*.tar.*

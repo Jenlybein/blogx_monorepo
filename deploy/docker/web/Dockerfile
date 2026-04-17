@@ -1,13 +1,22 @@
+# syntax=docker/dockerfile:1.7
+
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-RUN corepack enable
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+ENV COREPACK_NPM_REGISTRY=${NPM_REGISTRY}
+ENV npm_config_registry=${NPM_REGISTRY}
+ENV PNPM_HOME=/pnpm
+ENV PATH=${PNPM_HOME}:${PATH}
+
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/package.json
 
-RUN pnpm install --filter web... --frozen-lockfile
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm install --filter web... --frozen-lockfile --store-dir=/pnpm/store
 
 COPY apps/web ./apps/web
 

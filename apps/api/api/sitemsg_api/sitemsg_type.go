@@ -32,4 +32,5 @@ type SitemsgUserResponse struct {
 	DiggFavorMsgCount int `json:"digg_favor_msg_count"`
 	PrivateMsgCount   int `json:"private_msg_count"`
 	SystemMsgCount    int `json:"system_msg_count"`
+	GlobalMsgCount    int `json:"global_msg_count"`
 }

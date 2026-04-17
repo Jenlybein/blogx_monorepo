@@ -155,8 +155,11 @@ func TestSitemsgUserViewCountsUnreadGlobalNotif(t *testing.T) {
 	if int(data["private_msg_count"].(float64)) != 3 {
 		t.Fatalf("私信未读数异常, body=%s", w.Body.String())
 	}
-	if int(data["system_msg_count"].(float64)) != 2 {
-		t.Fatalf("系统消息未读数应包含1条站内系统消息和1条全局通知, body=%s", w.Body.String())
+	if int(data["system_msg_count"].(float64)) != 1 {
+		t.Fatalf("系统消息未读数应只包含站内系统消息, body=%s", w.Body.String())
+	}
+	if int(data["global_msg_count"].(float64)) != 1 {
+		t.Fatalf("全局消息未读数异常, body=%s", w.Body.String())
 	}
 }
 

@@ -14,6 +14,7 @@ definePageMeta({
 const message = useMessage();
 const route = useRoute();
 const router = useRouter();
+const messageStore = useMessageStore();
 
 const draftSessionSeed = computed<InboxDraftSessionSeed | null>(() => {
   const receiverId = typeof route.query.draft_receiver_id === "string" ? route.query.draft_receiver_id.trim() : "";
@@ -152,7 +153,7 @@ const mergedCategories = computed(() => [
     key: "global" as const,
     label: "全局通知",
     hint: "",
-    count: globalNotices.value.filter((item) => !item.is_read).length,
+    count: messageStore.summary.global_msg_count,
   },
 ]);
 

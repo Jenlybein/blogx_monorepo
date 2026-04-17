@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { NButton, NList, NListItem, NThing, useMessage } from "naive-ui";
+import { NButton, useMessage } from "naive-ui";
+import ArticleCover from "~/components/article/ArticleCover.vue";
 import { deleteHistoryArticles, getHistoryArticles } from "~/services/studio";
 import { formatDateTimeLabel } from "~/utils/format";
 
@@ -52,21 +53,30 @@ useSeoMeta({
         <div class="section-title">浏览历史</div>
         <NButton quaternary @click="refresh()">刷新记录</NButton>
       </div>
-      <NList v-if="data?.list.length">
-        <NListItem v-for="item in data?.list" :key="`${item.article_id}-${item.updated_at}`">
-          <NThing :title="item.title" :description="`作者：${item.nickname}`">
-            <template #footer>
-              <div class="studio-list-meta">
-                <span>{{ formatDateTimeLabel(item.updated_at) }}</span>
-                <NuxtLink :to="`/article/${item.article_id}`" class="glass-badge">继续阅读</NuxtLink>
-              </div>
-            </template>
-          </NThing>
-          <template #suffix>
-            <NButton quaternary size="small" @click="removeOne(item.article_id)">移出历史</NButton>
-          </template>
-        </NListItem>
-      </NList>
+      <div v-if="data?.list.length" class="article-history-list">
+        <article v-for="item in data?.list" :key="`${item.article_id}-${item.updated_at}`" class="article-feed-item article-history-card">
+          <NuxtLink :to="`/article/${item.article_id}`" class="article-feed-cover article-history-card__cover">
+            <ArticleCover :src="item.cover" :title="item.title" label="History" />
+          </NuxtLink>
+
+          <div class="article-feed-body">
+            <div class="article-feed-meta">
+              <span>{{ formatDateTimeLabel(item.updated_at) }}</span>
+              <span>{{ item.nickname }}</span>
+            </div>
+            <NuxtLink :to="`/article/${item.article_id}`" class="article-feed-title article-feed-title--compact">
+              {{ item.title }}
+            </NuxtLink>
+            <p class="article-feed-abstract line-clamp-2">
+              上次读到这里，点击继续回到文章详情。
+            </p>
+            <div class="article-feed-footer">
+              <NuxtLink :to="`/article/${item.article_id}`" class="glass-badge">继续阅读</NuxtLink>
+              <NButton quaternary size="small" @click="removeOne(item.article_id)">移出历史</NButton>
+            </div>
+          </div>
+        </article>
+      </div>
       <StudioEmptyState
         v-else
         title="还没有浏览历史"
@@ -83,3 +93,28 @@ useSeoMeta({
     </section>
   </div>
 </template>
+
+<style scoped>
+.article-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.article-history-card {
+  padding: 14px;
+}
+
+.article-history-card__cover {
+  width: 176px;
+  height: 118px;
+  border-radius: 18px;
+}
+
+@media (max-width: 768px) {
+  .article-history-card__cover {
+    width: 100%;
+    height: 196px;
+  }
+}
+</style>

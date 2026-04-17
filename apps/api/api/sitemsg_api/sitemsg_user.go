@@ -4,30 +4,40 @@ import (
 	"myblogx/api/global_notif_api"
 	"myblogx/common/res"
 	"myblogx/models"
+	"myblogx/models/ctype"
 	"myblogx/models/enum/message_enum"
 	"myblogx/utils/jwts"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func (h SitemsgApi) SitemsgUserView(c *gin.Context) {
 	claims := jwts.MustGetClaimsByGin(c)
 
-	var msgList []models.ArticleMessageModel
-	if err := h.App.DB.Find(&msgList, "receiver_id = ? and is_read = ?", claims.UserID, false).Error; err != nil {
+	type messageCountRow struct {
+		Type  message_enum.Type
+		Count int64
+	}
+	var msgCounts []messageCountRow
+	if err := h.App.DB.Model(&models.ArticleMessageModel{}).
+		Select("type, COUNT(*) AS count").
+		Where("receiver_id = ? AND is_read = ?", claims.UserID, false).
+		Group("type").
+		Scan(&msgCounts).Error; err != nil {
 		res.FailWithError(err, c)
 		return
 	}
 
 	var data SitemsgUserResponse
-	for _, v := range msgList {
-		switch v.Type {
+	for _, item := range msgCounts {
+		switch item.Type {
 		case message_enum.CommentArticleType, message_enum.CommentReplyType:
-			data.CommentMsgCount++
+			data.CommentMsgCount += int(item.Count)
 		case message_enum.DiggArticleType, message_enum.DiggCommentType, message_enum.FavorArticleType:
-			data.DiggFavorMsgCount++
+			data.DiggFavorMsgCount += int(item.Count)
 		case message_enum.SystemType:
-			data.SystemMsgCount++
+			data.SystemMsgCount += int(item.Count)
 		}
 	}
 
@@ -40,25 +50,38 @@ func (h SitemsgApi) SitemsgUserView(c *gin.Context) {
 		return
 	}
 
-	// 算未读的全局消息
 	state, err := global_notif_api.LoadUserGlobalNotifState(h.App.DB, claims.UserID, nil)
 	if err != nil {
 		res.FailWithMsg("用户不存在", c)
 		return
 	}
 
-	var globalMsg []models.GlobalNotifModel
-	if err := global_notif_api.BuildUserVisibleGlobalNotifListQuery(h.App.DB, state).Find(&globalMsg).Error; err != nil {
+	globalMsgCount, err := countUnreadGlobalNotif(h.App.DB, state)
+	if err != nil {
 		res.FailWithError(err, c)
 		return
 	}
+	data.GlobalMsgCount = globalMsgCount
 
-	for _, item := range globalMsg {
-		userNotif, ok := state.UserNotifMap[item.ID]
-		if !ok || !userNotif.IsRead {
-			data.SystemMsgCount++
+	res.OkWithData(data, c)
+}
+
+func countUnreadGlobalNotif(db *gorm.DB, state global_notif_api.UserGlobalNotifState) (int, error) {
+	readMsgIDList := make([]ctype.ID, 0)
+	for msgID, userNotif := range state.UserNotifMap {
+		if userNotif.IsRead {
+			readMsgIDList = append(readMsgIDList, msgID)
 		}
 	}
 
-	res.OkWithData(data, c)
+	query := global_notif_api.BuildUserVisibleGlobalNotifListQuery(db, state).Model(&models.GlobalNotifModel{})
+	if len(readMsgIDList) > 0 {
+		query = query.Where("id NOT IN ?", readMsgIDList)
+	}
+
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return int(count), nil
 }
