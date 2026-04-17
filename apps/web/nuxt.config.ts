@@ -208,12 +208,6 @@ export default defineNuxtConfig({
   routeRules: {
     "/search": { ssr: false },
     "/studio/**": { ssr: false },
-    ...(process.env.NODE_ENV === "production"
-      ? {
-          "/article/**": { swr: 30 },
-          "/users/**": { swr: 30 },
-        }
-      : {}),
   },
   devServer: {
     port: 3000,

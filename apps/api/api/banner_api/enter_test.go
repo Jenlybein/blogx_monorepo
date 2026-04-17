@@ -5,6 +5,7 @@ import (
 	"myblogx/api/banner_api"
 	"myblogx/models"
 	"myblogx/models/ctype"
+	"myblogx/models/enum"
 	"myblogx/test/testutil"
 	"net/http/httptest"
 	"testing"
@@ -39,16 +40,24 @@ func readData(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
 }
 
 func TestBannerCreateListUpdateRemove(t *testing.T) {
-	db := testutil.SetupSQLite(t, &models.BannerModel{}, &models.ImageRefModel{})
+	db := testutil.SetupSQLite(t, &models.BannerModel{}, &models.ImageModel{}, &models.ImageRefModel{})
 
 	api := banner_api.New(banner_api.Deps{DB: testutil.DB()})
+	imageA := models.ImageModel{ObjectKey: "banner/a.png", URL: "/a.png", Hash: "hash-a", Status: enum.ImageStatusPass}
+	imageB := models.ImageModel{ObjectKey: "banner/b.png", URL: "/b.png", Hash: "hash-b", Status: enum.ImageStatusPass}
+	if err := db.Create(&imageA).Error; err != nil {
+		t.Fatalf("创建图片 A 失败: %v", err)
+	}
+	if err := db.Create(&imageB).Error; err != nil {
+		t.Fatalf("创建图片 B 失败: %v", err)
+	}
 
 	{
 		c, w := newCtx()
 		c.Set("requestJson", banner_api.BannerCreateRequest{
-			Cover: "/a.png",
-			Href:  "/a",
-			Show:  true,
+			CoverImageID: imageA.ID,
+			Href:         "/a",
+			Show:         true,
 		})
 		api.BannerCreateView(c)
 		if code := readCode(t, w); code != 0 {
@@ -63,6 +72,9 @@ func TestBannerCreateListUpdateRemove(t *testing.T) {
 	if err := db.First(&created).Error; err != nil {
 		t.Fatalf("查询创建数据失败: %v", err)
 	}
+	if created.Cover != imageA.URL {
+		t.Fatalf("创建应按 cover_image_id 写入真实 URL, got=%s want=%s", created.Cover, imageA.URL)
+	}
 
 	{
 		c, w := newCtx()
@@ -73,19 +85,35 @@ func TestBannerCreateListUpdateRemove(t *testing.T) {
 		if code := readCode(t, w); code != 0 {
 			t.Fatalf("列表失败, code=%d body=%s", code, w.Body.String())
 		}
+		data := readData(t, w)
+		list, _ := data["list"].([]any)
+		if len(list) != 1 {
+			t.Fatalf("列表数量异常, body=%s", w.Body.String())
+		}
+		first, _ := list[0].(map[string]any)
+		if got := first["cover_image_id"]; got != imageA.ID.String() {
+			t.Fatalf("列表应回填 cover_image_id, got=%v want=%s body=%s", got, imageA.ID.String(), w.Body.String())
+		}
 	}
 
 	{
 		c, w := newCtx()
 		c.Set("requestUri", models.IDRequest{ID: created.ID})
 		c.Set("requestJson", banner_api.BannerCreateRequest{
-			Cover: "/b.png",
-			Href:  "/b",
-			Show:  false,
+			CoverImageID: imageB.ID,
+			Href:         "/b",
+			Show:         false,
 		})
 		api.BannerUpdateView(c)
 		if code := readCode(t, w); code != 0 {
 			t.Fatalf("更新失败, code=%d body=%s", code, w.Body.String())
+		}
+		var updated models.BannerModel
+		if err := db.Take(&updated, created.ID).Error; err != nil {
+			t.Fatalf("查询更新数据失败: %v", err)
+		}
+		if updated.Cover != imageB.URL || updated.Show {
+			t.Fatalf("更新应写入新图片且允许 show=false, cover=%s show=%v", updated.Cover, updated.Show)
 		}
 	}
 
@@ -102,5 +130,21 @@ func TestBannerCreateListUpdateRemove(t *testing.T) {
 	_ = testutil.DB().Model(&models.BannerModel{}).Count(&cnt).Error
 	if cnt != 0 {
 		t.Fatalf("删除后数量异常: %d", cnt)
+	}
+}
+
+func TestBannerCreateRejectsUnavailableImage(t *testing.T) {
+	testutil.SetupSQLite(t, &models.BannerModel{}, &models.ImageModel{})
+	api := banner_api.New(banner_api.Deps{DB: testutil.DB()})
+
+	c, w := newCtx()
+	c.Set("requestJson", banner_api.BannerCreateRequest{
+		CoverImageID: 999,
+		Href:         "/bad",
+		Show:         true,
+	})
+	api.BannerCreateView(c)
+	if code := readCode(t, w); code == 0 {
+		t.Fatalf("不可用图片不应创建成功, body=%s", w.Body.String())
 	}
 }

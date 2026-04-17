@@ -32,7 +32,7 @@ export function markArticleViewed(id: string | number) {
 }
 
 export function toggleArticleDigg(id: string | number) {
-  return useNuxtApp().$api.request(`/api/articles/${id}/digg`, {
+  return useNuxtApp().$api.requestEnvelope<unknown>(`/api/articles/${id}/digg`, {
     method: "PUT",
   });
 }

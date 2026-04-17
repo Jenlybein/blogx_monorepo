@@ -544,7 +544,7 @@
                 "$ref": "#/components/schemas/BannerCreateRequest"
               },
               "example": {
-                "cover": "/xxx/xx.jpg",
+                "cover_image_id": "303511081844740096",
                 "href": "http://gentlybeing.cn",
                 "show": false
               }
@@ -775,7 +775,7 @@
                 "$ref": "#/components/schemas/BannerCreateRequest"
               },
               "example": {
-                "cover": "/xxx/xx.jpg",
+                "cover_image_id": "303511081844740096",
                 "href": "http://gentlybeing.cn",
                 "show": true
               }
@@ -10149,8 +10149,7 @@
         "properties": {
           "cover_image_id": {
             "type": "string",
-            "description": "封面图片 ID。推荐优先使用该字段，服务端会校验图片存在且可用后写入封面 URL。",
-            "nullable": true
+            "description": "封面图片 ID。服务端会校验图片存在且可用后写入封面 URL。"
           },
           "href": {
             "type": "string",
@@ -10162,6 +10161,7 @@
           }
         },
         "required": [
+          "cover_image_id"
         ]
       },
       "BannerModel": {
@@ -10195,6 +10195,11 @@
             "type": "string",
             "description": "封面图片地址。"
           },
+          "cover_image_id": {
+            "type": "string",
+            "description": "封面图片 ID；如果封面来自图片上传链路，这里会回填对应 image_id。",
+            "nullable": true
+          },
           "href": {
             "type": "string",
             "description": "跳转链接地址。"
@@ -10206,6 +10211,7 @@
           "updated_at",
           "show",
           "cover",
+          "cover_image_id",
           "href"
         ]
       },
@@ -13992,6 +13998,7 @@
         "type": "object",
         "required": [
           "id",
+          "cover_image_id",
           "cover",
           "href",
           "show"
@@ -14000,6 +14007,10 @@
           "id": {
             "type": "string",
             "example": "301768758504984576"
+          },
+          "cover_image_id": {
+            "type": "string",
+            "example": "303511081844740096"
           },
           "cover": {
             "type": "string",

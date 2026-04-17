@@ -82,6 +82,11 @@ const { data: profile, refresh: refreshProfile } = await useAsyncData(
           place: "",
         };
       }),
+  {
+    watch: [userId],
+    server: false,
+    lazy: true,
+  },
 );
 
 const isSelf = computed(() => authStore.profileId != null && String(authStore.profileId) === profile.value?.id);
@@ -223,7 +228,8 @@ async function handleFollow() {
     message.error("作者资料加载失败，当前无法执行关注操作");
     return;
   }
-  if (!authStore.isLoggedIn) {
+  const isLoggedIn = await authStore.initializeSession();
+  if (!isLoggedIn) {
     uiStore.openAuthModal();
     return;
   }
@@ -242,13 +248,14 @@ async function handleFollow() {
   }
 }
 
-function handlePrivateMessage() {
+async function handlePrivateMessage() {
   if (!profile.value) return;
   if (profileLoadFailed.value) {
     message.error("作者资料加载失败，当前无法发起私信");
     return;
   }
-  if (!authStore.isLoggedIn) {
+  const isLoggedIn = await authStore.initializeSession();
+  if (!isLoggedIn) {
     uiStore.openAuthModal();
     return;
   }
@@ -273,7 +280,8 @@ function handlePrivateMessage() {
 }
 
 async function handleRelationToggle(targetId: string, relation: number) {
-  if (!authStore.isLoggedIn) {
+  const isLoggedIn = await authStore.initializeSession();
+  if (!isLoggedIn) {
     uiStore.openAuthModal();
     return;
   }

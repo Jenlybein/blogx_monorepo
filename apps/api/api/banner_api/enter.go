@@ -7,6 +7,7 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
+	"myblogx/service/image_service"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -26,23 +27,29 @@ func New(deps Deps) BannerApi {
 }
 
 type BannerCreateRequest struct {
-	Cover string `json:"cover" binding:"required"`
-	Href  string `json:"href"`
-	Show  bool   `json:"show"`
+	CoverImageID ctype.ID `json:"cover_image_id" binding:"required"`
+	Href         string   `json:"href"`
+	Show         bool     `json:"show"`
 }
 
 type BannerCreateResponse struct {
-	ID    ctype.ID `json:"id"`
-	Cover string   `json:"cover"`
-	Href  string   `json:"href"`
-	Show  bool     `json:"show"`
+	ID           ctype.ID `json:"id"`
+	CoverImageID ctype.ID `json:"cover_image_id"`
+	Cover        string   `json:"cover"`
+	Href         string   `json:"href"`
+	Show         bool     `json:"show"`
 }
 
 func (h BannerApi) BannerCreateView(c *gin.Context) {
 	cr := middleware.GetBindJson[BannerCreateRequest](c)
+	coverURL, err := resolveBannerCoverURL(h.App.DB, cr.CoverImageID)
+	if err != nil {
+		res.FailWithMsg(err.Error(), c)
+		return
+	}
 
 	model := models.BannerModel{
-		Cover: cr.Cover,
+		Cover: coverURL,
 		Href:  cr.Href,
 		Show:  cr.Show,
 	}
@@ -51,10 +58,11 @@ func (h BannerApi) BannerCreateView(c *gin.Context) {
 		return
 	}
 	res.OkWithData(BannerCreateResponse{
-		ID:    model.ID,
-		Cover: model.Cover,
-		Href:  model.Href,
-		Show:  model.Show,
+		ID:           model.ID,
+		CoverImageID: cr.CoverImageID,
+		Cover:        model.Cover,
+		Href:         model.Href,
+		Show:         model.Show,
 	}, c)
 	middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{
 		ActionName:        "banner_create",
@@ -62,7 +70,7 @@ func (h BannerApi) BannerCreateView(c *gin.Context) {
 		TargetID:          strconv.FormatUint(uint64(model.ID), 10),
 		Success:           true,
 		Message:           "创建轮播图成功",
-		RequestBody:       cr,
+		RequestBody:       map[string]any{"cover_image_id": cr.CoverImageID, "href": cr.Href, "show": cr.Show},
 		UseRawRequestBody: true,
 		UseRawRequestHead: true,
 	})
@@ -86,6 +94,7 @@ func (h BannerApi) BannerListView(c *gin.Context) {
 		res.FailWithError(err, c)
 		return
 	}
+	attachBannerCoverImageIDs(h.App.DB, list)
 
 	res.OkWithHasMoreList(list, hasMore, c)
 }
@@ -123,6 +132,11 @@ func (h BannerApi) BannerUpdateView(c *gin.Context) {
 	id := middleware.GetBindUri[models.IDRequest](c)
 
 	cr := middleware.GetBindJson[BannerCreateRequest](c)
+	coverURL, err := resolveBannerCoverURL(h.App.DB, cr.CoverImageID)
+	if err != nil {
+		res.FailWithMsg(err.Error(), c)
+		return
+	}
 
 	var model models.BannerModel
 	if err := h.App.DB.Take(&model, id.ID).Error; err != nil {
@@ -130,10 +144,10 @@ func (h BannerApi) BannerUpdateView(c *gin.Context) {
 		return
 	}
 
-	if err := h.App.DB.Model(&model).Updates(models.BannerModel{
-		Cover: cr.Cover,
-		Href:  cr.Href,
-		Show:  cr.Show,
+	if err := h.App.DB.Model(&model).Updates(map[string]any{
+		"cover": coverURL,
+		"href":  cr.Href,
+		"show":  cr.Show,
 	}).Error; err != nil {
 		res.FailWithError(err, c)
 		return
@@ -145,8 +159,53 @@ func (h BannerApi) BannerUpdateView(c *gin.Context) {
 		TargetID:          strconv.FormatUint(uint64(model.ID), 10),
 		Success:           true,
 		Message:           "更新轮播图成功",
-		RequestBody:       cr,
+		RequestBody:       map[string]any{"cover_image_id": cr.CoverImageID, "href": cr.Href, "show": cr.Show},
 		UseRawRequestBody: true,
 		UseRawRequestHead: true,
 	})
+}
+
+func resolveBannerCoverURL(db *gorm.DB, imageID ctype.ID) (string, error) {
+	if imageID == 0 {
+		return "", image_service.ErrImageUnavailable
+	}
+	return image_service.ResolveImageURLByID(db, imageID)
+}
+
+func attachBannerCoverImageIDs(db *gorm.DB, list []models.BannerModel) {
+	if len(list) == 0 {
+		return
+	}
+	urlSet := make(map[string]struct{})
+	urls := make([]string, 0, len(list))
+	for _, item := range list {
+		if item.Cover == "" {
+			continue
+		}
+		if _, ok := urlSet[item.Cover]; ok {
+			continue
+		}
+		urlSet[item.Cover] = struct{}{}
+		urls = append(urls, item.Cover)
+	}
+	if len(urls) == 0 {
+		return
+	}
+
+	var images []models.ImageModel
+	if err := db.Select("id", "url").Where("url IN ?", urls).Find(&images).Error; err != nil {
+		return
+	}
+	imageIDByURL := make(map[string]ctype.ID, len(images))
+	for _, image := range images {
+		imageIDByURL[image.URL] = image.ID
+	}
+	for i := range list {
+		imageID, ok := imageIDByURL[list[i].Cover]
+		if !ok {
+			continue
+		}
+		id := imageID
+		list[i].CoverImageID = &id
+	}
 }

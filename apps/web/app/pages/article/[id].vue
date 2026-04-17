@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ArticleHeadingAnchor } from "~/composables/useArticleMarkdown";
-import { computed, defineAsyncComponent, onMounted, ref, shallowRef } from "vue";
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, shallowRef, watch } from "vue";
 import { IconEye, IconHeart, IconMessageCircle2, IconShare2, IconThumbUp } from "@tabler/icons-vue";
 import { NButton, NTag, useMessage } from "naive-ui";
 import ArticleTocAnchor from "~/components/article/ArticleTocAnchor.vue";
@@ -38,6 +38,7 @@ const articleHeadings = ref<ArticleHeadingAnchor[]>([]);
 
 const ROOT_COMMENT_PAGE_SIZE = 7;
 const REPLY_COMMENT_PAGE_SIZE = 3;
+const ARTICLE_LIKE_DEBOUNCE_MS = 600;
 const favoriteModalOpen = ref(false);
 
 const { data: article, error: articleError, refresh: refreshArticle } = await useAsyncData(
@@ -75,6 +76,8 @@ const { data: authorProfile, refresh: refreshAuthorProfile } = await useAsyncDat
   () => (authorId.value ? getUserBaseInfo(authorId.value).catch(() => null) : Promise.resolve(null)),
   {
     watch: [authorId],
+    server: false,
+    lazy: true,
   },
 );
 
@@ -154,25 +157,111 @@ const { activeHeadingId, progressPercent } = useReadingProgress(
 const authorInitial = computed(() => resolveAvatarInitial(article.value?.author_name, "A"));
 const authorRelationText = computed(() => getAuthorButtonLabel(authorProfile.value?.relation));
 const isSelfAuthor = computed(() => authStore.profileId != null && String(authStore.profileId) === authorId.value);
+const articleIsDigged = shallowRef(false);
+const articleDiggCount = shallowRef(0);
+const articleDiggTouched = shallowRef(false);
+const articleDiggStateArticleId = shallowRef("");
+const articleLikePending = shallowRef(false);
+const articleLikeDebouncing = shallowRef(false);
+let articleLikeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(
+  () => [articleId.value, article.value?.is_digg, article.value?.digg_count] as const,
+  ([currentArticleId, isDigged, diggCount]) => {
+    const articleChanged = currentArticleId !== articleDiggStateArticleId.value;
+    if (articleChanged) {
+      articleDiggStateArticleId.value = currentArticleId;
+      articleDiggTouched.value = false;
+    }
+
+    if (articleDiggTouched.value) {
+      return;
+    }
+
+    articleIsDigged.value = Boolean(isDigged);
+    articleDiggCount.value = Math.max(Number(diggCount ?? 0), 0);
+  },
+  { immediate: true },
+);
+
+function patchArticleDiggState(isDigged: boolean, diggCount: number) {
+  articleIsDigged.value = isDigged;
+  articleDiggCount.value = Math.max(diggCount, 0);
+
+  if (article.value) {
+    article.value = {
+      ...article.value,
+      is_digg: isDigged,
+      digg_count: articleDiggCount.value,
+    };
+  }
+}
+
+function resolveArticleDiggMutation(resultMessage: string, wasDigged: boolean) {
+  if (resultMessage.includes("取消")) {
+    return {
+      isDigged: false,
+      countDelta: -1,
+    };
+  }
+
+  if (resultMessage.includes("点赞")) {
+    return {
+      isDigged: true,
+      countDelta: 1,
+    };
+  }
+
+  return {
+    isDigged: !wasDigged,
+    countDelta: wasDigged ? -1 : 1,
+  };
+}
+
+function startArticleLikeDebounce() {
+  articleLikeDebouncing.value = true;
+  if (articleLikeDebounceTimer) {
+    clearTimeout(articleLikeDebounceTimer);
+  }
+
+  articleLikeDebounceTimer = setTimeout(() => {
+    articleLikeDebouncing.value = false;
+    articleLikeDebounceTimer = null;
+  }, ARTICLE_LIKE_DEBOUNCE_MS);
+}
 
 async function handleLike() {
-  if (!authStore.isLoggedIn) {
+  const isLoggedIn = await authStore.initializeSession();
+  if (!isLoggedIn) {
     uiStore.openAuthModal();
     return;
   }
 
+  if (articleLikePending.value || articleLikeDebouncing.value || !article.value) {
+    return;
+  }
+
+  const wasDigged = articleIsDigged.value;
+  articleLikePending.value = true;
+
   try {
-    const wasDigged = Boolean(article.value?.is_digg);
-    await toggleArticleDigg(articleId.value);
-    message.success(wasDigged ? "已取消点赞" : "点赞成功");
-    await refreshArticle();
+    const result = await toggleArticleDigg(articleId.value);
+    const resultMessage = result.msg || (wasDigged ? "取消点赞成功" : "点赞成功");
+    const mutation = resolveArticleDiggMutation(resultMessage, wasDigged);
+    articleDiggTouched.value = true;
+    patchArticleDiggState(mutation.isDigged, articleDiggCount.value + mutation.countDelta);
+    message.success(resultMessage);
   } catch (error) {
     message.error(error instanceof Error ? error.message : "点赞失败");
+  } finally {
+    articleLikePending.value = false;
+    startArticleLikeDebounce();
   }
 }
 
 async function handleFavorite() {
-  if (!authStore.isLoggedIn) {
+  const isLoggedIn = await authStore.initializeSession();
+  if (!isLoggedIn) {
     uiStore.openAuthModal();
     return;
   }
@@ -313,7 +402,8 @@ async function handleAuthorFollow() {
     return;
   }
 
-  if (!authStore.isLoggedIn) {
+  const isLoggedIn = await authStore.initializeSession();
+  if (!isLoggedIn) {
     uiStore.openAuthModal();
     return;
   }
@@ -338,8 +428,9 @@ async function handleAuthorFollow() {
   }
 }
 
-function handlePrivateMessage() {
-  if (!authStore.isLoggedIn) {
+async function handlePrivateMessage() {
+  const isLoggedIn = await authStore.initializeSession();
+  if (!isLoggedIn) {
     uiStore.openAuthModal();
     return;
   }
@@ -423,6 +514,18 @@ async function handleNextCommentPage() {
 
 onMounted(() => {
   markArticleViewed(articleId.value).catch(() => undefined);
+  void authStore.initializeSession().then(async (isLoggedIn) => {
+    if (!isLoggedIn || articleDiggTouched.value) {
+      return;
+    }
+    await refreshArticle().catch(() => undefined);
+  });
+});
+
+onUnmounted(() => {
+  if (articleLikeDebounceTimer) {
+    clearTimeout(articleLikeDebounceTimer);
+  }
 });
 
 useSeoMeta({
@@ -467,7 +570,7 @@ useSeoMeta({
             <div class="flex flex-wrap items-center gap-5 text-sm muted">
               <span>{{ formatDateTimeLabel(article?.created_at) }}</span>
               <span class="inline-flex items-center gap-1.5"><IconEye :size="16" /> {{ formatCount(article?.view_count || 0) }}</span>
-              <span class="inline-flex items-center gap-1.5"><IconThumbUp :size="16" /> {{ formatCount(article?.digg_count || 0) }}</span>
+              <span class="inline-flex items-center gap-1.5"><IconThumbUp :size="16" /> {{ formatCount(articleDiggCount) }}</span>
               <span class="inline-flex items-center gap-1.5"><IconHeart :size="16" /> {{ formatCount(article?.favor_count || 0) }}</span>
               <span class="inline-flex items-center gap-1.5"><IconMessageCircle2 :size="16" /> {{ formatCount(article?.comment_count || 0) }}</span>
             </div>
@@ -475,11 +578,18 @@ useSeoMeta({
         </div>
 
         <div class="flex shrink-0 flex-wrap items-center gap-3 lg:justify-end">
-          <NButton round size="large" color="#0f766e" @click="handleLike">
+          <NButton
+            round
+            size="large"
+            color="#0f766e"
+            :loading="articleLikePending"
+            :disabled="articleLikeDebouncing"
+            @click="handleLike"
+          >
             <template #icon>
               <IconThumbUp :size="18" />
             </template>
-            {{ article?.is_digg ? "已点赞" : "点赞" }}
+            {{ articleIsDigged ? "已点赞" : "点赞" }}
           </NButton>
           <NButton round size="large" color="#b45309" @click="handleFavorite">
             <template #icon>
