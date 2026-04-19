@@ -30,3 +30,41 @@ func TestNormalizeDiagnoseRequestTooShort(t *testing.T) {
 		t.Fatalf("短内容应返回固定提示: %v", err)
 	}
 }
+
+func TestNormalizeIssueTypeAliases(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{input: "readability", want: "可读性"},
+		{input: "logic", want: "逻辑"},
+		{input: "内容完整度", want: "完整度"},
+		{input: "structure", want: "结构"},
+		{input: "redundancy", want: "重复"},
+		{input: "grammar", want: "语言"},
+		{input: "style", want: "语气"},
+	}
+
+	for _, item := range cases {
+		if got := normalizeIssueType(item.input); got != item.want {
+			t.Fatalf("normalizeIssueType(%q) = %q, want %q", item.input, got, item.want)
+		}
+	}
+}
+
+func TestNormalizeSeverityAliases(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{input: "low", want: "低"},
+		{input: "medium", want: "中"},
+		{input: "critical", want: "高"},
+	}
+
+	for _, item := range cases {
+		if got := normalizeSeverity(item.input); got != item.want {
+			t.Fatalf("normalizeSeverity(%q) = %q, want %q", item.input, got, item.want)
+		}
+	}
+}

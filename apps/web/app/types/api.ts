@@ -112,6 +112,110 @@ export interface AiArticleMetainfo {
   }>;
 }
 
+export type AiOverwriteMode = "polish" | "grammar_fix" | "style_transform";
+
+export interface AiOverwriteRequest {
+  mode: AiOverwriteMode;
+  selection_text: string;
+  prefix_text?: string;
+  suffix_text?: string;
+  article_title: string;
+  target_style?: string;
+}
+
+export interface AiDiagnoseRequest {
+  selection_text: string;
+  prefix_text?: string;
+  suffix_text?: string;
+  article_title: string;
+}
+
+export type AiDiagnoseIssueType = "可读性" | "逻辑" | "完整度" | "结构" | "重复" | "语言" | "语气";
+export type AiDiagnoseSeverity = "低" | "中" | "高";
+
+export interface AiDiagnoseIssue {
+  type: AiDiagnoseIssueType;
+  severity: AiDiagnoseSeverity;
+  reason: string;
+  evidence: string;
+  suggestion: string;
+}
+
+export interface AiDiagnoseResponseData {
+  summary: string;
+  issues: AiDiagnoseIssue[];
+}
+
+export type AiArticleScoringType = 1 | 2 | 3;
+export type AiArticleScoreLevel = "较差文章" | "不合格文章" | "常规文章" | "优质文章" | "精品文章";
+export type AiArticleType =
+  | "散文"
+  | "小说"
+  | "诗歌"
+  | "剧本"
+  | "童话"
+  | "传说"
+  | "记叙文"
+  | "日记"
+  | "新闻"
+  | "说明文"
+  | "教程"
+  | "科普"
+  | "报告"
+  | "邮件"
+  | "通知"
+  | "发言稿"
+  | "议论文"
+  | "评论"
+  | "文案"
+  | "网文";
+
+export type AiArticleScoreDimensionName =
+  | "clarity"
+  | "structure"
+  | "completeness"
+  | "readability"
+  | "persuasiveness"
+  | "language";
+
+export interface AiArticleScoringRequest {
+  type: AiArticleScoringType;
+  article_id: string;
+  title?: string;
+  content?: string;
+}
+
+export interface AiArticleScoringPosition {
+  paragraph: number;
+  quote: string;
+}
+
+export interface AiArticleScoringIssue {
+  positions: AiArticleScoringPosition[];
+  reason: string;
+  suggestion: string;
+}
+
+export interface AiArticleScoringDimension {
+  name: AiArticleScoreDimensionName;
+  score: number;
+  reason?: string;
+}
+
+export interface AiArticleScoringResponseData {
+  has_score: boolean;
+  record_id?: string;
+  article_id: string;
+  created_at?: string;
+  ai_total_score?: number;
+  total_score?: number;
+  score_level?: AiArticleScoreLevel;
+  article_type?: AiArticleType;
+  dimensions?: AiArticleScoringDimension[];
+  main_issues?: AiArticleScoringIssue[];
+  overall_comment?: string;
+}
+
 export interface FavoriteFolderItem {
   id: string;
   user_id: string;

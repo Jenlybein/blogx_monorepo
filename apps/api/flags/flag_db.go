@@ -13,6 +13,10 @@ func FlagDB(db *gorm.DB, logger *logrus.Logger) error {
 		return fmt.Errorf("数据库迁移失败: 数据库未初始化")
 	}
 
+	if logger != nil {
+		logger.Info("数据库开始迁移")
+	}
+
 	err := db.AutoMigrate(
 		&models.UserModel{},
 		&models.UserConfModel{},
@@ -20,6 +24,7 @@ func FlagDB(db *gorm.DB, logger *logrus.Logger) error {
 		&models.UserSessionModel{},
 		&models.UserViewDailyModel{},
 		&models.ArticleModel{},
+		&models.ArticleAIScoreRecordModel{},
 		&models.ArticleReviewTaskModel{},
 		&models.ArticleReviewLogModel{},
 		&models.TagModel{},

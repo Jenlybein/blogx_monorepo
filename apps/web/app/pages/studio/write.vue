@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Component } from "vue";
 import type { ArticleHeadingAnchor } from "~/composables/useArticleMarkdown";
+import type { StudioAiAction } from "~/composables/useStudioAiSelection";
 import { computed, defineAsyncComponent, nextTick, reactive, ref, watch } from "vue";
 import { useDebounce } from "@vueuse/core";
 import {
@@ -21,13 +22,19 @@ import {
   IconListNumbers,
   IconPalette,
   IconPhoto,
+  IconSparkles,
   IconStrikethrough,
   IconTable,
   IconTopologyStar3,
 } from "@tabler/icons-vue";
 import { NButton, NCard, NInput, NModal, NPopover, NSelect, NSwitch, NTooltip, useMessage } from "naive-ui";
 import AppAvatar from "~/components/common/AppAvatar.vue";
-import { generateArticleMetainfo } from "~/services/ai";
+import ArticleScoreModal from "~/components/article/ArticleScoreModal.vue";
+import StudioAiAssistPanel from "~/components/studio/StudioAiAssistPanel.vue";
+import StudioSelectionAiToolbar from "~/components/studio/StudioSelectionAiToolbar.vue";
+import { useStudioAiSelection } from "~/composables/useStudioAiSelection";
+import { useTextareaSelectionOverlay } from "~/composables/useTextareaSelectionOverlay";
+import { generateArticleMetainfo, getArticleScoreDetail, regenerateArticleScore } from "~/services/ai";
 import { createArticle, getArticleDetail, updateArticle } from "~/services/article";
 import { uploadImageByTask } from "~/services/image";
 import { getCategoryOptions, getTagOptions } from "~/services/search";
@@ -99,6 +106,10 @@ const pendingState = reactive({
 
 const coverPreviewUrl = ref("");
 const coverUploadStage = ref("");
+const articleScoreModalOpen = ref(false);
+const articleScoreLoading = ref(false);
+const articleScoreRefreshing = ref(false);
+const articleScoreData = ref<Awaited<ReturnType<typeof getArticleScoreDetail>> | null>(null);
 
 const showToc = ref(true);
 const viewMode = ref<"split" | "editor" | "preview">("split");
@@ -186,6 +197,11 @@ watch(
   { immediate: true },
 );
 
+watch(editArticleId, () => {
+  articleScoreData.value = null;
+  articleScoreModalOpen.value = false;
+});
+
 const debouncedContent = useDebounce(computed(() => form.content), 300);
 
 const writeBodyClass = computed(() => ({
@@ -212,6 +228,7 @@ const canSubmit = computed(() => Boolean(form.title.trim() && form.content.trim(
 const draftActionLabel = computed(() => (isEditMode.value ? "更新草稿" : "保存草稿"));
 const publishActionLabel = computed(() => (isEditMode.value ? "更新并发布" : "确定并发布"));
 const isPublishingLocked = computed(() => pendingState.publish || pendingState.draft || pendingState.ai || pendingState.cover);
+const canOpenArticleScore = computed(() => Boolean(editArticleId.value));
 
 const markdownThemeOptions: ToolOption[] = [
   { key: "github", label: "GitHub Light" },
@@ -281,6 +298,17 @@ const leftTools: ToolItem[] = [
   { key: "strike", label: "删除线", icon: IconStrikethrough },
   { key: "table", label: "表格", icon: IconTable },
   {
+    key: "ai",
+    label: "AI 辅助",
+    icon: IconSparkles,
+    options: [
+      { key: "polish", label: "润色改写" },
+      { key: "grammar_fix", label: "语法纠错" },
+      { key: "style_transform", label: "风格转换" },
+      { key: "diagnose", label: "内容诊断" },
+    ],
+  },
+  {
     key: "theme",
     label: "预览样式",
     icon: IconPalette,
@@ -325,6 +353,72 @@ function focusEditor(selectionStart?: number, selectionEnd?: number) {
     }
   });
 }
+
+const articleTitleModel = computed({
+  get: () => form.title,
+  set: (value: string) => {
+    form.title = value;
+  },
+});
+
+const articleContentModel = computed({
+  get: () => form.content,
+  set: (value: string) => {
+    form.content = value;
+  },
+});
+
+const {
+  panelVisible: aiPanelVisible,
+  currentAction: aiPanelAction,
+  styleInstruction: aiStyleInstruction,
+  selectionContext: aiSelectionContext,
+  overwriteResult: aiOverwriteResult,
+  diagnoseResult: aiDiagnoseResult,
+  errorMessage: aiErrorMessage,
+  isBusy: aiPanelBusy,
+  canSubmit: aiCanSubmit,
+  openPanel: openAiPanel,
+  closePanel: closeAiPanel,
+  runCurrentAction: runAiPanelAction,
+  applyOverwriteResult: applyAiOverwriteResult,
+  insertOverwriteBelow: insertAiOverwriteBelow,
+  copyOverwriteResult: copyAiOverwriteResult,
+} = useStudioAiSelection({
+  content: articleContentModel,
+  title: articleTitleModel,
+  textareaRef: editorTextareaRef,
+  focusEditor,
+});
+
+const {
+  selectionOverlay,
+  updateSelectionOverlay,
+  hideSelectionOverlay,
+} = useTextareaSelectionOverlay(editorTextareaRef, {
+  hideWhen: () => aiPanelVisible.value || publishVisible.value || viewMode.value === "preview",
+  ignoreSelectors: [".studio-selection-ai-toolbar", ".studio-ai-modal"],
+});
+
+watch([aiPanelVisible, publishVisible, viewMode], ([isAiOpen, isPublishOpen, mode]) => {
+  if (isAiOpen || isPublishOpen || mode === "preview") {
+    hideSelectionOverlay();
+    return;
+  }
+
+  nextTick(() => {
+    updateSelectionOverlay();
+  });
+});
+
+watch(
+  () => form.content,
+  () => {
+    nextTick(() => {
+      updateSelectionOverlay();
+    });
+  },
+);
 
 function replaceSelection(transform: (selectedText: string) => { content: string; start: number; end: number }) {
   const textarea = editorTextareaRef.value;
@@ -744,7 +838,81 @@ function getToolTooltip(tool: ToolItem) {
   return shortcut ? `${tool.label} (${shortcut})` : tool.label;
 }
 
+async function handleAiToolOpen(action: StudioAiAction) {
+  try {
+    hideSelectionOverlay();
+    await openAiPanel(action);
+  } catch (error) {
+    message.warning(error instanceof Error ? error.message : "AI 辅助暂时不可用");
+  }
+}
+
+function handleSelectionToolbarAction(action: StudioAiAction) {
+  void handleAiToolOpen(action);
+}
+
+function handleEditorSelectionChange() {
+  updateSelectionOverlay();
+}
+
+async function handleAiPanelRun() {
+  try {
+    await runAiPanelAction();
+  } catch (error) {
+    if (error instanceof Error && error.message) {
+      message.error(error.message);
+      return;
+    }
+    message.error("AI 辅助执行失败");
+  }
+}
+
+function handleAiReplace() {
+  try {
+    applyAiOverwriteResult();
+    message.success("改写结果已替换到正文中");
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : "替换选区失败");
+  }
+}
+
+function handleAiInsertBelow() {
+  try {
+    insertAiOverwriteBelow();
+    message.success("改写结果已插入到选区下方");
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : "插入正文失败");
+  }
+}
+
+async function handleAiCopyResult() {
+  try {
+    await copyAiOverwriteResult();
+    message.success("改写结果已复制");
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : "复制失败");
+  }
+}
+
+function handleAiPanelVisibility(nextVisible: boolean) {
+  if (nextVisible) {
+    aiPanelVisible.value = true;
+    hideSelectionOverlay();
+    return;
+  }
+
+  closeAiPanel();
+  nextTick(() => {
+    updateSelectionOverlay();
+  });
+}
+
 function handleToolOption(toolKey: string, optionKey: string) {
+  if (toolKey === "ai") {
+    void handleAiToolOpen(optionKey as StudioAiAction);
+    return;
+  }
+
   if (toolKey === "theme") {
     selectedMarkdownTheme.value =
       (markdownThemeOptions.find((option) => option.key === optionKey)?.key as typeof selectedMarkdownTheme.value) ||
@@ -894,6 +1062,52 @@ async function handleAiAssist() {
     message.error(error instanceof Error ? error.message : "AI 元信息生成失败");
   } finally {
     pendingState.ai = false;
+  }
+}
+
+async function fetchStoredArticleScore() {
+  if (!editArticleId.value) {
+    throw new Error("请先保存当前文章，再查看历史评分。");
+  }
+
+  articleScoreData.value = await getArticleScoreDetail(editArticleId.value);
+}
+
+async function handleOpenArticleScore() {
+  if (!editArticleId.value) {
+    message.info("新建文章暂时没有 article_id，请先保存为草稿或更新文章后再查看评分。");
+    return;
+  }
+
+  articleScoreModalOpen.value = true;
+  articleScoreLoading.value = true;
+  try {
+    await fetchStoredArticleScore();
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : "读取评分失败");
+  } finally {
+    articleScoreLoading.value = false;
+  }
+}
+
+async function handleRefreshArticleScore() {
+  if (!editArticleId.value) {
+    message.info("请先保存文章后再重新获取评分。");
+    return;
+  }
+
+  articleScoreRefreshing.value = true;
+  try {
+    articleScoreData.value = await regenerateArticleScore({
+      article_id: editArticleId.value,
+      title: form.title.trim() || undefined,
+      content: form.content.trim() || undefined,
+    });
+    message.success("已重新获取最新评分");
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : "重新获取评分失败");
+  } finally {
+    articleScoreRefreshing.value = false;
   }
 }
 
@@ -1049,6 +1263,12 @@ useSeoMeta({
           placeholder="输入文章标题..." :bordered="false" />
 
         <div class="write-page__actions">
+          <NTooltip trigger="hover" placement="bottom">
+            <template #trigger>
+              <NButton quaternary @click="handleOpenArticleScore">质量评分</NButton>
+            </template>
+            {{ canOpenArticleScore ? "查看当前文章的历史评分，并可重新获取最新评分" : "请先保存为草稿，再发起文章质量评分" }}
+          </NTooltip>
           <NButton quaternary :loading="pendingState.draft" @click="submitArticle(1)">{{ draftActionLabel }}</NButton>
           <NButton quaternary @click="navigateTo('/')">返回首页</NButton>
           <NButton quaternary @click="navigateTo('/studio/profile')">草稿箱</NButton>
@@ -1148,6 +1368,10 @@ useSeoMeta({
       <section class="write-page__pane write-page__pane--editor">
         <textarea ref="editorTextareaRef" v-model="form.content" class="write-page__textarea"
           @keydown="handleEditorShortcuts"
+          @keyup="handleEditorSelectionChange"
+          @mouseup="handleEditorSelectionChange"
+          @select="handleEditorSelectionChange"
+          @scroll="handleEditorSelectionChange"
           placeholder="从这里开始写作，把 API 能力、页面结构和组件关系整理清楚。" />
       </section>
 
@@ -1178,6 +1402,39 @@ useSeoMeta({
       <span>目录项: {{ previewHeadings.length }}</span>
       <span>视图: {{ viewMode === 'split' ? '双栏' : viewMode === 'editor' ? '仅编辑区' : '仅预览区' }}</span>
     </footer>
+
+    <StudioSelectionAiToolbar
+      :show="selectionOverlay.visible"
+      :top="selectionOverlay.top"
+      :left="selectionOverlay.left"
+      @action="handleSelectionToolbarAction" />
+
+    <StudioAiAssistPanel
+      :show="aiPanelVisible"
+      :action="aiPanelAction"
+      :selection="aiSelectionContext"
+      :style-instruction="aiStyleInstruction"
+      :overwrite-result="aiOverwriteResult"
+      :diagnose-result="aiDiagnoseResult"
+      :pending="aiPanelBusy"
+      :error-message="aiErrorMessage"
+      :can-submit="aiCanSubmit"
+      @update:show="handleAiPanelVisibility"
+      @update:style-instruction="aiStyleInstruction = $event"
+      @run="handleAiPanelRun"
+      @replace="handleAiReplace"
+      @insert-below="handleAiInsertBelow"
+      @copy="handleAiCopyResult" />
+
+    <ArticleScoreModal
+      v-model:show="articleScoreModalOpen"
+      title="文章质量评分"
+      :loading="articleScoreLoading"
+      :refreshing="articleScoreRefreshing"
+      :data="articleScoreData"
+      :allow-refresh="Boolean(editArticleId)"
+      empty-text="当前还没有历史评分缓存，可以点击“重新获取”生成最新评分。"
+      @refresh="handleRefreshArticleScore" />
 
     <NModal v-model:show="publishVisible" :mask-closable="!isPublishingLocked">
       <div class="publish-modal-shell">

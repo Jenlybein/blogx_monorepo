@@ -30,13 +30,6 @@ function switchBanner(step: number) {
         暂无轮播内容
       </div>
 
-      <div class="banner-overlay" v-if="currentBanner">
-        <div class="eyebrow mb-2 text-amber-300">Brand Highlight</div>
-        <div class="max-w-2xl text-2xl font-semibold md:text-3xl">
-          用清晰的页面结构承接真实接口，把原型一步步落成正式产品。
-        </div>
-      </div>
-
       <div class="banner-nav is-prev" v-if="props.banners.length > 1">
         <NButton circle secondary @click="switchBanner(-1)">
           <template #icon>
@@ -57,8 +50,8 @@ function switchBanner(step: number) {
           v-for="(_, index) in props.banners"
           :key="index"
           type="button"
-          class="h-2 rounded-full transition-all"
-          :class="index === currentIndex ? 'w-7 bg-white' : 'w-2 bg-white/45'"
+          class="banner-dot h-2 rounded-full transition-all"
+          :class="index === currentIndex ? 'is-active w-7' : 'w-2'"
           @click="currentIndex = index"
         />
       </div>

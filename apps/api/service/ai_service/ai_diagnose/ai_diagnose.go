@@ -94,18 +94,44 @@ func normalizeDiagnoseResponse(resp *DiagnoseResponse) *DiagnoseResponse {
 }
 
 func normalizeIssueType(value string) string {
-	switch strings.TrimSpace(value) {
-	case "可读性", "逻辑", "完整度", "结构", "重复", "语言", "语气":
-		return strings.TrimSpace(value)
+	normalized := strings.TrimSpace(strings.ToLower(value))
+	normalized = strings.ReplaceAll(normalized, " ", "")
+	normalized = strings.ReplaceAll(normalized, "_", "")
+	normalized = strings.ReplaceAll(normalized, "-", "")
+
+	switch normalized {
+	case "可读性", "清晰度", "表达清晰度", "易读性", "readability", "clarity":
+		return "可读性"
+	case "逻辑", "逻辑性", "逻辑问题", "logic", "logical":
+		return "逻辑"
+	case "完整度", "完整性", "信息完整度", "内容完整度", "completeness", "complete":
+		return "完整度"
+	case "结构", "结构性", "篇章结构", "structure", "structural":
+		return "结构"
+	case "重复", "冗余", "啰嗦", "赘述", "repetition", "redundancy", "duplicate":
+		return "重复"
+	case "语言", "语言规范", "语言表达", "语法", "language", "grammar":
+		return "语言"
+	case "语气", "口吻", "风格", "tone", "voice", "style":
+		return "语气"
 	default:
 		return "可读性"
 	}
 }
 
 func normalizeSeverity(value string) string {
-	switch strings.TrimSpace(value) {
-	case "低", "中", "高":
-		return strings.TrimSpace(value)
+	normalized := strings.TrimSpace(strings.ToLower(value))
+	normalized = strings.ReplaceAll(normalized, " ", "")
+	normalized = strings.ReplaceAll(normalized, "_", "")
+	normalized = strings.ReplaceAll(normalized, "-", "")
+
+	switch normalized {
+	case "低", "low":
+		return "低"
+	case "中", "中等", "medium", "moderate", "mid":
+		return "中"
+	case "高", "严重", "high", "critical":
+		return "高"
 	default:
 		return "中"
 	}

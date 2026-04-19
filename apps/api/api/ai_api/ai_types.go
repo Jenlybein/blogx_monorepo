@@ -1,10 +1,12 @@
 package ai_api
 
 import (
+	"myblogx/models/ctype"
 	"myblogx/service/ai_service/ai_diagnose"
 	"myblogx/service/ai_service/ai_metainfo"
 	"myblogx/service/ai_service/ai_overwrite"
 	"myblogx/service/ai_service/ai_scoring"
+	"time"
 )
 
 type AIBaseRequest struct {
@@ -23,11 +25,31 @@ type AIArticleMetaInfoResponse struct {
 }
 
 type AIArticleScoringRequest struct {
-	Title   string `json:"title"`
-	Content string `json:"content" binding:"required"`
+	Type      int       `json:"type" binding:"required,oneof=1 2 3"`
+	ArticleID *ctype.ID `json:"article_id"`
+	Title     string    `json:"title"`
+	Content   string    `json:"content"`
 }
 
-type AIArticleScoringResponse = ai_scoring.ArticleScoreResponse
+type AIArticleScoringResponse struct {
+	HasScore       bool                           `json:"has_score"`
+	RecordID       *ctype.ID                      `json:"record_id,omitempty"`
+	ArticleID      *ctype.ID                      `json:"article_id,omitempty"`
+	AITotalScore   int                            `json:"ai_total_score,omitempty"`
+	TotalScore     int                            `json:"total_score,omitempty"`
+	ScoreLevel     string                         `json:"score_level,omitempty"`
+	ArticleType    string                         `json:"article_type,omitempty"`
+	Dimensions     []AIArticleScoreDimension      `json:"dimensions,omitempty"`
+	MainIssues     []ai_scoring.ArticleScoreIssue `json:"main_issues,omitempty"`
+	OverallComment string                         `json:"overall_comment,omitempty"`
+	CreatedAt      *time.Time                     `json:"created_at,omitempty"`
+}
+
+type AIArticleScoreDimension struct {
+	Name   string `json:"name"`
+	Score  int    `json:"score"`
+	Reason string `json:"reason,omitempty"`
+}
 
 type AIOverwriteRequest struct {
 	Mode          string `json:"mode" binding:"required,oneof=polish grammar_fix style_transform"`

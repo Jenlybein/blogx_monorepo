@@ -11,12 +11,12 @@ import (
 func AIRouter(r *gin.RouterGroup, appContainer api.Api, runtimeMw mw.Runtime) {
 	app := appContainer.AIApi
 
-	group := r.Group("ai", runtimeMw.AuthMiddleware)
+	group := r.Group("ai")
 	authGroup := group.Group("", runtimeMw.AuthMiddleware)
 	//adminGroup := authGroup.Group("", mw.AdminMiddleware)
 
+	group.POST("scoring/article", runtimeMw.OptionalAuthMiddleware, mw.BindJson[ai_api.AIArticleScoringRequest], app.AIArticleScoringView)
 	authGroup.POST("metainfo", mw.BindJson[ai_api.AIBaseRequest], app.AIArticleMetaInfoView)
-	authGroup.POST("scoring/article", mw.BindJson[ai_api.AIArticleScoringRequest], app.AIArticleScoringView)
 	authGroup.POST("overwrite", mw.BindJson[ai_api.AIOverwriteRequest], app.AIOverwriteView)
 	authGroup.POST("diagnose", mw.BindJson[ai_api.AIDiagnoseRequest], app.AIDiagnoseView)
 	authGroup.POST("search/list", mw.BindJson[ai_api.AIBaseRequest], app.AIArticleSearchListView)

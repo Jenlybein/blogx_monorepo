@@ -3,6 +3,7 @@ import type { ArticleHeadingAnchor } from "~/composables/useArticleMarkdown";
 import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, shallowRef, watch } from "vue";
 import { IconEye, IconHeart, IconMessageCircle2, IconShare2, IconThumbUp } from "@tabler/icons-vue";
 import { NButton, NTag, useMessage } from "naive-ui";
+import ArticleScoreModal from "~/components/article/ArticleScoreModal.vue";
 import ArticleTocAnchor from "~/components/article/ArticleTocAnchor.vue";
 import AppAvatar from "~/components/common/AppAvatar.vue";
 import CommentComposer from "~/components/comment/CommentComposer.vue";
@@ -11,6 +12,7 @@ import FavoriteFolderModal from "~/components/favorite/FavoriteFolderModal.vue";
 import { useReadingProgress } from "~/composables/useReadingProgress";
 import { followUser, unfollowUser } from "~/services/follow";
 import { ApiBusinessError } from "~/services/http/errors";
+import { getArticleScoreSummary } from "~/services/ai";
 import { getArticleAuthorInfo, getArticleDetail, markArticleViewed, toggleArticleDigg } from "~/services/article";
 import { createComment, diggComment, getReplyComments, getRootComments } from "~/services/comment";
 import { getUserBaseInfo } from "~/services/user";
@@ -40,6 +42,7 @@ const ROOT_COMMENT_PAGE_SIZE = 7;
 const REPLY_COMMENT_PAGE_SIZE = 3;
 const ARTICLE_LIKE_DEBOUNCE_MS = 600;
 const favoriteModalOpen = ref(false);
+const articleScoreModalOpen = ref(false);
 
 const { data: article, error: articleError, refresh: refreshArticle } = await useAsyncData(
   () => `article-${articleId.value}`,
@@ -77,6 +80,19 @@ const { data: authorProfile, refresh: refreshAuthorProfile } = await useAsyncDat
   {
     watch: [authorId],
     server: false,
+    lazy: true,
+  },
+);
+
+const {
+  data: articleScoreSummary,
+  pending: articleScoreSummaryPending,
+  refresh: refreshArticleScoreSummary,
+} = await useAsyncData(
+  () => `article-score-summary:${articleId.value}`,
+  () => getArticleScoreSummary(articleId.value).catch(() => null),
+  {
+    watch: [articleId],
     lazy: true,
   },
 );
@@ -157,6 +173,17 @@ const { activeHeadingId, progressPercent } = useReadingProgress(
 const authorInitial = computed(() => resolveAvatarInitial(article.value?.author_name, "A"));
 const authorRelationText = computed(() => getAuthorButtonLabel(authorProfile.value?.relation));
 const isSelfAuthor = computed(() => authStore.profileId != null && String(authStore.profileId) === authorId.value);
+const articleScoreButtonLabel = computed(() => {
+  if (articleScoreSummaryPending.value) {
+    return "文章质量总分：读取中";
+  }
+
+  if (!articleScoreSummary.value?.has_score) {
+    return "文章质量总分：--";
+  }
+
+  return `文章质量总分：${articleScoreSummary.value.total_score ?? "--"}`;
+});
 const articleIsDigged = shallowRef(false);
 const articleDiggCount = shallowRef(0);
 const articleDiggTouched = shallowRef(false);
@@ -397,6 +424,13 @@ async function handleFavoriteUpdated() {
   await refreshArticle();
 }
 
+function handleArticleScoreOpen() {
+  articleScoreModalOpen.value = true;
+  if (!articleScoreSummary.value) {
+    void refreshArticleScoreSummary();
+  }
+}
+
 async function handleAuthorFollow() {
   if (!authorId.value) {
     return;
@@ -578,6 +612,9 @@ useSeoMeta({
         </div>
 
         <div class="flex shrink-0 flex-wrap items-center gap-3 lg:justify-end">
+          <NButton round size="large" color="#0f172a" secondary @click="handleArticleScoreOpen">
+            {{ articleScoreButtonLabel }}
+          </NButton>
           <NButton
             round
             size="large"
@@ -735,6 +772,14 @@ useSeoMeta({
       </aside>
     </div>
     </template>
+
+    <ArticleScoreModal
+      v-model:show="articleScoreModalOpen"
+      title="文章质量评分摘要"
+      :loading="articleScoreSummaryPending"
+      :data="articleScoreSummary ?? null"
+      empty-text="当前文章还没有公开评分摘要。"
+    />
 
     <FavoriteFolderModal
       v-model:show="favoriteModalOpen"
