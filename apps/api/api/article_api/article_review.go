@@ -11,6 +11,7 @@ import (
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
+	"myblogx/service/ai_service/article_score_service"
 	"myblogx/service/message_service"
 	"myblogx/service/read_service"
 	"myblogx/utils/jwts"
@@ -150,6 +151,9 @@ func (h ArticleApi) ArticleReviewTaskHandleView(c *gin.Context) {
 
 	if err := read_service.SyncArticleFavorSnapshots(h.App.DB, []ctype.ID{article.ID}); err != nil {
 		h.App.Logger.Errorf("同步文章收藏快照失败: 文章ID=%d 错误=%v", article.ID, err)
+	}
+	if cr.Status == enum.ArticleStatusPublished {
+		article_score_service.EnsureArticleScoreIfMissingAsync(h.App.DB, h.App.Logger, h.App.RuntimeSite, article.ID)
 	}
 
 	switch cr.Status {

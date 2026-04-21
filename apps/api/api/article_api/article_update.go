@@ -6,6 +6,8 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
+	"myblogx/models/enum"
+	"myblogx/service/ai_service/article_score_service"
 	"myblogx/service/image_service"
 	"myblogx/service/read_service"
 	"myblogx/service/redis_service"
@@ -41,6 +43,9 @@ func (h ArticleApi) ArticleUpdateView(c *gin.Context) {
 	}
 	if err := read_service.SyncArticleFavorSnapshots(h.App.DB, []ctype.ID{article.ID}); err != nil {
 		h.App.Logger.Errorf("同步文章收藏快照失败: 文章ID=%d 错误=%v", article.ID, err)
+	}
+	if publishStatus, ok := result.UpdateMap["publish_status"].(enum.ArticleStatus); ok && publishStatus == enum.ArticleStatusPublished {
+		article_score_service.EnsureArticleScoreIfMissingAsync(h.App.DB, h.App.Logger, h.App.RuntimeSite, article.ID)
 	}
 	res.OkWithMsg("更新文章成功", c)
 	middleware.EmitActionAuditFromGin(c, middleware.GinAuditInput{

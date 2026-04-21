@@ -6,6 +6,8 @@ import (
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
+	"myblogx/models/enum"
+	"myblogx/service/ai_service/article_score_service"
 	"myblogx/service/message_service"
 	"myblogx/service/read_service"
 	"strconv"
@@ -30,6 +32,9 @@ func (h ArticleApi) ArticleExamineView(c *gin.Context) {
 	}
 	if err := read_service.SyncArticleFavorSnapshots(app.DB, []ctype.ID{article.ID}); err != nil {
 		app.Logger.Errorf("同步文章收藏快照失败: 文章ID=%d 错误=%v", article.ID, err)
+	}
+	if cr.Status == enum.ArticleStatusPublished {
+		article_score_service.EnsureArticleScoreIfMissingAsync(app.DB, app.Logger, app.RuntimeSite, article.ID)
 	}
 
 	// 给文章创作者发送系统通知

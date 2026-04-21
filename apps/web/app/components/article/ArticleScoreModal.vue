@@ -11,6 +11,7 @@ const props = defineProps<{
   data: AiArticleScoringResponseData | null;
   title?: string;
   allowRefresh?: boolean;
+  refreshLabel?: string;
   emptyText?: string;
 }>();
 
@@ -140,7 +141,9 @@ function resolveIssueAnchor(issue: AiArticleScoringIssue) {
       <template #footer>
         <div class="article-score-footer">
           <NButton quaternary @click="close">关闭</NButton>
-          <NButton v-if="allowRefresh" type="primary" :loading="refreshing" @click="emit('refresh')">重新获取</NButton>
+          <NButton v-if="allowRefresh" type="primary" :loading="refreshing" @click="emit('refresh')">
+            {{ refreshLabel || "重新获取" }}
+          </NButton>
         </div>
       </template>
     </NCard>

@@ -6,6 +6,7 @@ import (
 	"myblogx/middleware"
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
+	"myblogx/service/ai_service/article_score_service"
 	"myblogx/service/image_service"
 	"myblogx/service/redis_service"
 	"myblogx/utils/jwts"
@@ -40,6 +41,7 @@ func (h ArticleApi) ArticleCreateView(c *gin.Context) {
 	}
 
 	applyTagArticleCountDelta(redis_service.NewDeps(h.App.Redis, h.App.Logger), buildTagArticleCountDelta(nil, tagIDs))
+	article_score_service.EnsureArticleScoreIfMissingAsync(h.App.DB, h.App.Logger, h.App.RuntimeSite, article.ID)
 	coverImageID, _ := image_service.FindImageIDByURL(h.App.DB, article.Cover)
 
 	res.OkWithData(ArticleCreateResponse{

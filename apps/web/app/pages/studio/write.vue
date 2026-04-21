@@ -229,6 +229,7 @@ const draftActionLabel = computed(() => (isEditMode.value ? "更新草稿" : "�
 const publishActionLabel = computed(() => (isEditMode.value ? "更新并发布" : "确定并发布"));
 const isPublishingLocked = computed(() => pendingState.publish || pendingState.draft || pendingState.ai || pendingState.cover);
 const canOpenArticleScore = computed(() => Boolean(editArticleId.value));
+const currentArticlePublishStatus = computed(() => editingArticle.value?.publish_status ?? 0);
 
 const markdownThemeOptions: ToolOption[] = [
   { key: "github", label: "GitHub Light" },
@@ -1098,6 +1099,29 @@ async function handleRefreshArticleScore() {
 
   articleScoreRefreshing.value = true;
   try {
+    if (currentArticlePublishStatus.value !== 1) {
+      await updateArticle(editArticleId.value, buildArticlePayload(1));
+      if (editingArticle.value) {
+        editingArticle.value = {
+          ...editingArticle.value,
+          title: form.title.trim(),
+          abstract: form.abstract.trim(),
+          content: form.content,
+          comments_toggle: form.comments_toggle,
+          category_id: form.category_id ?? null,
+          tag_ids: [...form.tag_ids],
+          cover_image_id: form.cover_image_id,
+          cover: coverPreviewUrl.value || editingArticle.value.cover,
+          publish_status: 1,
+          status: 1,
+          visibility_status: form.visibility_status,
+        };
+      }
+      hydratedArticleId.value = editArticleId.value;
+      coverDirty.value = false;
+      message.success("当前文章已自动保存为草稿");
+    }
+
     articleScoreData.value = await regenerateArticleScore({
       article_id: editArticleId.value,
       title: form.title.trim() || undefined,
@@ -1136,6 +1160,37 @@ function mapCoverUploadStage(stage: "hashing" | "creating_task" | "uploading_to_
     polling_status: "正在确认图片状态…",
   } as const;
   coverUploadStage.value = textMap[stage];
+}
+
+function buildArticlePayload(status: 1 | 2) {
+  const payload: {
+    title: string;
+    abstract?: string;
+    content: string;
+    category_id: string | null;
+    tag_ids: string[];
+    comments_toggle: boolean;
+    visibility_status: "visible" | "user_hidden";
+    status: 1 | 2;
+    cover_image_id?: string | null;
+  } = {
+    title: form.title.trim(),
+    abstract: form.abstract.trim() || undefined,
+    content: form.content,
+    category_id: form.category_id || null,
+    tag_ids: form.tag_ids,
+    comments_toggle: form.comments_toggle,
+    visibility_status: form.visibility_status,
+    status,
+  };
+
+  if (form.cover_image_id) {
+    payload.cover_image_id = form.cover_image_id;
+  } else if (isEditMode.value && coverDirty.value) {
+    payload.cover_image_id = null;
+  }
+
+  return payload;
 }
 
 async function handleCoverFileChange(event: Event) {
@@ -1189,32 +1244,7 @@ async function submitArticle(status: 1 | 2) {
   pendingState[key] = true;
 
   try {
-    const payload: {
-      title: string;
-      abstract?: string;
-      content: string;
-      category_id: string | null;
-      tag_ids: string[];
-      comments_toggle: boolean;
-      visibility_status: "visible" | "user_hidden";
-      status: 1 | 2;
-      cover_image_id?: string | null;
-    } = {
-      title: form.title.trim(),
-      abstract: form.abstract.trim() || undefined,
-      content: form.content,
-      category_id: form.category_id || null,
-      tag_ids: form.tag_ids,
-      comments_toggle: form.comments_toggle,
-      visibility_status: form.visibility_status,
-      status,
-    };
-
-    if (form.cover_image_id) {
-      payload.cover_image_id = form.cover_image_id;
-    } else if (isEditMode.value && coverDirty.value) {
-      payload.cover_image_id = null;
-    }
+    const payload = buildArticlePayload(status);
 
     if (isEditMode.value && editArticleId.value) {
       await updateArticle(editArticleId.value, payload);
@@ -1433,6 +1463,7 @@ useSeoMeta({
       :refreshing="articleScoreRefreshing"
       :data="articleScoreData"
       :allow-refresh="Boolean(editArticleId)"
+      refresh-label="重新获取（自动保存文章为草稿）"
       empty-text="当前还没有历史评分缓存，可以点击“重新获取”生成最新评分。"
       @refresh="handleRefreshArticleScore" />
 

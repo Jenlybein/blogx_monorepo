@@ -1,25 +1,21 @@
 package ai_api
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"strings"
 
 	"myblogx/common/res"
-	"myblogx/conf"
 	"myblogx/middleware"
 	"myblogx/models"
 	"myblogx/models/ctype"
 	"myblogx/service/ai_service/ai_scoring"
+	"myblogx/service/ai_service/article_score_service"
 	"myblogx/utils/jwts"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
-
-const articleAIScoringPromptVersion = "article-scoring-v1"
 
 // AIArticleScoringView 读取或生成文章质量评分。
 // type=1 读取公开评分摘要；type=2 读取作者可见完整评分；type=3 重新评分并落库。
@@ -43,7 +39,7 @@ func (h AIApi) AIArticleScoringView(c *gin.Context) {
 }
 
 func (h AIApi) readArticleScoreSummary(c *gin.Context, articleID ctype.ID) {
-	record, err := loadLatestArticleAIScoreRecord(h.App.DB, articleID)
+	record, err := article_score_service.LoadLatestArticleAIScoreRecord(h.App.DB, articleID)
 	if err != nil {
 		res.FailWithMsg("读取文章评分失败", c)
 		return
@@ -72,7 +68,7 @@ func (h AIApi) readArticleScoreDetail(c *gin.Context, articleID ctype.ID) {
 	}
 	_ = article
 
-	record, err := loadLatestArticleAIScoreRecord(h.App.DB, articleID)
+	record, err := article_score_service.LoadLatestArticleAIScoreRecord(h.App.DB, articleID)
 	if err != nil {
 		res.FailWithMsg("读取文章评分失败", c)
 		return
@@ -122,7 +118,7 @@ func (h AIApi) regenerateArticleScore(c *gin.Context, cr AIArticleScoringRequest
 		return
 	}
 
-	record, err := persistArticleAIScoreRecord(h.App.DB, article, claims.UserID, title, content, scoreResp, h.App.RuntimeSite.GetRuntimeAI())
+	record, err := article_score_service.PersistArticleAIScoreRecord(h.App.DB, article, claims.UserID, title, content, scoreResp, h.App.RuntimeSite.GetRuntimeAI())
 	if err != nil {
 		res.FailWithMsg("保存文章评分失败", c)
 		return
@@ -143,7 +139,7 @@ func (h AIApi) requireArticleAuthor(c *gin.Context, articleID ctype.ID) (*jwts.M
 		return nil, nil, false
 	}
 
-	article, err := loadArticleForAIScoring(h.App.DB, articleID)
+	article, err := article_score_service.LoadArticleForScoring(h.App.DB, articleID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			res.FailWithMsg("文章不存在", c)
@@ -157,72 +153,6 @@ func (h AIApi) requireArticleAuthor(c *gin.Context, articleID ctype.ID) (*jwts.M
 		return nil, nil, false
 	}
 	return claims, article, true
-}
-
-func loadArticleForAIScoring(db *gorm.DB, articleID ctype.ID) (*models.ArticleModel, error) {
-	var article models.ArticleModel
-	if err := db.Select("id", "author_id", "title", "content", "updated_at").Take(&article, articleID).Error; err != nil {
-		return nil, err
-	}
-	return &article, nil
-}
-
-func loadLatestArticleAIScoreRecord(db *gorm.DB, articleID ctype.ID) (*models.ArticleAIScoreRecordModel, error) {
-	var record models.ArticleAIScoreRecordModel
-	if err := db.Where("article_id = ?", articleID).Order("created_at desc").Take(&record).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &record, nil
-}
-
-func persistArticleAIScoreRecord(
-	db *gorm.DB,
-	article *models.ArticleModel,
-	userID ctype.ID,
-	title string,
-	content string,
-	scoreResp *ai_scoring.ArticleScoreResponse,
-	aiConf conf.AI,
-) (*models.ArticleAIScoreRecordModel, error) {
-	if article == nil || scoreResp == nil {
-		return nil, gorm.ErrInvalidData
-	}
-
-	dimensionsJSON, err := json.Marshal(scoreResp.Dimensions)
-	if err != nil {
-		return nil, err
-	}
-	mainIssuesJSON, err := json.Marshal(scoreResp.MainIssues)
-	if err != nil {
-		return nil, err
-	}
-
-	hashBytes := sha256.Sum256([]byte(content))
-	record := &models.ArticleAIScoreRecordModel{
-		ArticleID:                article.ID,
-		UserID:                   userID,
-		TitleSnapshot:            title,
-		ContentHash:              hex.EncodeToString(hashBytes[:]),
-		ContentLength:            len([]rune(content)),
-		ArticleUpdatedAtSnapshot: &article.UpdatedAt,
-		AITotalScore:             scoreResp.AITotalScore,
-		TotalScore:               scoreResp.TotalScore,
-		ScoreLevel:               scoreResp.ScoreLevel,
-		ArticleType:              scoreResp.ArticleType,
-		DimensionsJSON:           string(dimensionsJSON),
-		MainIssuesJSON:           string(mainIssuesJSON),
-		OverallComment:           scoreResp.OverallComment,
-		Provider:                 "llm",
-		ModelName:                resolveArticleAIScoreModelName(aiConf),
-		PromptVersion:            articleAIScoringPromptVersion,
-	}
-	if err := db.Create(record).Error; err != nil {
-		return nil, err
-	}
-	return record, nil
 }
 
 func buildArticleAIScoreResponse(record *models.ArticleAIScoreRecordModel, includeAdvice bool) (AIArticleScoringResponse, error) {
@@ -272,8 +202,4 @@ func buildArticleAIScoreResponse(record *models.ArticleAIScoreRecordModel, inclu
 	}
 	resp.OverallComment = record.OverallComment
 	return resp, nil
-}
-
-func resolveArticleAIScoreModelName(aiConf conf.AI) string {
-	return strings.TrimSpace(aiConf.ChatModel)
 }

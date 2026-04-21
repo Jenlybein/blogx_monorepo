@@ -9,6 +9,8 @@ import (
 	"myblogx/models/ctype"
 	"myblogx/models/enum"
 	"myblogx/models/enum/message_enum"
+	"myblogx/service/ai_service"
+	article_ai_scoring "myblogx/service/ai_service/ai_scoring"
 	"myblogx/service/site_service"
 	"myblogx/test/testutil"
 	"myblogx/utils/jwts"
@@ -62,6 +64,7 @@ func setupArticleEnv(t *testing.T) *models.UserModel {
 		&models.RuntimeSiteConfigModel{},
 		&models.CategoryModel{},
 		&models.ArticleModel{},
+		&models.ArticleAIScoreRecordModel{},
 		&models.ArticleReviewTaskModel{},
 		&models.ArticleReviewLogModel{},
 		&models.TagModel{},
@@ -155,6 +158,29 @@ func waitArticleMessageCount(t *testing.T, want int) []models.ArticleMessageMode
 		t.Fatalf("查询消息失败: %v", err)
 	}
 	t.Fatalf("等待消息数量超时: got=%d want=%d", len(list), want)
+	return nil
+}
+
+func waitArticleAIScoreCount(t *testing.T, articleID ctype.ID, want int) []models.ArticleAIScoreRecordModel {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		var list []models.ArticleAIScoreRecordModel
+		if err := testutil.DB().Where("article_id = ?", articleID).Order("id asc").Find(&list).Error; err != nil {
+			t.Fatalf("查询文章评分记录失败: %v", err)
+		}
+		if len(list) == want {
+			return list
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	var list []models.ArticleAIScoreRecordModel
+	if err := testutil.DB().Where("article_id = ?", articleID).Order("id asc").Find(&list).Error; err != nil {
+		t.Fatalf("查询文章评分记录失败: %v", err)
+	}
+	t.Fatalf("等待文章评分记录数量超时: got=%d want=%d", len(list), want)
 	return nil
 }
 
@@ -675,6 +701,127 @@ func TestArticleAuthorInfoView(t *testing.T) {
 	}
 	if int(data["article_count"].(float64)) != 3 || int(data["article_visited_count"].(float64)) != 17 || int(data["fans_count"].(float64)) != 8 {
 		t.Fatalf("作者统计返回异常: body=%s", w.Body.String())
+	}
+}
+
+func TestArticleCreatePublishedAutoScoresWhenMissing(t *testing.T) {
+	aiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req ai_service.Request
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("解析 AI 请求失败: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{
+					"index": 0,
+					"message": map[string]any{
+						"role": "assistant",
+						"content": `{
+							"ai_total_score":86,
+							"total_score":86,
+							"score_level":"优质文章",
+							"article_type":"说明文",
+							"dimensions":[
+								{"name":"clarity","score":84,"reason":"表达比较清楚"},
+								{"name":"structure","score":83,"reason":"结构较顺"},
+								{"name":"completeness","score":82,"reason":"内容完整度较好"},
+								{"name":"readability","score":80,"reason":"整体较顺畅"},
+								{"name":"persuasiveness","score":79,"reason":"论证还有提升空间"},
+								{"name":"language","score":85,"reason":"语言较规范"}
+							],
+							"main_issues":[
+								{"positions":[{"paragraph":2,"quote":"这部分论证稍显单薄"}],"reason":"论证支撑不足","suggestion":"补充案例或数据"}
+							],
+							"overall_comment":"文章整体不错，优先补强论证部分，再顺手压缩重复表述并收束结尾。"
+						}`,
+					},
+				},
+			},
+		})
+	}))
+	defer aiServer.Close()
+
+	user := setupArticleEnv(t)
+	db := testutil.DB()
+	testutil.SetConfig(&conf.Config{
+		Jwt: conf.Jwt{
+			Expire: 1,
+			Secret: "article-secret",
+			Issuer: "article-test",
+		},
+		Site: conf.Site{
+			SiteInfo: confsite.SiteInfo{Mode: enum.SiteModeCommunity},
+			Article:  confsite.Article{SkipExamining: true},
+		},
+		AI: conf.AI{
+			Enable:    true,
+			SecretKey: "test-key",
+			BaseURL:   aiServer.URL,
+			ChatModel: "test-model",
+		},
+	})
+
+	cat := models.CategoryModel{Title: "go", UserID: user.ID}
+	if err := db.Create(&cat).Error; err != nil {
+		t.Fatalf("创建分类失败: %v", err)
+	}
+	coverImage := models.ImageModel{
+		UserID:    user.ID,
+		Provider:  enum.ImageProviderQiNiu,
+		Bucket:    "myblogx",
+		ObjectKey: "myblogx/images/cover-auto-score",
+		FileName:  "cover-auto-score.png",
+		URL:       "https://image.gentlybeing.cn/cover-auto-score.png",
+		MimeType:  "image/png",
+		Size:      1,
+		Hash:      "hash-cover-auto-score",
+		Status:    enum.ImageStatusPass,
+	}
+	if err := db.Create(&coverImage).Error; err != nil {
+		t.Fatalf("创建封面图片失败: %v", err)
+	}
+
+	api := setupArticleAPI(t)
+	claims := &jwts.MyClaims{Claims: jwts.Claims{UserID: user.ID, Role: enum.RoleUser, Username: user.Username}}
+
+	c, w := newCtx()
+	c.Set("claims", claims)
+	c.Set("requestJson", ArticleCreateRequest{
+		Title:          "自动评分文章",
+		Content:        "# 自动评分文章\n\n这是一篇用于发布自动评分的测试文章。\n\n它具备足够的正文长度。",
+		CategoryID:     &cat.ID,
+		CoverImageID:   &coverImage.ID,
+		CommentsToggle: true,
+		Status:         enum.ArticleStatusExamining,
+	})
+	api.ArticleCreateView(c)
+	if code := readCode(t, w); code != 0 {
+		t.Fatalf("创建文章失败, code=%d body=%s", code, w.Body.String())
+	}
+
+	var article models.ArticleModel
+	if err := db.Order("id desc").Take(&article).Error; err != nil {
+		t.Fatalf("查询创建后的文章失败: %v", err)
+	}
+	if article.PublishStatus != enum.ArticleStatusPublished {
+		t.Fatalf("免审核站点发布状态异常: %+v", article)
+	}
+
+	records := waitArticleAIScoreCount(t, article.ID, 1)
+	if records[0].ArticleID != article.ID || records[0].UserID != user.ID {
+		t.Fatalf("自动评分记录归属异常: %+v", records[0])
+	}
+	if records[0].ModelName != "test-model" || records[0].PromptVersion == "" {
+		t.Fatalf("自动评分记录模型信息异常: %+v", records[0])
+	}
+
+	var dimensions []article_ai_scoring.ArticleScoreDimension
+	if err := json.Unmarshal([]byte(records[0].DimensionsJSON), &dimensions); err != nil {
+		t.Fatalf("解析自动评分维度失败: %v", err)
+	}
+	if len(dimensions) != 6 {
+		t.Fatalf("自动评分维度数量异常: %+v", dimensions)
 	}
 }
 
